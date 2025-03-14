@@ -8,7 +8,7 @@ import "time"
 type Mysql struct {
 	// AutoIncrement bigint auto_increment
 	AutoIncrement *int64 `gdao:"column=auto_increment;auto"`
-	// Bit bit
+	// Bit
 	Bit []uint8 `gdao:"column=bit"`
 	// Tinyint tinyint
 	Tinyint *int8 `gdao:"column=tinyint"`

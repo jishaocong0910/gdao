@@ -201,19 +201,24 @@ func TestOracle(t *testing.T) {
 //	r.Equal(string(golden), string(gen))
 //}
 
-//func TestSqlite(t *testing.T) {
-//	r := require.New(t)
-//	paths := gen.Generator(gen.Config{
-//		DbType:  gen.DbTypes.SQLITE,
-//		Dsn:     "testdata/sqlite.db",
-//		OutPath: "testdata",
-//		Tables:  gen.Tables{"sqlite": nil},
-//	}).Gen()
-//	r.Len(paths, 1)
-//	genFile := paths[0]
-//	defer os.Remove(genFile)
-//
-//}
+func TestSqlite(t *testing.T) {
+	r := require.New(t)
+	paths := gen.Generator(gen.Config{
+		DbType:  gen.DbTypes.SQLITE,
+		Dsn:     "testdata/sqlite.db",
+		OutPath: "testdata",
+		Tables:  gen.Tables{"sqlite": nil},
+	}).Gen()
+	r.Len(paths, 1)
+	genFile := paths[0]
+	defer os.Remove(genFile)
+
+	golden, err := os.ReadFile("testdata/sqlite.golden")
+	r.NoError(err)
+	gen, err := os.ReadFile(genFile)
+	r.NoError(err)
+	r.Equal(string(golden), string(gen))
+}
 
 func TestUnsupportedDb(t *testing.T) {
 	r := require.New(t)

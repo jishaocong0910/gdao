@@ -11,6 +11,16 @@ type mySqlGenerator struct {
 	database string
 }
 
+func (this *mySqlGenerator) existsTable(table string) bool {
+	rows := mustReturn(this.db.Query("SELECT count(*) FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", this.database, table))
+	defer rows.Close()
+	var count int
+	if rows.Next() {
+		rows.Scan(&count)
+	}
+	return count == 1
+}
+
 func (this *mySqlGenerator) getEntityComment(table string) string {
 	rows := mustReturn(this.db.Query("SELECT TABLE_COMMENT FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", this.database, table))
 	defer rows.Close()
@@ -37,13 +47,11 @@ func (this *mySqlGenerator) getEntityFields(table string) []*field {
 		mustNoError(rows.Scan(&column, &dataType, &columnType, &isAutoIncrement, &comment))
 
 		f := &field{
-			Column:    column,
-			FieldName: this.c.FieldNameMapper.Convert(column),
-			FieldType: "any",
-			Comment:   comment,
-		}
-		if isAutoIncrement {
-			f.IsAutoIncrement = true
+			Column:          column,
+			FieldName:       this.c.FieldNameMapper.Convert(column),
+			FieldType:       "any",
+			Comment:         comment,
+			IsAutoIncrement: isAutoIncrement,
 		}
 
 		dataType = strings.ToLower(dataType)

@@ -6,7 +6,7 @@ import "time"
 
 // Postgres postgres
 type Postgres struct {
-	// Bigint bigint
+	// Bigint
 	Bigint *int64 `gdao:"column=bigint"`
 	// Bigserial bigserial
 	Bigserial *int64 `gdao:"column=bigserial"`
@@ -90,6 +90,6 @@ type Postgres struct {
 	TxidSnapshot *string `gdao:"column=txid_snapshot"`
 	// Uuid uuid
 	Uuid *string `gdao:"column=uuid"`
-	// Xml
+	// Xml xml
 	Xml *string `gdao:"column=xml"`
 }
