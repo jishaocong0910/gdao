@@ -6,7 +6,7 @@ import "time"
 
 // Oracle oracle
 type Oracle struct {
-	// Char char
+	// Char
 	Char *string `gdao:"column=char"`
 	// Char2 char_2
 	Char2 *bool `gdao:"column=char_2"`

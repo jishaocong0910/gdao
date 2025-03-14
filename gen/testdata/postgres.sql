@@ -46,7 +46,6 @@ CREATE TABLE postgres
 );
 
 COMMENT ON TABLE postgres IS 'postgres';
-COMMENT ON COLUMN postgres.bigint IS 'bigint';
 COMMENT ON COLUMN postgres.bigserial IS 'bigserial';
 COMMENT ON COLUMN postgres.bit IS 'bit';
 COMMENT ON COLUMN postgres.bit_arying IS 'bit arying';
@@ -88,3 +87,4 @@ COMMENT ON COLUMN postgres.tsquery IS 'tsquery';
 COMMENT ON COLUMN postgres.tsvector IS 'tsvector';
 COMMENT ON COLUMN postgres.txid_snapshot IS 'txid_snapshot';
 COMMENT ON COLUMN postgres.uuid IS 'uuid';
+COMMENT ON COLUMN postgres.xml IS 'xml';

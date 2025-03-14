@@ -1,7 +1,7 @@
 CREATE TABLE mysql
 (
     `auto_increment`     bigint PRIMARY KEY AUTO_INCREMENT COMMENT 'bigint auto_increment',
-    `bit`                bit COMMENT 'bit',
+    `bit`                bit,
     `tinyint`            tinyint COMMENT 'tinyint',
     `tinyint_unsigned`   tinyint UNSIGNED COMMENT 'tinyint unsigned',
     `tinyint_1`          tinyint(1) COMMENT 'tinyint(1)',

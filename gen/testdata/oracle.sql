@@ -31,7 +31,6 @@ CREATE TABLE oracle
 );
 
 COMMENT ON TABLE oracle IS 'oracle';
-COMMENT ON COLUMN oracle."char" IS 'char ';
 COMMENT ON COLUMN oracle."char_2" IS 'char_2 ';
 COMMENT ON COLUMN oracle."char_3" IS 'char_3 ';
 COMMENT ON COLUMN oracle."varchar2" IS 'varchar2 ';

@@ -15,6 +15,7 @@ import (
 
 type i_Generator interface {
 	m_9A42E0FDDA2E() *m_Generator
+	existsTable(table string) bool
 	getEntityComment(table string) string
 	getEntityFields(table string) []*field
 	Gen() []string
@@ -33,6 +34,9 @@ func (this *m_Generator) m_9A42E0FDDA2E() *m_Generator { // coverage-ignore
 func (this *m_Generator) Gen() []string {
 	var entities []entity
 	for table, fieldTypes := range this.c.Tables {
+		if !this.i.existsTable(table) {
+			continue
+		}
 		e := entity{
 			FileName:   this.c.FileNameMapper.AddSuffix(".go").Convert(table),
 			Package:    this.getPackageName(),
@@ -144,7 +148,6 @@ type field struct {
 	Column          string
 	FieldName       string
 	FieldType       string
-	IsAutoSequence  bool
 	IsAutoIncrement bool
 	Comment         string
 	Valid           bool
@@ -183,8 +186,8 @@ func Generator(c Config) i_Generator {
 		return newPostgresGenerator(c)
 	//case DbTypes.SQLSERVER.Id:
 	//	return newSqlServerGenerator(c)
-	//case DbTypes.SQLITE.Id:
-	//	return newSqliteGenerator(c)
+	case DbTypes.SQLITE.ID():
+		return newSqliteGenerator(c)
 	default:
 		panic("not support this db type yet")
 	}

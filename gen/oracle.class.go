@@ -2,10 +2,22 @@ package gen
 
 import (
 	"strings"
+
+	"github.com/jishaocong0910/gdao"
 )
 
 type oracleGenerator struct {
 	*m_Generator
+}
+
+func (this *oracleGenerator) existsTable(table string) bool {
+	rows := mustReturn(this.db.Query("SELECT count(*) FROM user_tables WHERE table_name = :1", table))
+	defer rows.Close()
+	var count int
+	if rows.Next() {
+		rows.Scan(&count)
+	}
+	return count == 1
 }
 
 func (this *oracleGenerator) getEntityComment(table string) string {
@@ -32,19 +44,19 @@ func (this *oracleGenerator) getEntityFields(table string) []*field {
 			comment    *string
 		)
 		mustNoError(rows.Scan(&column, &dataType, &precision, &scale, &charLength, &comment))
+		dataType = strings.ToUpper(dataType)
+		if strings.HasPrefix(dataType, "TIMESTAMP") {
+			dataType = "TIMESTAMP"
+		}
+		if comment == nil {
+			comment = gdao.Ptr("")
+		}
 
 		f := &field{
 			Column:    column,
 			FieldName: this.c.FieldNameMapper.Convert(column),
 			FieldType: "any",
-		}
-
-		if comment != nil {
-			f.Comment = *comment
-		}
-
-		if strings.HasPrefix(dataType, "TIMESTAMP") {
-			dataType = "TIMESTAMP"
+			Comment:   *comment,
 		}
 
 		switch dataType {

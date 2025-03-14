@@ -13,6 +13,10 @@ GDAO是用于Golang的轻量级ORM框架，具有下列主要特色。
 [![Go Report Card](https://goreportcard.com/badge/github.com/jishaocong0910/gdao)](https://goreportcard.com/report/github.com/jishaocong0910/gdao)
 ![coverage](https://raw.githubusercontent.com/jishaocong0910/gdao/badges/.badges/main/coverage.svg)
 
+> [!NOTE]
+>
+> 本项目部分代码采用**go-object风格**编写：https://github.com/jishaocong0910/go-object
+
 reference : http://go-database-sql.org/prepared.html
 
 > ### Parameter Placeholder Syntax
@@ -193,7 +197,7 @@ func main() {
     gen.Generator(gen.Config{
         DbType:  gen.DbTypes.MYSQL,                                                                         // 数据库类型
         Dsn:     "root:12345678@tcp(localhost:3306)/my_test?charset=utf8mb4,utf8&parseTime=True&loc=Local", // 格式与数据库类型对应
-        OutPath: "dao/gen/entity",                                                                          // 输出目录为：os.Getwd()/OutPath                                                                            // 生成路径为os.Getwd()+OutPath
+        OutPath: "dao/gen/entity", // 生成路径为os.Getwd()+此值                                                                          // 输出目录为：os.Getwd()/OutPath                                                                            // 生成路径为os.Getwd()+OutPath
         Package: "entity",                                                                                  // 指定包名，否则包名为生成路径的最后一个路径
         Tables: gen.Tables{ // key对应生成的表，value为指定字段映射的Go类型，无指定则按默认处理。
             "user": nil,
@@ -397,7 +401,7 @@ _, list, err := userDao.Query(gdao.QueryReq[User]{
         b.Write("SELECT ").Write(b.Columns()).
             Write(" FROM ").Write(b.Table()).
             Write(" WHERE ")
-        b.EachAssignedColumn(b.Separate("", ",", ""),
+        b.EachAssignedColumn(b.Separate("", "AND", ""),
             func(i int, column string, value any) {
                 b.Write(column).Write("=?").AddArgs(value)
             })
