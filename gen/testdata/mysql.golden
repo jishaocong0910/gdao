@@ -61,7 +61,7 @@ type Mysql struct {
 	// Timestamp timestamp
 	Timestamp *time.Time `gdao:"column=timestamp"`
 	// Year year
-	Year *int32 `gdao:"column=year"`
+	Year *int64 `gdao:"column=year"`
 	// Binary binary
 	Binary []byte `gdao:"column=binary"`
 	// Varbinary varbinary(255)

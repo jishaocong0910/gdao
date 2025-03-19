@@ -83,7 +83,7 @@ func NewDao[T any](req NewDaoReq) (Dao[T], error) {
 		}
 		if !tf.Anonymous {
 			if ft := tf.Type; ft.Kind() == reflect.Pointer {
-				if SupportedFieldTypes.ContainsName(ft.Elem().String()) {
+				if _, ok := supportedFieldTypes[ft.Elem().String()]; ok {
 					registerField[T](&dao, tf, req.ColumnMapper)
 				}
 			}
@@ -488,4 +488,8 @@ var lastInsertIdConvertors = map[string]func(id int64) reflect.Value{
 	"float32": func(id int64) reflect.Value { f := float32(id); return reflect.ValueOf(&f) },
 	"float64": func(id int64) reflect.Value { f := float64(id); return reflect.ValueOf(&f) },
 	"string":  func(id int64) reflect.Value { s := strconv.FormatInt(id, 10); return reflect.ValueOf(&s) },
+}
+
+var supportedFieldTypes = map[string]struct{}{
+	"bool": {}, "string": {}, "time.Time": {}, "float32": {}, "float64": {}, "int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {}, "uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {},
 }

@@ -1,40 +1,30 @@
 package gen
 
 import (
+	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/jishaocong0910/gdao"
+	_ "github.com/sijms/go-ora/v2"
 )
 
 type oracleGenerator struct {
-	*m_Generator
+	c  Config
+	db *sql.DB
 }
 
-func (this *oracleGenerator) existsTable(table string) bool {
-	rows := mustReturn(this.db.Query("SELECT count(*) FROM user_tables WHERE table_name = :1", table))
-	defer rows.Close()
-	var count int
-	if rows.Next() {
-		rows.Scan(&count)
-	}
-	return count == 1
-}
+func (g oracleGenerator) getTableInfo(table string) (bool, []*field, string) {
+	var (
+		exists       bool
+		fields       []*field
+		tableComment string
+	)
 
-func (this *oracleGenerator) getEntityComment(table string) string {
-	rows := mustReturn(this.db.Query("SELECT comments FROM user_tab_comments WHERE table_name = :2", table))
+	rows := mustReturn(g.db.Query(`SELECT c.column_name, c.data_type, c.data_precision , c.data_scale , c.char_length, c2.comments FROM user_tab_columns c LEFT JOIN user_col_comments c2 ON c.table_name =c2.table_name AND c.COLUMN_NAME =c2.COLUMN_NAME WHERE c.table_name = :1`, table))
 	defer rows.Close()
-	var comment string
-	if rows.Next() {
-		rows.Scan(&comment)
-	}
-	return comment
-}
-
-func (this *oracleGenerator) getEntityFields(table string) []*field {
-	rows := mustReturn(this.db.Query(`SELECT c.column_name, c.data_type, c.data_precision , c.data_scale , c.char_length, c2.comments FROM user_tab_columns c LEFT JOIN user_col_comments c2 ON c.table_name =c2.table_name AND c.COLUMN_NAME =c2.COLUMN_NAME WHERE c.table_name = :1`, table))
-	defer rows.Close()
-	var fields []*field
 	for rows.Next() {
+		exists = true
 		var (
 			column     string
 			dataType   string
@@ -54,7 +44,7 @@ func (this *oracleGenerator) getEntityFields(table string) []*field {
 
 		f := &field{
 			Column:    column,
-			FieldName: this.c.FieldNameMapper.Convert(column),
+			FieldName: g.c.FieldNameMapper.Convert(column),
 			FieldType: "any",
 			Comment:   *comment,
 		}
@@ -88,11 +78,20 @@ func (this *oracleGenerator) getEntityFields(table string) []*field {
 		}
 		fields = append(fields, f)
 	}
-	return fields
+
+	rows = mustReturn(g.db.Query("SELECT comments FROM user_tab_comments WHERE table_name = :2", table))
+	defer rows.Close()
+	if rows.Next() {
+		rows.Scan(&tableComment)
+	}
+
+	return exists, fields, tableComment
 }
 
-func newOracleGenerator(c Config) *oracleGenerator {
-	g := &oracleGenerator{}
-	g.m_Generator = extendGenerator(g, c)
-	return g
+func newOracleGenerator(c Config) oracleGenerator {
+	db, err := sql.Open("oracle", c.Dsn)
+	if err != nil { // coverage-ignore
+		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
+	}
+	return oracleGenerator{c: c, db: db}
 }

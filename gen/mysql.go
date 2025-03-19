@@ -1,42 +1,30 @@
 package gen
 
 import (
+	"database/sql"
+	"fmt"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 type mySqlGenerator struct {
-	*m_Generator
+	c        Config
+	db       *sql.DB
 	database string
 }
 
-func (this *mySqlGenerator) existsTable(table string) bool {
-	rows := mustReturn(this.db.Query("SELECT count(*) FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", this.database, table))
-	defer rows.Close()
-	var count int
-	if rows.Next() {
-		rows.Scan(&count)
-	}
-	return count == 1
-}
+func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
+	var (
+		exists       bool
+		fields       []*field
+		tableComment string
+	)
 
-func (this *mySqlGenerator) getEntityComment(table string) string {
-	rows := mustReturn(this.db.Query("SELECT TABLE_COMMENT FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", this.database, table))
+	rows := mustReturn(g.db.Query("SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, EXTRA = 'auto_increment', COLUMN_COMMENT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION", g.database, table))
 	defer rows.Close()
-	var comment string
-	if rows.Next() {
-		rows.Scan(&comment)
-	}
-	return comment
-}
-
-func (this *mySqlGenerator) getEntityFields(table string) []*field {
-	rows := mustReturn(this.db.Query("SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, EXTRA = 'auto_increment', COLUMN_COMMENT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION", this.database, table))
-	defer rows.Close()
-
-	var fields []*field
 	for rows.Next() {
+		exists = true
 		var (
 			column          string
 			dataType        string
@@ -48,7 +36,7 @@ func (this *mySqlGenerator) getEntityFields(table string) []*field {
 
 		f := &field{
 			Column:          column,
-			FieldName:       this.c.FieldNameMapper.Convert(column),
+			FieldName:       g.c.FieldNameMapper.Convert(column),
 			FieldType:       "any",
 			Comment:         comment,
 			IsAutoIncrement: isAutoIncrement,
@@ -100,7 +88,7 @@ func (this *mySqlGenerator) getEntityFields(table string) []*field {
 		case "datetime", "timestamp", "date", "time":
 			f.FieldType = "*time.Time"
 		case "year":
-			f.FieldType = "*int32"
+			f.FieldType = "*int64"
 		case "binary", "varbinary", "geometry", "blob", "tinyblob", "mediumblob", "longblob":
 			f.FieldType = "[]byte"
 		}
@@ -109,17 +97,26 @@ func (this *mySqlGenerator) getEntityFields(table string) []*field {
 		}
 		fields = append(fields, f)
 	}
-	return fields
+
+	rows = mustReturn(g.db.Query("SELECT TABLE_COMMENT FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", g.database, table))
+	defer rows.Close()
+	if rows.Next() {
+		rows.Scan(&tableComment)
+	}
+
+	return exists, fields, tableComment
 }
 
-func newMySqlGenerator(c Config) *mySqlGenerator {
-	g := &mySqlGenerator{}
-	g.m_Generator = extendGenerator(g, c)
-
-	rows := mustReturn(g.db.Query("SELECT DATABASE()"))
+func newMySqlGenerator(c Config) mySqlGenerator {
+	db, err := sql.Open("mysql", c.Dsn)
+	if err != nil { // coverage-ignore
+		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
+	}
+	database := ""
+	rows := mustReturn(db.Query("SELECT DATABASE()"))
 	if rows.Next() {
-		rows.Scan(&g.database)
+		rows.Scan(&database)
 	}
 	rows.Close()
-	return g
+	return mySqlGenerator{c: c, db: db, database: database}
 }

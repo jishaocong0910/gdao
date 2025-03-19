@@ -1,33 +1,15 @@
 # GDAO
 
-GDAO是用于Golang的轻量级ORM框架，具有下列主要特色。
+GDAO是用于Golang的轻量级ORM框架，并提供了常用数据库的实体生成器。它不对各种数据库进行包装，避免项目复杂庞大，和数据库版本变化导致必要的更新，即有查询的灵活性，也有支持各种数据库驱动的兼容性，其设计特色如下：
 
-1. 查询数据并映射为实体
-2. 插入数据后将自动生成key映射到实体
-3. 兼容不支持`sql.Result#LastInsertId`方法的驱动获取自动生成key
-4. 内置便利的自定义SQL工具
+- **SQL方言**。GDAO使用自定义SQL执行，而非SQL组装方法，最大限度兼容各种数据库方言，同时还提供了自定义SQL的动态构建方法。</br></br>
+- **参数占位符** (reference : http://go-database-sql.org/prepared.html )。由于GDAO采用自定义SQL，因此不需要关注具体是哪种数据库，用户使用对应数据库驱动的参数占位符即可。有些数据库驱动的参数占位符动态的，GDAO也提供了参数占位符的动态构建方法</br></br>
+- **获取自动生成ID**。有些数据库驱动支持`sql.Result#LastInsertId`方法来获取自动生成ID，有些则不支持此方法，而是其他方式，GDAO对此做了兼容性设计，
 
-兼容所有数据库是GDAO的原则，它通过自定义SQL来执行，因此兼容所有数据库的方言和驱动的参数占位符。不同数据库驱动获取自动生成key的方式并不统一，GDAO对此做了兼容性设计。
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/jishaocong0910/gdao.svg)](https://pkg.go.dev/github.com/jishaocong0910/gdao)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jishaocong0910/gdao)](https://goreportcard.com/report/github.com/jishaocong0910/gdao)
 ![coverage](https://raw.githubusercontent.com/jishaocong0910/gdao/badges/.badges/main/coverage.svg)
-
-> [!NOTE]
->
-> 本项目部分代码采用**go-object风格**编写：https://github.com/jishaocong0910/go-object
-
-reference : http://go-database-sql.org/prepared.html
-
-> ### Parameter Placeholder Syntax
->
-> The syntax for placeholder parameters in prepared statements is
-> database-specific. For example, comparing MySQL, PostgreSQL, and Oracle:
->
->       MySQL               PostgreSQL            Oracle
->       =====               ==========            ======
->       WHERE col = ?       WHERE col = $1        WHERE col = :col
->       VALUES(?, ?, ?)     VALUES($1, $2, $3)    VALUES(:val1, :val2, :val3)
 
 # 安装
 
@@ -154,7 +136,7 @@ func main() {
 | 标签值                    | 说明                                                                                                                                                                                |
 |------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `column=<column_name>` | `<column_name> ::= 数据库字段名`<br/>指定对应的数据库字段。                                                                                                                                        |
-| `auto[=<offset>]`      | `<offset> ::= 自增偏移量，可选，默认为1。`<br/>标记自增key字段，执行INSERT语句后，会将`sql.Result#LastInsertId`方法的值映射到该字段。因此只对支持`sql.Result#LastInsertId`方法的数据库驱动有效，例如MySQL、SQLite等，不支持的例如Oracle、PostgreSQL等。 |
+| `auto[=<offset>]`      | `<offset> ::= 自增偏移量，可选，默认为1。`<br/>标记自增ID字段，执行INSERT语句后，会将`sql.Result#LastInsertId`方法的值映射到该字段。因此只对支持`sql.Result#LastInsertId`方法的数据库驱动有效，例如MySQL、SQLite等，不支持的例如Oracle、PostgreSQL等。 |
 
 *Example:*
 
@@ -171,17 +153,17 @@ type Account struct {
 
 ## 代码生成器
 
-内置简单的实体代码生成器。
+本项目提供了常用数据库的实体代码生成器。
 
 *支持的数据库*
 
-| 数据库        | 是否支持  |
-|------------|-------|
-| MySQL      | ✅支持   |
-| PostgreSQL | ✅支持   |
-| Oracle     | ✅支持   |
-| SQLserver  | 🚧开发中 |
-| SQLite     | 🚧开发中 |
+| 数据库        | 是否支持 |
+|------------|------|
+| MySQL      | ✅支持  |
+| PostgreSQL | ✅支持  |
+| Oracle     | ✅支持  |
+| SQLserver  | ✅支持  |
+| SQLite     | ✅支持  |
 
 *Example:*
 
@@ -194,8 +176,8 @@ import (
 )
 
 func main() {
-    gen.Generator(gen.Config{
-        DbType:  gen.DbTypes.MYSQL,                                                                         // 数据库类型
+    gen.Create(gen.Config{
+        DbType:  gen.DB_TYPE_MYSQL,                                                                         // 数据库类型
         Dsn:     "root:12345678@tcp(localhost:3306)/my_test?charset=utf8mb4,utf8&parseTime=True&loc=Local", // 格式与数据库类型对应
         OutPath: "dao/gen/entity", // 生成路径为os.Getwd()+此值                                                                          // 输出目录为：os.Getwd()/OutPath                                                                            // 生成路径为os.Getwd()+OutPath
         Package: "entity",                                                                                  // 指定包名，否则包名为生成路径的最后一个路径
@@ -223,7 +205,7 @@ func main() {
 |----------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | `Db *sql.DB`               | 必填，打开的`*sql.DB`变量。                                                                                                       |
 | `Table string`             | 必填，对应的数据库表名。                                                                                                             |
-| `ColumnMapper *NameMapper` | 默认的 实体->数据库 字段映射规则，若实体字段没有添加标签`gdao:"column=<column_name>"`，则使用此规则，通过`gdao.NewNameMapper`函数创建映射器，并指定映射方法，可链式调用指定多个按顺序处理。 |
+| `ColumnMapper *NameMapper` | 默认的 实体->数据库 字段映射规则，若实体字段没有添加标签`gdao:"column=<column_name>"`，则使用此规则。`gdao.NewNameMapper`函数用于创建映射器，并指定映射方法，可链式调用指定多个按顺序处理。 |
 | `ColumnCaseSensitive bool` | 数据库字段是否大小写敏感。                                                                                                            |
 
 *Example:*
@@ -319,7 +301,7 @@ func (d AccountDao) ReduceBalance(id int32, balance int64) bool {
 
 ## RawQuery
 
-执行查询并返回`*sql.Rows`值，由用户自行映射返回的数据。
+执行查询并返回`*sql.Rows`值。
 
 *参数*
 
@@ -383,12 +365,12 @@ fmt.Println(id, affected)
 
 *参数*
 
-| 字段                                                          | 说明                     |
-|-------------------------------------------------------------|------------------------|
-| `Ctx context.Context`                                       | Context                |
-| `Tx *sql.Tx`                                                | 事务                     |
-| `Entities []*T`                                             | 实体参数，用于自定义SQL。         |
-| `BuildSql func(b gdao.Builder[T]) (sql string, args []any)` | 自定义SQL函数，返回SQL和占位符对应参数 |
+| 字段                                                          | 说明                      |
+|-------------------------------------------------------------|-------------------------|
+| `Ctx context.Context`                                       | Context                 |
+| `Tx *sql.Tx`                                                | 事务                      |
+| `Entities []*T`                                             | 实体参数，用于动态构建SQL。         |
+| `BuildSql func(b gdao.Builder[T]) (sql string, args []any)` | 动态构建SQL函数，返回SQL和占位符对应参数 |
 
 *Example（MySQL驱动）:*
 
@@ -426,8 +408,8 @@ fmt.Println(json)
 |-------------------------------------------------------------|----------------------------------------------------------------------------------|
 | `Ctx context.Context`                                       | Context                                                                          |
 | `Tx *sql.Tx`                                                | 事务                                                                               |
-| `Entities []*T`                                             | 实体参数，有两个作用：<br/>1. 用于自定义SQL<br/>2. 使用`Insert`或`Query`执行模式，会将自动生成key或返回结果映射回这些实体。 |
-| `BuildSql func(b gdao.Builder[T]) (sql string, args []any)` | 自定义SQL函数，返回SQL和占位符对应参数                                                           |
+| `Entities []*T`                                             | 实体参数，有两个作用：<br/>1. 用于动态构建SQL<br/>2. 使用`Insert`或`Query`执行模式，会将自动生成ID或返回结果映射回这些实体。 |
+| `BuildSql func(b gdao.Builder[T]) (sql string, args []any)` | 动态构建SQL函数，返回SQL和占位符对应参数                                                          |
 
 ### Exec模式
 
@@ -449,7 +431,7 @@ fmt.Println(affected)
 
 ### Insert模式
 
-与Exec模式相同，但多了一个步骤：调用`sql.Result#LastInsertId`方法将自增key映射到实体参数中。**适合用于支持`sql.Result#LastInsertId`方法的数据库驱动执行INSERT语句，如果数据库驱动不支持，则映射自增key将返回error或不准确**。
+与Exec模式相同，但多了一个步骤：调用`sql.Result#LastInsertId`方法将自增ID映射到实体参数中。**适合用于支持`sql.Result#LastInsertId`方法的数据库驱动执行INSERT语句，如果数据库驱动不支持，则映射自增ID将返回error或不准确**。
 
 *Example（MySQL驱动）:*
 
@@ -483,7 +465,7 @@ fmt.Println(*users[1].Id)
 
 ### Query模式
 
-内部调用Golang的`sql.Stmt#QueryContext`方法执行，返回影响行数。`sql.Stmt#QueryContext`方法的返回结果`*sql.Rows`中的数据，会被映射到实体参数中。**适用于一些不支持`sql.Result#LastInsertId`方法的数据库驱动，执行INSERT语句后映射自动生成key**。
+内部调用Golang的`sql.Stmt#QueryContext`方法执行，返回影响行数。`sql.Stmt#QueryContext`方法的返回结果`*sql.Rows`中的数据，会被映射到实体参数中。**适用于一些不支持`sql.Result#LastInsertId`方法的数据库驱动，执行INSERT语句后映射自动生成ID**。
 
 *Example（PostgreSQL驱动）:*
 
@@ -496,7 +478,7 @@ users := []*User{
 affected, err := userDao.Mutation(gdao.MutationReq[User]{
     Entities: users,
     BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-        // PostgreSQL使用 INSERT...RETURNING... 语法来返回新增数据的自动生成key。
+        // PostgreSQL使用 INSERT...RETURNING... 语法来返回新增数据的自动生成ID。
         b.Write("INSERT INTO ").Write(b.Table()).
             Write("(").Write(b.Columns()).Write(") VALUES")
         b.EachEntity(b.Separate("(", ",", ")"), func(i int) {
@@ -528,7 +510,7 @@ users := []*User{
 affected, err := userDao.Mutation(gdao.MutationReq[User]{
     Entities: users,
     BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-        // SQLserver驱动官方的返回自增key方式
+        // SQLserver驱动官方的返回自增ID方式
         // reference: https://github.com/denisenkom/go-mssqldb/blob/master/lastinsertid_example_test.go
         b.Write("INSERT INTO ").Write(b.Table()).
             Write("(").Write(b.Columns()).Write(") VALUES")
@@ -551,11 +533,11 @@ fmt.Println(*users[0].Id)
 fmt.Println(*users[1].Id)
 ```
 
-# 自定义SQL工具
+# 动态构建SQL
 
-DAO的`Query`和`Mutation`方法具有的`BuildeSql`和`Entities`参数用于自定义SQL。
+DAO的`Query`和`Mutation`方法具有的`BuildeSql`和`Entities`参数用于动态构建SQL。
 
-`BuildeSql`是一个函数，要求用户返回SQL和占位符对应参数。函数的`gdao.Builder`参数是自定义SQL的工具，它提供了许多方便自定义SQL的方法。
+`BuildeSql`是一个函数，要求用户返回SQL和占位符对应参数。其参数`gdao.Builder`提供了许多动态构建SQL的方法。
 
 `Entities`将作为`gdao.Builder`某些方法的数据来源。
 
@@ -574,7 +556,7 @@ DAO的`Query`和`Mutation`方法具有的`BuildeSql`和`Entities`参数用于自
 | `EachColumn`         | 遍历`Entities`中第一个实体的所有字段                            |
 | `EachColumnAt`       | 遍历`Entities`中指定索引的实体的所有字段                          |
 | `EachAssignedColumn` | 遍历`Entities`中第一个实体的所有不为nil的字段                      |
-| `Separate`           | 用于所有Each开头的方法，指定开始、结束和分隔符号                         |
+| `Separate`           | 用于所有Each开头的方法，指定开始、分隔和结束符号                         |
 | `String`             | 返回最终拼接的字符串                                         |
 | `Args`               | 返回所有占位符对应参数                                        |
 
@@ -598,7 +580,7 @@ users := []*User{
     },
 }
 userDao.Mutation(gdao.MutationReq[User]{Entities: users, BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-    // 为了节省演示代码篇幅，以下每个代码块的注释为独立运行结果。
+    // 为了节省演示代码篇幅，以下每个代码块的注释为其独立运行结果。
     {
         b.Write("Table: ").Write(b.Table()).Write(", Columns: ").Write(b.Columns())
         fmt.Println(b.String())

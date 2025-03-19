@@ -45,7 +45,7 @@ func TestPrintSql(t *testing.T) {
 	{
 		log := &MockLogger{}
 		gdao.Log.Logger = log
-		gdao.Log.PrintSqlLogLevel = gdao.LogLevels.DEBUG
+		gdao.Log.PrintSqlLogLevel = gdao.LOG_LEVEL_DEBUG
 		gdao.PrintSql(nil, "SELECT * FROM user WHERE id=? AND status=? AND level=?", []any{gdao.Ptr(1), 2, nil})
 		r.Equal("SQL: SELECT * FROM user WHERE id=? AND status=? AND level=?\nArgs: %v", log.DebugMsg)
 		r.Equal(1, log.DebugArgs[0])
@@ -55,7 +55,7 @@ func TestPrintSql(t *testing.T) {
 	{
 		log := &MockLogger{}
 		gdao.Log.Logger = log
-		gdao.Log.PrintSqlLogLevel = gdao.LogLevels.INFO
+		gdao.Log.PrintSqlLogLevel = gdao.LOG_LEVEL_INFO
 		gdao.PrintSql(nil, "SELECT * FROM user WHERE id=? AND status=? AND level=?", []any{gdao.Ptr(1), (*int)(nil), nil})
 		r.Equal("SQL: SELECT * FROM user WHERE id=? AND status=? AND level=?\nArgs: %v", log.InfoMsg)
 		r.Equal(1, log.InfoArgs[0])
@@ -65,7 +65,7 @@ func TestPrintSql(t *testing.T) {
 	{
 		log := &MockLogger{}
 		gdao.Log.Logger = log
-		gdao.Log.PrintSqlLogLevel = gdao.LogLevels.INFO
+		gdao.Log.PrintSqlLogLevel = gdao.LOG_LEVEL_INFO
 		gdao.PrintSql(nil, "SELECT * FROM user WHERE id=1", nil)
 		r.Equal("SQL: SELECT * FROM user WHERE id=1", log.InfoMsg)
 		r.Nil(log.InfoArgs)

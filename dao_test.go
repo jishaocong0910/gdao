@@ -287,8 +287,8 @@ func TestMutationDao_Insert(t *testing.T) {
 	}
 	mock.ExpectPrepare(`INSERT user\(`+export.ColumnsWithComma+`\) VALUES\(\?,\?,\?,\?,\?,\?,\?,\?,\?\),\(\?,\?,\?,\?,\?,\?,\?,\?,\?\)`).
 		ExpectExec().
-		WithArgs(users[0].Id, users[0].Name, users[0].Age, users[0].Address, users[0].Phone, users[0].Email, users[0].Status, users[0].Level, users[0].CreateAt,
-			users[1].Id, users[1].Name, users[1].Age, users[1].Address, users[1].Phone, users[1].Email, users[1].Status, users[1].Level, users[1].CreateAt).
+			WithArgs(users[0].Id, users[0].Name, users[0].Age, users[0].Address, users[0].Phone, users[0].Email, users[0].Status, users[0].Level, users[0].CreateAt,
+				users[1].Id, users[1].Name, users[1].Age, users[1].Address, users[1].Phone, users[1].Email, users[1].Status, users[1].Level, users[1].CreateAt).
 		WillReturnResult(sqlmock.NewResult(1001, 2))
 	affected, err := dao.Mutation(gdao.MutationReq[User]{
 		Entities: users,
@@ -406,10 +406,4 @@ func TestLastInsertIdConvertors(t *testing.T) {
 	r.Equal(float32(123), gdao.LastInsertIdConvertors["float32"](id).Elem().Interface())
 	r.Equal(float64(123), gdao.LastInsertIdConvertors["float64"](id).Elem().Interface())
 	r.Equal("123", gdao.LastInsertIdConvertors["string"](id).Elem().Interface())
-}
-
-func Test_supportedFieldType_ContainsName(t *testing.T) {
-	r := require.New(t)
-	r.True(gdao.SupportedFieldTypes.ContainsName("int"))
-	r.False(gdao.SupportedFieldTypes.ContainsName("rune"))
 }

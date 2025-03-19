@@ -6,6 +6,13 @@ import (
 	"reflect"
 )
 
+type logLevel int
+
+const (
+	LOG_LEVEL_DEBUG logLevel = iota + 1
+	LOG_LEVEL_INFO
+)
+
 type Logger interface {
 	Debugf(context.Context, string, ...any)
 	Infof(context.Context, string, ...any)
@@ -24,7 +31,7 @@ var Log = func() struct {
 }()
 
 func printSql(ctx context.Context, sql string, args []any) {
-	if Log.Logger == nil || Log.PrintSqlLogLevel.Undefined() { // coverage-ignore
+	if Log.Logger == nil || Log.PrintSqlLogLevel == 0 { // coverage-ignore
 		return
 	}
 
@@ -51,10 +58,10 @@ func printSql(ctx context.Context, sql string, args []any) {
 		}
 	}
 
-	switch Log.PrintSqlLogLevel.ID() {
-	case LogLevels.DEBUG.ID():
+	switch Log.PrintSqlLogLevel {
+	case LOG_LEVEL_DEBUG:
 		Log.Logger.Debugf(ctx, msg, argValues...)
-	case LogLevels.INFO.ID():
+	case LOG_LEVEL_INFO:
 		Log.Logger.Infof(ctx, msg, argValues...)
 	}
 }

@@ -15,11 +15,11 @@ type Postgres struct {
 	// BitArying bit arying
 	BitArying *string `gdao:"column=bit_arying"`
 	// Boolean boolean
-	Boolean []*bool `gdao:"column=boolean"`
+	Boolean []bool `gdao:"column=boolean"`
 	// Box box
 	Box *string `gdao:"column=box"`
 	// Bytea bytea
-	Bytea []uint8 `gdao:"column=bytea"`
+	Bytea []byte `gdao:"column=bytea"`
 	// Character character
 	Character *string `gdao:"column=character"`
 	// CharacterVarying character varying
@@ -51,7 +51,7 @@ type Postgres struct {
 	// Macaddr8 macaddr8
 	Macaddr8 *string `gdao:"column=macaddr8"`
 	// Money money
-	Money *string `gdao:"column=money"`
+	Money *float64 `gdao:"column=money"`
 	// Numeric numeric
 	Numeric *float64 `gdao:"column=numeric"`
 	// Path path
@@ -75,9 +75,9 @@ type Postgres struct {
 	// Text text
 	Text *string `gdao:"column=text"`
 	// Time time
-	Time *string `gdao:"column=time"`
+	Time *time.Time `gdao:"column=time"`
 	// TimeWithTimeZone time with time zone
-	TimeWithTimeZone *string `gdao:"column=time_with_time_zone"`
+	TimeWithTimeZone *time.Time `gdao:"column=time_with_time_zone"`
 	// Timestamp timestamp
 	Timestamp *time.Time `gdao:"column=timestamp"`
 	// TimestampWithTimeZone timestamp with time zone
