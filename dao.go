@@ -7,15 +7,12 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-
-	o "github.com/jishaocong0910/go-object"
 )
 
 type NewDaoReq struct {
-	Db                  *sql.DB
-	Table               string
-	ColumnMapper        *NameMapper
-	ColumnCaseSensitive bool
+	Db           *sql.DB
+	Table        string
+	ColumnMapper *NameMapper
 }
 
 type RawQueryReq struct {
@@ -73,8 +70,7 @@ func NewDao[T any](req NewDaoReq) (Dao[T], error) {
 
 	dao.db = req.Db
 	dao.table = req.Table
-	dao.columnToFieldIndexMap = o.NewStrKeyMap[int](req.ColumnCaseSensitive)
-	dao.columnCaseSensitive = req.ColumnCaseSensitive
+	dao.columnToFieldIndexMap = make(map[string]int)
 
 	for i := 0; i < t.NumField(); i++ {
 		tf := t.Field(i)
@@ -135,7 +131,7 @@ func registerField[T any](d *Dao[T], tf reflect.StructField, columnMapper *NameM
 		d.columnsWithComma += ","
 	}
 	d.columnsWithComma += column
-	d.columnToFieldIndexMap.Put(column, tf.Index[0])
+	d.columnToFieldIndexMap[column] = tf.Index[0]
 	if isAutoIncrement {
 		if convertor, ok := lastInsertIdConvertors[tf.Type.Elem().String()]; ok {
 			d.autoIncrementColumn = column
@@ -151,8 +147,7 @@ type Dao[T any] struct {
 	table                  string
 	columnsWithComma       string
 	columns                []string
-	columnToFieldIndexMap  *o.StrKeyMap[int]
-	columnCaseSensitive    bool
+	columnToFieldIndexMap  map[string]int
 	autoIncrementColumn    string
 	autoIncrementOffset    int64
 	autoIncrementConvertor func(id int64) reflect.Value
@@ -258,8 +253,8 @@ func (d Dao[T]) mappingFields(entity *T, columns []string) []any {
 	v := reflect.ValueOf(entity).Elem()
 	fields := make([]any, 0, len(columns))
 	for _, c := range columns {
-		if entry := d.columnToFieldIndexMap.GetEntry(c); entry != nil {
-			field := v.Field(entry.Value)
+		if value, ok := d.columnToFieldIndexMap[c]; ok {
+			field := v.Field(value)
 			fields = append(fields, field.Addr().Interface())
 		}
 	}
@@ -293,7 +288,7 @@ func (m *mutationDao[T]) Insert() (affected int64, err error) {
 	id, err := result.LastInsertId()
 	printError(m.req.Ctx, err)
 	if err == nil && len(m.req.Entities) > 0 && m.autoIncrementColumn != "" {
-		fieldIndex := m.columnToFieldIndexMap.Get(m.autoIncrementColumn)
+		fieldIndex := m.columnToFieldIndexMap[m.autoIncrementColumn]
 		for i, entity := range m.req.Entities {
 			v := reflect.ValueOf(entity).Elem()
 			vf := v.Field(fieldIndex)
@@ -318,8 +313,8 @@ func (m *mutationDao[T]) Query() (affected int64, err error) {
 
 			var queriedFields []any
 			for _, c := range queriedColumns {
-				if fieldIndex := m.columnToFieldIndexMap.GetEntry(c); fieldIndex != nil {
-					field := v.Field(fieldIndex.Value).Addr().Interface()
+				if fieldIndex, ok := m.columnToFieldIndexMap[c]; ok {
+					field := v.Field(fieldIndex).Addr().Interface()
 					queriedFields = append(queriedFields, field)
 				}
 			}
@@ -435,7 +430,7 @@ func (b *Builder[T]) iterateColumnAt(i int, separate *separate, canHandle func(i
 	var columnIndex int
 	b.writeStart(separate)
 	for _, column := range b.dao.columns {
-		fieldIndex := b.dao.columnToFieldIndexMap.Get(column)
+		fieldIndex := b.dao.columnToFieldIndexMap[column]
 		field := v.Field(fieldIndex)
 		var value any
 		if !field.IsNil() {

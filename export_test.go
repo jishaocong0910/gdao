@@ -2,15 +2,13 @@ package gdao
 
 import (
 	"reflect"
-
-	o "github.com/jishaocong0910/go-object"
 )
 
 type DaoExport struct {
 	Table                  string
 	ColumnsWithComma       string
 	Columns                []string
-	ColumnToFieldIndexMap  *o.StrKeyMap[int]
+	ColumnToFieldIndexMap  map[string]int
 	AutoIncrementColumn    string
 	AutoIncrementOffset    int64
 	AutoIncrementConvertor func(id int64) reflect.Value

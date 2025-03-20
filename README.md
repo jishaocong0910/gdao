@@ -206,7 +206,6 @@ func main() {
 | `Db *sql.DB`               | 必填，打开的`*sql.DB`变量。                                                                                                       |
 | `Table string`             | 必填，对应的数据库表名。                                                                                                             |
 | `ColumnMapper *NameMapper` | 默认的 实体->数据库 字段映射规则，若实体字段没有添加标签`gdao:"column=<column_name>"`，则使用此规则。`gdao.NewNameMapper`函数用于创建映射器，并指定映射方法，可链式调用指定多个按顺序处理。 |
-| `ColumnCaseSensitive bool` | 数据库字段是否大小写敏感。                                                                                                            |
 
 *Example:*
 
