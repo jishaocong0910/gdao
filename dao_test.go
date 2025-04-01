@@ -130,7 +130,7 @@ func TestDao_Query(t *testing.T) {
 			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
 				b.Write("SELECT ").Write(b.Columns()).
 					Write(" FROM ").Write(b.Table()).
-					Write(" WHERE id=? AND status=?").AddArgs(1, 2)
+					Write(" WHERE id=? AND status=?", 1, 2)
 				return b.String(), b.Args()
 			},
 		})
@@ -164,9 +164,9 @@ func TestDao_Query(t *testing.T) {
 				b.Write(" FROM ").Write(b.Table())
 				b.Write(" WHERE ")
 				e := b.Entity()
-				b.Write("status=").Write(b.ArgN("$")).AddArgs(e.Status)
-				b.Write(" AND ").Write("level=").Write(b.ArgN("$")).AddArgs(e.Level)
-				b.Write(" AND ").Write("create_at=").Write(b.ArgN("$")).AddArgs(e.CreateAt)
+				b.Write("status=").Write(b.Ph("$"), e.Status)
+				b.Write(" AND ").Write("level=").Write(b.Ph("$"), e.Level)
+				b.Write(" AND ").Write("create_at=").Write(b.Ph("$"), e.CreateAt)
 				return b.String(), b.Args()
 			},
 		})
@@ -191,10 +191,10 @@ func TestMutationDao_Exec(t *testing.T) {
 			Entities: []*User{user},
 			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
 				b.Write("UPDATE ").Write(b.Table()).Write(" SET ")
-				b.EachAssignedColumn(b.Separate("", ",", ""), func(i int, column string, value any) {
-					b.Write(column).Write("=?").AddArgs(value)
+				b.EachAssignedColumn(b.Sep("", ",", ""), func(i int, column string, value any) {
+					b.Write(column).Write("=?", value)
 				})
-				b.Write(" WHERE id=?").AddArgs(1001)
+				b.Write(" WHERE id=?", 1001)
 				return b.String(), b.Args()
 			},
 		}).Exec()
@@ -220,11 +220,11 @@ func TestMutationDao_Exec(t *testing.T) {
 			Entities: []*User{user},
 			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
 				b.Write("INSERT ").Write(b.Table())
-				b.EachAssignedColumn(b.Separate("(", ",", ")"), func(i int, column string, value any) {
+				b.EachAssignedColumn(b.Sep("(", ",", ")"), func(i int, column string, value any) {
 					b.Write(column)
 				})
-				b.EachAssignedColumn(b.Separate(" VALUES(", ",", ")"), func(i int, column string, value any) {
-					b.Write("?").AddArgs(value)
+				b.EachAssignedColumn(b.Sep(" VALUES(", ",", ")"), func(i int, column string, value any) {
+					b.Write("?", value)
 				})
 				return b.String(), b.Args()
 			},
@@ -252,9 +252,9 @@ func TestMutationDao_Exec(t *testing.T) {
 			Entities: []*User{user},
 			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
 				b.Write("INSERT ").Write(b.Table()).Write("(").Write(b.Columns()).Write(") VALUES(")
-				b.EachColumn(b.Separate("", ",", ""),
+				b.EachColumn(b.Sep("", ",", ""),
 					func(i int, column string, value any) {
-						b.Write("?").AddArgs(value)
+						b.Write("?", value)
 					})
 				b.Write(")")
 				return b.String(), b.Args()
@@ -287,19 +287,17 @@ func TestMutationDao_Insert(t *testing.T) {
 	}
 	mock.ExpectPrepare(`INSERT user\(`+export.ColumnsWithComma+`\) VALUES\(\?,\?,\?,\?,\?,\?,\?,\?,\?\),\(\?,\?,\?,\?,\?,\?,\?,\?,\?\)`).
 		ExpectExec().
-		WithArgs(users[0].Id, users[0].Name, users[0].Age, users[0].Address, users[0].Phone, users[0].Email, users[0].Status, users[0].Level, users[0].CreateAt,
-			users[1].Id, users[1].Name, users[1].Age, users[1].Address, users[1].Phone, users[1].Email, users[1].Status, users[1].Level, users[1].CreateAt).
+			WithArgs(users[0].Id, users[0].Name, users[0].Age, users[0].Address, users[0].Phone, users[0].Email, users[0].Status, users[0].Level, users[0].CreateAt,
+				users[1].Id, users[1].Name, users[1].Age, users[1].Address, users[1].Phone, users[1].Email, users[1].Status, users[1].Level, users[1].CreateAt).
 		WillReturnResult(sqlmock.NewResult(1001, 2))
 	affected, err := dao.Mutation(gdao.MutationReq[User]{
 		Entities: users,
 		BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
 			b.Write("INSERT ").Write(b.Table()).Write("(").Write(b.Columns()).Write(") VALUES")
-			b.EachEntity(b.Separate("", ",", ""), func(i int) {
-				b.Write("(")
-				b.EachColumnAt(i, b.Separate("", ",", ""), func(i int, column string, value any) {
-					b.Write("?").AddArgs(value)
+			b.EachEntity(b.Sep("", ",", ""), func(i int, e *User) {
+				b.EachColumnAt(i, b.Sep("(", ",", ")"), func(i int, column string, value any) {
+					b.Write("?", value)
 				})
-				b.Write(")")
 			})
 			return b.String(), b.Args()
 		},
@@ -335,9 +333,8 @@ func TestMutationDao_Query(t *testing.T) {
 		Entities: accounts,
 		BuildSql: func(b gdao.Builder[Account]) (sql string, args []any) {
 			b.Write("INSERT ").Write(b.Table()).Write("(user_id,status,balance) VALUES")
-			b.EachEntity(b.Separate("", ",", ""), func(i int) {
-				e := b.EntityAt(i)
-				b.Write("(?,?,?)").AddArgs(e.UserId, e.Status, e.Balance)
+			b.EachEntity(b.Sep("", ",", ""), func(i int, e *Account) {
+				b.Write("(?,?,?)", e.UserId, e.Status, e.Balance)
 			})
 			b.Write(" RETURNING id")
 			return b.String(), b.Args()

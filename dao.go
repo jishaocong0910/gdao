@@ -348,23 +348,19 @@ func (b *Builder[T]) Columns() string {
 	return b.dao.columnsWithComma
 }
 
-func (b *Builder[T]) Write(str string) *Builder[T] {
+func (b *Builder[T]) Write(str string, args ...any) *Builder[T] {
 	b.sql.WriteString(str)
-	return b
-}
-
-func (b *Builder[T]) Separate(start, separator, end string) *separate {
-	return &separate{start: start, separator: separator, end: end}
-}
-
-func (b *Builder[T]) AddArgs(args ...any) *Builder[T] {
 	for _, a := range args {
 		b.args = append(b.args, a)
 	}
 	return b
 }
 
-func (b *Builder[T]) ArgN(prefix string) string {
+func (b *Builder[T]) Sep(start, separator, end string) *sep {
+	return &sep{start: start, separator: separator, end: end}
+}
+
+func (b *Builder[T]) Ph(prefix string) string {
 	b.argNum++
 	return prefix + strconv.FormatInt(int64(b.argNum), 10)
 }
@@ -378,10 +374,43 @@ func (b *Builder[T]) String() string {
 }
 
 func (b *Builder[T]) Entity() *T {
-	return b.EntityAt(0)
+	return b.entityAt(0)
 }
 
-func (b *Builder[T]) EntityAt(i int) *T {
+func (b *Builder[T]) EachColumn(sep *sep, handle func(i int, column string, value any)) *Builder[T] {
+	b.EachColumnAt(0, sep, handle)
+	return b
+}
+
+func (b *Builder[T]) EachAssignedColumn(sep *sep, handle func(i int, column string, value any)) *Builder[T] {
+	b.iterateColumnAt(0, sep, func(i int, column string, value any) bool {
+		if value == nil {
+			return false
+		}
+		return true
+	}, handle)
+	return b
+}
+
+func (b *Builder[T]) EachEntity(sep *sep, handle func(i int, e *T)) *Builder[T] {
+	for i := range b.entities {
+		if i != 0 && sep != nil {
+			b.writeSeparator(sep)
+		}
+		b.writeStart(sep)
+		handle(i, b.entityAt(i))
+		b.writeEnd(sep)
+	}
+	return b
+}
+
+func (b *Builder[T]) EachColumnAt(i int, sep *sep, handle func(i int, column string, value any)) {
+	b.iterateColumnAt(i, sep, func(i int, column string, value any) bool {
+		return true
+	}, handle)
+}
+
+func (b *Builder[T]) entityAt(i int) *T {
 	var t *T
 	if i < len(b.entities) {
 		t = b.entities[i]
@@ -389,37 +418,7 @@ func (b *Builder[T]) EntityAt(i int) *T {
 	return t
 }
 
-func (b *Builder[T]) EachEntity(separate *separate, handle func(i int)) {
-	for i := range b.entities {
-		if i != 0 && separate != nil {
-			b.writeSeparator(separate)
-		}
-		b.writeStart(separate)
-		handle(i)
-		b.writeEnd(separate)
-	}
-}
-
-func (b *Builder[T]) EachColumn(separate *separate, handle func(i int, column string, value any)) {
-	b.EachColumnAt(0, separate, handle)
-}
-
-func (b *Builder[T]) EachColumnAt(i int, separate *separate, handle func(i int, column string, value any)) {
-	b.iterateColumnAt(i, separate, func(i int, column string, value any) bool {
-		return true
-	}, handle)
-}
-
-func (b *Builder[T]) EachAssignedColumn(separate *separate, handle func(i int, column string, value any)) {
-	b.iterateColumnAt(0, separate, func(i int, column string, value any) bool {
-		if value == nil {
-			return false
-		}
-		return true
-	}, handle)
-}
-
-func (b *Builder[T]) iterateColumnAt(i int, separate *separate, canHandle func(i int, column string, value any) bool, handle func(i int, column string, value any)) {
+func (b *Builder[T]) iterateColumnAt(i int, sep *sep, canHandle func(i int, column string, value any) bool, handle func(i int, column string, value any)) {
 	if !(i < len(b.entities)) || handle == nil { // coverage-ignore
 		return
 	}
@@ -428,7 +427,7 @@ func (b *Builder[T]) iterateColumnAt(i int, separate *separate, canHandle func(i
 	v := reflect.ValueOf(entity).Elem()
 
 	var columnIndex int
-	b.writeStart(separate)
+	b.writeStart(sep)
 	for _, column := range b.dao.columns {
 		fieldIndex := b.dao.columnToFieldIndexMap[column]
 		field := v.Field(fieldIndex)
@@ -438,34 +437,34 @@ func (b *Builder[T]) iterateColumnAt(i int, separate *separate, canHandle func(i
 		}
 
 		if canHandle(columnIndex, column, value) {
-			if columnIndex != 0 && separate != nil {
-				b.writeSeparator(separate)
+			if columnIndex != 0 && sep != nil {
+				b.writeSeparator(sep)
 			}
 			handle(columnIndex, column, value)
 			columnIndex++
 		}
 	}
-	b.writeEnd(separate)
+	b.writeEnd(sep)
 }
-func (b *Builder[T]) writeStart(s *separate) {
+func (b *Builder[T]) writeStart(s *sep) {
 	if s != nil {
 		b.Write(s.start)
 	}
 }
 
-func (b *Builder[T]) writeSeparator(s *separate) {
+func (b *Builder[T]) writeSeparator(s *sep) {
 	if s != nil {
 		b.Write(s.separator)
 	}
 }
 
-func (b *Builder[T]) writeEnd(s *separate) {
+func (b *Builder[T]) writeEnd(s *sep) {
 	if s != nil {
 		b.Write(s.end)
 	}
 }
 
-type separate struct {
+type sep struct {
 	start, separator, end string
 }
 
