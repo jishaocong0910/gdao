@@ -130,7 +130,7 @@ func TestDao_Query(t *testing.T) {
 			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
 				b.Write("SELECT ").Write(b.Columns()).
 					Write(" FROM ").Write(b.Table()).
-					Write(" WHERE id=? AND status=?").AddArgs(1, 2)
+					Write(" WHERE id=? AND status=?", 1, 2)
 				return b.String(), b.Args()
 			},
 		})
@@ -164,9 +164,9 @@ func TestDao_Query(t *testing.T) {
 				b.Write(" FROM ").Write(b.Table())
 				b.Write(" WHERE ")
 				e := b.Entity()
-				b.Write("status=").Write(b.ArgN("$")).AddArgs(e.Status)
-				b.Write(" AND ").Write("level=").Write(b.ArgN("$")).AddArgs(e.Level)
-				b.Write(" AND ").Write("create_at=").Write(b.ArgN("$")).AddArgs(e.CreateAt)
+				b.Write("status=").Write(b.Ph("$"), e.Status)
+				b.Write(" AND ").Write("level=").Write(b.Ph("$"), e.Level)
+				b.Write(" AND ").Write("create_at=").Write(b.Ph("$"), e.CreateAt)
 				return b.String(), b.Args()
 			},
 		})
@@ -192,9 +192,9 @@ func TestMutationDao_Exec(t *testing.T) {
 			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
 				b.Write("UPDATE ").Write(b.Table()).Write(" SET ")
 				b.EachAssignedColumn(b.Separate("", ",", ""), func(i int, column string, value any) {
-					b.Write(column).Write("=?").AddArgs(value)
+					b.Write(column).Write("=?", value)
 				})
-				b.Write(" WHERE id=?").AddArgs(1001)
+				b.Write(" WHERE id=?", 1001)
 				return b.String(), b.Args()
 			},
 		}).Exec()
@@ -224,7 +224,7 @@ func TestMutationDao_Exec(t *testing.T) {
 					b.Write(column)
 				})
 				b.EachAssignedColumn(b.Separate(" VALUES(", ",", ")"), func(i int, column string, value any) {
-					b.Write("?").AddArgs(value)
+					b.Write("?", value)
 				})
 				return b.String(), b.Args()
 			},
@@ -254,7 +254,7 @@ func TestMutationDao_Exec(t *testing.T) {
 				b.Write("INSERT ").Write(b.Table()).Write("(").Write(b.Columns()).Write(") VALUES(")
 				b.EachColumn(b.Separate("", ",", ""),
 					func(i int, column string, value any) {
-						b.Write("?").AddArgs(value)
+						b.Write("?", value)
 					})
 				b.Write(")")
 				return b.String(), b.Args()
@@ -297,7 +297,7 @@ func TestMutationDao_Insert(t *testing.T) {
 			b.EachEntity(b.Separate("", ",", ""), func(i int) {
 				b.Write("(")
 				b.EachColumnAt(i, b.Separate("", ",", ""), func(i int, column string, value any) {
-					b.Write("?").AddArgs(value)
+					b.Write("?", value)
 				})
 				b.Write(")")
 			})
@@ -337,7 +337,7 @@ func TestMutationDao_Query(t *testing.T) {
 			b.Write("INSERT ").Write(b.Table()).Write("(user_id,status,balance) VALUES")
 			b.EachEntity(b.Separate("", ",", ""), func(i int) {
 				e := b.EntityAt(i)
-				b.Write("(?,?,?)").AddArgs(e.UserId, e.Status, e.Balance)
+				b.Write("(?,?,?)", e.UserId, e.Status, e.Balance)
 			})
 			b.Write(" RETURNING id")
 			return b.String(), b.Args()

@@ -3,7 +3,7 @@
 GDAO是用于Golang的轻量级ORM框架，并提供了常用数据库的实体生成器。它不对各种数据库进行包装，避免项目复杂庞大，和数据库版本变化导致必要的更新，即有查询的灵活性，也有支持各种数据库驱动的兼容性，其设计特色如下：
 
 - **SQL方言**。GDAO使用自定义SQL执行，而非SQL组装方法，最大限度兼容各种数据库方言，同时还提供了自定义SQL的动态构建方法。</br></br>
-- **参数占位符** (reference : http://go-database-sql.org/prepared.html )。由于GDAO采用自定义SQL，因此不需要关注具体是哪种数据库，用户使用对应数据库驱动的参数占位符即可。有些数据库驱动的参数占位符动态的，GDAO也提供了参数占位符的动态构建方法</br></br>
+- **参数占位符** (reference : http://go-database-sql.org/prepared.html )。GDAO采用自定义SQL，因此不需要关注具体是哪种数据库，用户使用对应数据库驱动的参数占位符即可。有些数据库驱动的参数占位符是动态的，GDAO也提供了参数占位符的动态构建方法</br></br>
 - **获取自动生成ID**。有些数据库驱动支持`sql.Result#LastInsertId`方法来获取自动生成ID，有些则不支持此方法，而是其他方式，GDAO对此做了兼容性设计，
 
 
@@ -74,7 +74,7 @@ func main() {
             b.Write("INSERT INTO ").Write(b.Table()).Write("(").Write(b.Columns()).Write(") VALUES (")
             b.EachColumn(b.Separate("", ",", ""),
                 func(i int, column string, value any) {
-                    b.Write("?").AddArgs(value)
+                    b.Write("?", value)
                 })
             b.Write(")")
             return b.String(), b.Args()
@@ -105,9 +105,9 @@ func main() {
         BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
             b.Write("UPDATE ").Write(b.Table()).Write(" SET ")
             b.EachAssignedColumn(b.Separate("", ",", ""), func(i int, column string, value any) {
-                b.Write(column).Write("=?").AddArgs(value)
+                b.Write(column).Write("=?", value)
             })
-            b.Write(" WHERE id=?").AddArgs(u2.Id)
+            b.Write(" WHERE id=?", u2.Id)
             return b.String(), b.Args()
         },
     })
@@ -133,10 +133,10 @@ func main() {
 
 字段标签为`gdao="<values>"`，`<values>`有如下选项，多个时使用`;`拼接。
 
-| 标签值                    | 说明                                                                                                                                                                                |
-|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `column=<column_name>` | `<column_name> ::= 数据库字段名`<br/>指定对应的数据库字段。                                                                                                                                        |
-| `auto[=<offset>]`      | `<offset> ::= 自增偏移量，可选，默认为1。`<br/>标记自增ID字段，执行INSERT语句后，会将`sql.Result#LastInsertId`方法的值映射到该字段。因此只对支持`sql.Result#LastInsertId`方法的数据库驱动有效，例如MySQL、SQLite等，不支持的例如Oracle、PostgreSQL等。 |
+| 标签值                    | 说明                                                                                                                                                                             |
+|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `column=<column_name>` | `<column_name> ::= 数据库字段名`<br/>指定对应的数据库字段。                                                                                                                                     |
+| `auto[=<offset>]`      | `<offset> ::= 自增偏移量，可选，默认为1。`<br/>标记自增ID字段，执行INSERT语句后，会将`sql.Result#LastInsertId`方法的值映射到该字段。只对支持`sql.Result#LastInsertId`方法的数据库驱动有效，例如MySQL、SQLite等，不支持的例如Oracle、PostgreSQL等。 |
 
 *Example:*
 
@@ -231,14 +231,14 @@ userDao := gdao.MustNewDao[User](gdao.NewDaoReq{
 *Example（MySQL驱动）:*
 
 ```go
-var UserRepository = UserDao{gdao.MustNewDao[User](gdao.NewDaoReq{Db: db, Table: "user"})}
-var AccountRepository = AccountDao{gdao.MustNewDao[Account](gdao.NewDaoReq{Db: db, Table: "account"})}
+var UserDao = userDao{gdao.MustNewDao[User](gdao.NewDaoReq{Db: db, Table: "user"})}
+var AccountDao = accountDao{gdao.MustNewDao[Account](gdao.NewDaoReq{Db: db, Table: "account"})}
 
-type UserDao struct {
+type userDao struct {
     gdao.Dao[User]
 }
 
-func (d UserDao) GetById(id int32) *User {
+func (d userDao) GetById(id int32) *User {
     first, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
         return "SELECT " + b.Columns() + " FROM " + b.Table() + " WHERE id=?", []any{id}
     }})
@@ -248,7 +248,7 @@ func (d UserDao) GetById(id int32) *User {
     return first
 }
 
-func (d UserDao) UpdateStatus(id int32, status int8) int64 {
+func (d userDao) UpdateStatus(id int32, status int8) int64 {
     affected, err := d.Mutation(gdao.MutationReq[User]{BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
         return "UPDATE " + b.Table() + " SET status=? WHERE id=?", []any{status, id}
     }}).Exec()
@@ -258,11 +258,11 @@ func (d UserDao) UpdateStatus(id int32, status int8) int64 {
     return affected
 }
 
-type AccountDao struct {
+type accountDao struct {
     gdao.Dao[Account]
 }
 
-func (d AccountDao) GetByUserId(userId int32) *Account {
+func (d accountDao) GetByUserId(userId int32) *Account {
     first, _, err := d.Query(gdao.QueryReq[Account]{BuildSql: func(b gdao.Builder[Account]) (sql string, args []any) {
         return "SELECT " + b.Columns() + " FROM " + b.Table() + " WHERE user_id=?", []any{userId}
     }})
@@ -272,7 +272,7 @@ func (d AccountDao) GetByUserId(userId int32) *Account {
     return first
 }
 
-func (d AccountDao) ReduceBalance(id int32, balance int64) bool {
+func (d accountDao) ReduceBalance(id int32, balance int64) bool {
     a, _, err := d.Query(gdao.QueryReq[Account]{BuildSql: func(b gdao.Builder[Account]) (sql string, args []any) {
         return "SELECT balance FROM " + b.Table() + " WHERE id=?", []any{balance, id}
     }})
@@ -384,7 +384,7 @@ _, list, err := userDao.Query(gdao.QueryReq[User]{
             Write(" WHERE ")
         b.EachAssignedColumn(b.Separate("", "AND", ""),
             func(i int, column string, value any) {
-                b.Write(column).Write("=?").AddArgs(value)
+                b.Write(column).Write("=?", value)
             })
         return b.String(), b.Args()
     }})
@@ -419,7 +419,7 @@ fmt.Println(json)
 ```go
 affected, err := userDao.Mutation(gdao.MutationReq[User]{
     BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-        b.Write("UPDATE ").Write(b.Table()).Write(" SET level=2 WHERE id=?").AddArgs(1)
+        b.Write("UPDATE ").Write(b.Table()).Write(" SET level=2 WHERE id=?", 1)
         return b.String(), b.Args()
     }}).Exec()
 if err != nil {
@@ -447,7 +447,7 @@ affected, err := userDao.Mutation(gdao.MutationReq[User]{
             Write("(").Write(b.Columns()).Write(") VALUES")
         b.EachEntity(b.Separate("", ",", ""), func(i int) {
             b.EachColumnAt(i, b.Separate("(", ",", ")"), func(i int, column string, value any) {
-                b.Write("?").AddArgs(value)
+                b.Write("?", value)
             })
         })
         return b.String(), b.Args()
@@ -482,7 +482,7 @@ affected, err := userDao.Mutation(gdao.MutationReq[User]{
             Write("(").Write(b.Columns()).Write(") VALUES")
         b.EachEntity(b.Separate("(", ",", ")"), func(i int) {
             b.EachColumnAt(i, b.Separate("", ",", ""), func(i int, column string, value any) {
-                b.Write(b.ArgN("$")).AddArgs(value)
+                b.Write(b.Ph("$"), value)
             })
         })
         b.Write(" RETURNING id")
@@ -515,7 +515,7 @@ affected, err := userDao.Mutation(gdao.MutationReq[User]{
             Write("(").Write(b.Columns()).Write(") VALUES")
         b.EachEntity(b.Separate("(", ",", ")"), func(i int) {
             b.EachColumnAt(i, b.Separate("", ",", ""), func(i int, column string, value any) {
-                b.Write(b.ArgN(":")).AddArgs(value)
+                b.Write(b.Ph(":"), value)
             })
         })
         b.Write(";")
@@ -546,9 +546,8 @@ DAO的`Query`和`Mutation`方法具有的`BuildeSql`和`Entities`参数用于动
 |----------------------|----------------------------------------------------|
 | `Table`              | 返回表名称                                              |
 | `Columns`            | 返回所有数据库字段，以`,`拼接                                   |
-| `Write`              | 拼接字符串                                              |
-| `AddArgs`            | 添加占位符对应参数                                          |
-| `ArgN`               | 返回带编号的占位符，编号从1开始，每次调用后递增1，适和用于PostgreSQL、Oracle等驱动 |
+| `Write`              | 拼接字符串并设置参数                                         |
+| `Ph`        | 返回带编号的占位符，编号从1开始，每次调用后递增1，适和用于PostgreSQL、Oracle等驱动 |
 | `Entity`             | 返回`Entities`中第一个实体值。                               |
 | `EntityAt`           | 返回`Entities`中指定索引的实体值                              |
 | `EachEntity`         | 遍历`Entities`，其`handle`函数参数的`i`参数为实体参数索引            |
@@ -589,9 +588,9 @@ userDao.Mutation(gdao.MutationReq[User]{Entities: users, BuildSql: func(b gdao.B
     {
         // 演示PostgreSQL驱动的参数占位符。
         b.Write("UPDATE ").Write(b.Table()).Write(" SET").
-            Write(" status=").Write(b.ArgN("$")).Write(",").
-            Write(" level=").Write(b.ArgN("$")).
-            Write(" WHERE id=").Write(b.ArgN("$")).AddArgs("3,10,1001")
+            Write(" status=").Write(b.Ph("$")).Write(",").
+            Write(" level=").Write(b.Ph("$")).
+            Write(" WHERE id=").Write(b.Ph("$"), "3,10,1001")
         fmt.Println(b.String())
         fmt.Println(b.Args())
         // Output:
@@ -622,12 +621,12 @@ userDao.Mutation(gdao.MutationReq[User]{Entities: users, BuildSql: func(b gdao.B
     }
     {
         b.EachColumn(b.Separate("", ",", ""), func(i int, column string, value any) {
-            b.Write(column)
             if value == nil {
-                b.AddArgs("nil")
+                value = "nil"
             } else {
-                b.AddArgs(reflect.ValueOf(value).Elem().Interface())
+                value = reflect.ValueOf(value).Elem().Interface()
             }
+            b.Write(column, value)
         })
         fmt.Println(b.String())
         fmt.Println(b.Args())
@@ -637,7 +636,7 @@ userDao.Mutation(gdao.MutationReq[User]{Entities: users, BuildSql: func(b gdao.B
     }
     {
         b.EachAssignedColumn(b.Separate("", ",", ""), func(i int, column string, value any) {
-            b.Write(column).AddArgs(reflect.ValueOf(value).Elem().Interface())
+            b.Write(column, reflect.ValueOf(value).Elem().Interface())
         })
         fmt.Println(b.String(), b.Args())
         // Output:
