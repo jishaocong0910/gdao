@@ -9,25 +9,27 @@ type DaoExport struct {
 	ColumnsWithComma       string
 	Columns                []string
 	ColumnToFieldIndexMap  map[string]int
-	AutoIncrementColumn    string
-	AutoIncrementOffset    int64
+	AutoIncrementColumns   []string
+	AutoIncrementStep      int64
 	AutoIncrementConvertor func(id int64) reflect.Value
 }
 
-func ExportDao[T any](dao Dao[T]) DaoExport {
+func ExportDao[T any](dao *Dao[T]) DaoExport {
 	return DaoExport{
-		Table:                  dao.table,
-		ColumnsWithComma:       dao.columnsWithComma,
-		Columns:                dao.columns,
-		ColumnToFieldIndexMap:  dao.columnToFieldIndexMap,
-		AutoIncrementColumn:    dao.autoIncrementColumn,
-		AutoIncrementOffset:    dao.autoIncrementOffset,
-		AutoIncrementConvertor: dao.autoIncrementConvertor,
+		Table:                  dao.p.Table,
+		ColumnsWithComma:       dao.p.CommaColumns,
+		Columns:                dao.p.Columns,
+		ColumnToFieldIndexMap:  dao.p.ColumnToFieldIndexMap,
+		AutoIncrementColumns:   dao.p.AutoIncrementColumns,
+		AutoIncrementStep:      dao.p.AutoIncrementStep,
+		AutoIncrementConvertor: dao.p.AutoIncrementConvertor,
 	}
 }
 
 var LastInsertIdConvertors = lastInsertIdConvertors
 
 var PrintSql = printSql
+var PrintArgs = printArgs
+var PrintAffected = printAffected
 var PrintWarn = printWarn
 var PrintError = printError

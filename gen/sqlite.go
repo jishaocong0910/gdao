@@ -9,7 +9,7 @@ import (
 )
 
 type sqliteGenerator struct {
-	c  Config
+	c  Conf
 	db *sql.DB
 }
 
@@ -118,7 +118,7 @@ func (g sqliteGenerator) getTableInfo(table string) (bool, []*field, string) {
 
 		f := &field{
 			Column:          column,
-			FieldName:       g.c.FieldNameMapper.Convert(column),
+			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,
 			IsAutoIncrement: isAutoIncrement,
 			Comment:         comment,
@@ -168,7 +168,7 @@ func (g sqliteGenerator) nextComment(st *stringTokenizer) string {
 	return string(st.chars[begin : st.pos-1])
 }
 
-func newSqliteGenerator(c Config) sqliteGenerator {
+func newSqliteGenerator(c Conf) sqliteGenerator {
 	db, err := sql.Open("sqlite3", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))

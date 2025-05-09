@@ -43,8 +43,8 @@ func TestMySql(t *testing.T) {
 	dsn, err := mysqlContainer.ConnectionString(ctx)
 	r.NoError(err)
 
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_MYSQL,
+	gen.GetGenerator(gen.Conf{
+		DbType:  gen.DB_MYSQL,
 		Dsn:     dsn,
 		OutPath: "testdata",
 		Tables: gen.Tables{"mysql": gen.FieldTypes{
@@ -54,17 +54,12 @@ func TestMySql(t *testing.T) {
 			"other4": "string",
 			"other5": "rune",
 		}},
+		GenDao: true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "mysql.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/mysql.golden")
-	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
-	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	defer os.Remove("testdata/base_dao.go")
+	compareFile(r, "testdata/mysql_entity.golden", "testdata/mysql.go")
+	compareFile(r, "testdata/mysql_dao.golden", "testdata/mysql_dao.go")
 }
 
 func TestOracle(t *testing.T) {
@@ -107,22 +102,17 @@ func TestOracle(t *testing.T) {
 	}
 	db.Close()
 
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_ORACLE,
+	gen.GetGenerator(gen.Conf{
+		DbType:  gen.DB_ORACLE,
 		Dsn:     dsn,
 		OutPath: "testdata",
 		Tables:  gen.Tables{"ORACLE": nil},
+		GenDao:  true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "oracle.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/oracle.golden")
-	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
-	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	defer os.Remove("testdata/base_dao.go")
+	compareFile(r, "testdata/oracle_entity.golden", "testdata/oracle.go")
+	compareFile(r, "testdata/oracle_dao.golden", "testdata/oracle_dao.go")
 }
 
 func TestPostgres(t *testing.T) {
@@ -151,22 +141,17 @@ func TestPostgres(t *testing.T) {
 	dsn, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	r.NoError(err)
 
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_POSTGRES,
+	gen.GetGenerator(gen.Conf{
+		DbType:  gen.DB_POSTGRES,
 		Dsn:     dsn,
 		OutPath: "testdata",
 		Tables:  gen.Tables{"postgres": nil},
+		GenDao:  true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "postgres.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/postgres.golden")
-	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
-	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	defer os.Remove("testdata/base_dao.go")
+	compareFile(r, "testdata/postgres_entity.golden", "testdata/postgres.go")
+	compareFile(r, "testdata/postgres_dao.golden", "testdata/postgres_dao.go")
 }
 
 // 由于容器镜像只支持Intel芯片，此用例只能在Intel芯片执行
@@ -203,49 +188,46 @@ func TestSqlServer(t *testing.T) {
 	}
 	db.Close()
 
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_SQLSERVER,
+	gen.GetGenerator(gen.Conf{
+		DbType:  gen.DB_SQLSERVER,
 		Dsn:     dsn,
 		OutPath: "testdata",
 		Tables:  gen.Tables{"sqlserver": nil},
+		GenDao:  true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "sqlserver.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/sqlserver.golden")
-	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
-	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	defer os.Remove("testdata/base_dao.go")
+	compareFile(r, "testdata/sqlserver_entity.golden", "testdata/sqlserver.go")
+	compareFile(r, "testdata/sqlserver_dao.golden", "testdata/sqlserver_dao.go")
 }
 
 func TestSqlite(t *testing.T) {
 	r := require.New(t)
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_SQLITE,
+	gen.GetGenerator(gen.Conf{
+		DbType:  gen.DB_SQLITE,
 		Dsn:     "testdata/sqlite.db",
 		OutPath: "testdata",
 		Tables:  gen.Tables{"sqlite": nil},
+		GenDao:  true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "sqlite.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/sqlite.golden")
+	defer os.Remove("testdata/base_dao.go")
+	compareFile(r, "testdata/sqlite_entity.golden", "testdata/sqlite.go")
+	compareFile(r, "testdata/sqlite_dao.golden", "testdata/sqlite_dao.go")
+}
+
+func compareFile(r *require.Assertions, golden, gen string) {
+	defer os.Remove(gen)
+	goldenEntity, err := os.ReadFile(golden)
 	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
+	genEntity, err := os.ReadFile(gen)
 	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	r.Equal(string(goldenEntity), string(genEntity))
 }
 
 func TestUnsupportedDb(t *testing.T) {
 	r := require.New(t)
 	r.PanicsWithValue("not support this db type yet", func() {
-		gen.GetGenerator(gen.Config{
-			DbType: gen.DbType(999),
-		})
+		gen.GetGenerator(gen.Conf{DbType: gen.DbType(999)})
 	})
 }

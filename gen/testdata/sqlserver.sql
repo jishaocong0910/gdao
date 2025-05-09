@@ -2,7 +2,7 @@ CREATE TABLE sqlserver
 (
     tinyint          tinyint,
     smallint         smallint,
-    int              int,
+    int              int IDENTITY(4,2),
     bigint           bigint,
     bit              bit,
     decimal          decimal,

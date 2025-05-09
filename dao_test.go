@@ -34,21 +34,19 @@ type Account struct {
 	Balance *int64
 }
 
-func mockUserDao(t *testing.T) (gdao.Dao[User], sqlmock.Sqlmock) {
+func mockUserDao(t *testing.T) (*gdao.Dao[User], sqlmock.Sqlmock) {
 	r := require.New(t)
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao, err := gdao.NewDao[User](gdao.NewDaoReq{Db: db, Table: "user"})
-	r.NoError(err)
+	dao := gdao.NewDao[User](gdao.NewDaoReq{Db: db, Table: "user"})
 	return dao, mock
 }
 
-func mockAccountDao(t *testing.T) (gdao.Dao[Account], sqlmock.Sqlmock) {
+func mockAccountDao(t *testing.T) (*gdao.Dao[Account], sqlmock.Sqlmock) {
 	r := require.New(t)
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao, err := gdao.NewDao[Account](gdao.NewDaoReq{Db: db, Table: "account", ColumnMapper: gdao.NewNameMapper().LowerSnakeCase()})
-	r.NoError(err)
+	dao := gdao.NewDao[Account](gdao.NewDaoReq{Db: db, Table: "account", ColumnMapper: gdao.NewNameMapper().LowerSnakeCase()})
 	return dao, mock
 }
 
@@ -62,8 +60,8 @@ func TestNewDao(t *testing.T) {
 		r.Contains(export.Columns, "id", "name", "age", "address", "phone", "email", "status", "level", "create_at")
 		r.Equal(9, len(export.ColumnToFieldIndexMap))
 		r.Contains(export.ColumnToFieldIndexMap, "id", "name", "age", "address", "phone", "email", "status", "level", "create_at")
-		r.Equal("id", export.AutoIncrementColumn)
-		r.Equal(int64(1), export.AutoIncrementOffset)
+		r.Contains(export.AutoIncrementColumns, "id")
+		r.Equal(int64(1), export.AutoIncrementStep)
 		r.NotNil(export.AutoIncrementConvertor)
 	}
 	{
@@ -74,8 +72,8 @@ func TestNewDao(t *testing.T) {
 		r.Contains(export.Columns, "id", "other_id", "user_id", "status", "balance")
 		r.Equal(5, len(export.ColumnToFieldIndexMap))
 		r.Contains(export.ColumnToFieldIndexMap, "id", "other_id", "user_id", "status", "balance")
-		r.Equal("id", export.AutoIncrementColumn)
-		r.Equal(int64(2), export.AutoIncrementOffset)
+		r.Contains(export.AutoIncrementColumns, "id")
+		r.Equal(int64(2), export.AutoIncrementStep)
 		r.NotNil(export.AutoIncrementConvertor)
 	}
 }
@@ -127,11 +125,11 @@ func TestDao_Query(t *testing.T) {
 			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows([]string{"id", "name", "age", "address", "phone", "email", "status", "level", "create_at"}).
 			AddRow(1, "foo", 1, "bar", "123456", "foo@gmail", 2, 1, createAt))
 		user, users, err := dao.Query(gdao.QueryReq[User]{
-			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-				b.Write("SELECT ").Write(b.Columns()).
-					Write(" FROM ").Write(b.Table()).
+			BuildSql: func(b *gdao.Builder[User]) (ok bool) {
+				b.Write("SELECT ").WriteCommaColumns().
+					Write(" FROM ").WriteTable().
 					Write(" WHERE id=? AND status=?", 1, 2)
-				return b.String(), b.Args()
+				return true
 			},
 		})
 		r.NoError(err)
@@ -159,15 +157,15 @@ func TestDao_Query(t *testing.T) {
 			AddRow(1, "foo", 1, "bar", "123456", "foo@gmail", 2, 1, createAt))
 		_, _, err := dao.Query(gdao.QueryReq[User]{
 			Entities: []*User{user},
-			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-				b.Write("SELECT ").Write(b.Columns())
-				b.Write(" FROM ").Write(b.Table())
+			BuildSql: func(b *gdao.Builder[User]) (ok bool) {
+				b.Write("SELECT ").WriteCommaColumns()
+				b.Write(" FROM ").WriteTable()
 				b.Write(" WHERE ")
 				e := b.Entity()
-				b.Write("status=").Write(b.Ph("$"), e.Status)
-				b.Write(" AND ").Write("level=").Write(b.Ph("$"), e.Level)
-				b.Write(" AND ").Write("create_at=").Write(b.Ph("$"), e.CreateAt)
-				return b.String(), b.Args()
+				b.Write("status=").Write(b.Pp("$"), e.Status)
+				b.Write(" AND ").Write("level=").Write(b.Pp("$"), e.Level)
+				b.Write(" AND ").Write("create_at=").Write(b.Pp("$"), e.CreateAt)
+				return true
 			},
 		})
 		r.NoError(err)
@@ -189,13 +187,14 @@ func TestMutationDao_Exec(t *testing.T) {
 			ExpectExec().WithArgs(user.Address, user.Phone, user.Status, user.Level, 1001).WillReturnResult(sqlmock.NewResult(0, 1))
 		affected, err := dao.Mutation(gdao.MutationReq[User]{
 			Entities: []*User{user},
-			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-				b.Write("UPDATE ").Write(b.Table()).Write(" SET ")
-				b.EachAssignedColumn(b.Sep("", ",", ""), func(i int, column string, value any) {
+			BuildSql: func(b *gdao.Builder[User]) (ok bool) {
+				b.Write("UPDATE ").WriteTable().Write(" SET ")
+				cvs, _ := b.ColumnValues(true)
+				b.EachColumnValues(cvs, b.Sep(","), func(column string, value any) {
 					b.Write(column).Write("=?", value)
 				})
 				b.Write(" WHERE id=?", 1001)
-				return b.String(), b.Args()
+				return true
 			},
 		}).Exec()
 
@@ -218,15 +217,16 @@ func TestMutationDao_Exec(t *testing.T) {
 			WillReturnResult(sqlmock.NewResult(1, 1))
 		affected, err := dao.Mutation(gdao.MutationReq[User]{
 			Entities: []*User{user},
-			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-				b.Write("INSERT ").Write(b.Table())
-				b.EachAssignedColumn(b.Sep("(", ",", ")"), func(i int, column string, value any) {
+			BuildSql: func(b *gdao.Builder[User]) (ok bool) {
+				b.Write("INSERT ").WriteTable()
+				cvs, _ := b.ColumnValues(true)
+				b.EachColumnValues(cvs, b.SepFix("(", ",", ")"), func(column string, value any) {
 					b.Write(column)
 				})
-				b.EachAssignedColumn(b.Sep(" VALUES(", ",", ")"), func(i int, column string, value any) {
+				b.EachColumnValues(cvs, b.SepFix(" VALUES(", ",", ")"), func(column string, value any) {
 					b.Write("?", value)
 				})
-				return b.String(), b.Args()
+				return true
 			},
 		}).Exec()
 
@@ -250,14 +250,15 @@ func TestMutationDao_Exec(t *testing.T) {
 			WillReturnResult(sqlmock.NewResult(0, 2))
 		affected, err := dao.Mutation(gdao.MutationReq[User]{
 			Entities: []*User{user},
-			BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-				b.Write("INSERT ").Write(b.Table()).Write("(").Write(b.Columns()).Write(") VALUES(")
-				b.EachColumn(b.Sep("", ",", ""),
-					func(i int, column string, value any) {
+			BuildSql: func(b *gdao.Builder[User]) (ok bool) {
+				b.Write("INSERT ").WriteTable().Write("(").WriteCommaColumns().Write(") VALUES(")
+				cvs, _ := b.ColumnValues(false)
+				b.EachColumnValues(cvs, b.Sep(","),
+					func(column string, value any) {
 						b.Write("?", value)
 					})
 				b.Write(")")
-				return b.String(), b.Args()
+				return true
 			},
 		}).Insert()
 
@@ -287,19 +288,20 @@ func TestMutationDao_Insert(t *testing.T) {
 	}
 	mock.ExpectPrepare(`INSERT user\(`+export.ColumnsWithComma+`\) VALUES\(\?,\?,\?,\?,\?,\?,\?,\?,\?\),\(\?,\?,\?,\?,\?,\?,\?,\?,\?\)`).
 		ExpectExec().
-			WithArgs(users[0].Id, users[0].Name, users[0].Age, users[0].Address, users[0].Phone, users[0].Email, users[0].Status, users[0].Level, users[0].CreateAt,
-				users[1].Id, users[1].Name, users[1].Age, users[1].Address, users[1].Phone, users[1].Email, users[1].Status, users[1].Level, users[1].CreateAt).
+		WithArgs(users[0].Id, users[0].Name, users[0].Age, users[0].Address, users[0].Phone, users[0].Email, users[0].Status, users[0].Level, users[0].CreateAt,
+			users[1].Id, users[1].Name, users[1].Age, users[1].Address, users[1].Phone, users[1].Email, users[1].Status, users[1].Level, users[1].CreateAt).
 		WillReturnResult(sqlmock.NewResult(1001, 2))
 	affected, err := dao.Mutation(gdao.MutationReq[User]{
 		Entities: users,
-		BuildSql: func(b gdao.Builder[User]) (sql string, args []any) {
-			b.Write("INSERT ").Write(b.Table()).Write("(").Write(b.Columns()).Write(") VALUES")
-			b.EachEntity(b.Sep("", ",", ""), func(i int, e *User) {
-				b.EachColumnAt(i, b.Sep("(", ",", ")"), func(i int, column string, value any) {
+		BuildSql: func(b *gdao.Builder[User]) (ok bool) {
+			b.Write("INSERT ").WriteTable().Write("(").WriteCommaColumns().Write(") VALUES")
+			b.EachEntity(b.Sep(","), func(n, i int, entity *User) {
+				cvs, _ := b.ColumnValuesAt(entity, false)
+				b.EachColumnValues(cvs, b.SepFix("(", ",", ")"), func(column string, value any) {
 					b.Write("?", value)
 				})
 			})
-			return b.String(), b.Args()
+			return true
 		},
 	}).Insert()
 
@@ -331,13 +333,13 @@ func TestMutationDao_Query(t *testing.T) {
 		WillReturnRows(mock.NewRows([]string{"id"}).AddRow(2001).AddRow(2002))
 	affected, err := dao.Mutation(gdao.MutationReq[Account]{
 		Entities: accounts,
-		BuildSql: func(b gdao.Builder[Account]) (sql string, args []any) {
-			b.Write("INSERT ").Write(b.Table()).Write("(user_id,status,balance) VALUES")
-			b.EachEntity(b.Sep("", ",", ""), func(i int, e *Account) {
-				b.Write("(?,?,?)", e.UserId, e.Status, e.Balance)
+		BuildSql: func(b *gdao.Builder[Account]) (ok bool) {
+			b.Write("INSERT ").WriteTable().Write("(user_id,status,balance) VALUES")
+			b.EachEntity(b.Sep(","), func(n, i int, entity *Account) {
+				b.Write("(?,?,?)", entity.UserId, entity.Status, entity.Balance)
 			})
 			b.Write(" RETURNING id")
-			return b.String(), b.Args()
+			return true
 		},
 	}).Query()
 
@@ -351,23 +353,18 @@ func TestMutationDao_Query(t *testing.T) {
 func TestMustNewDao(t *testing.T) {
 	r := require.New(t)
 	{
-		r.PanicsWithError("db must not be nil", func() {
-			gdao.MustNewDao[User](gdao.NewDaoReq{})
+		r.PanicsWithValue("table must not be blank", func() {
+			gdao.NewDao[User](gdao.NewDaoReq{Db: &sql.DB{}})
 		})
 	}
 	{
-		r.PanicsWithError("table must not be blank", func() {
-			gdao.MustNewDao[User](gdao.NewDaoReq{Db: &sql.DB{}})
-		})
-	}
-	{
-		r.PanicsWithError("generics must be struct", func() {
-			gdao.MustNewDao[*User](gdao.NewDaoReq{Db: &sql.DB{}, Table: "user"})
+		r.PanicsWithValue("generics must be struct type", func() {
+			gdao.NewDao[*User](gdao.NewDaoReq{Db: &sql.DB{}, Table: "user"})
 		})
 	}
 	{
 		r.NotPanics(func() {
-			gdao.MustNewDao[User](gdao.NewDaoReq{Db: &sql.DB{}, Table: "user"})
+			gdao.NewDao[User](gdao.NewDaoReq{Db: &sql.DB{}, Table: "user"})
 		})
 	}
 }

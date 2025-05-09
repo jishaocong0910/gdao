@@ -10,7 +10,7 @@ import (
 )
 
 type sqlServerGenerator struct {
-	c  Config
+	c  Conf
 	db *sql.DB
 }
 
@@ -21,20 +21,24 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*field, string) 
 		tableComment string
 	)
 
-	rows := mustReturn(g.db.Query("SELECT B.name AS column_name, C.DATA_TYPE AS data_type, D.value AS comment FROM sys.tables A LEFT JOIN sys.columns B ON A.object_id = B.object_id LEFT JOIN information_schema.columns C ON B.name = C.column_name LEFT JOIN sys.extended_properties D ON B.object_id = D.major_id AND B.column_id = D.minor_id WHERE A.name = :1", table))
+	rows := mustReturn(g.db.Query("SELECT B.name, C.increment_value, D.data_type, E.value AS comment FROM sys.tables A LEFT JOIN sys.columns B ON A.object_id = B.object_id LEFT JOIN sys.identity_columns C ON A.object_id =C.object_id and B.name=C.name LEFT JOIN information_schema.columns D ON B.name = D.column_name LEFT JOIN sys.extended_properties E ON B.object_id = E.major_id AND B.column_id = E.minor_id WHERE A.name = :1 AND D.table_name = :2 ORDER BY D.ordinal_position", table, table))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
 		var (
-			column    string
-			dataType  string
-			comment   *string
-			fieldType string
+			column         string
+			dataType       string
+			comment        *string
+			fieldType      string
+			incrementValue *int
 		)
-		mustNoError(rows.Scan(&column, &dataType, &comment))
+		mustNoError(rows.Scan(&column, &incrementValue, &dataType, &comment))
 		dataType = strings.ToLower(dataType)
 		if comment == nil {
 			comment = gdao.Ptr("")
+		}
+		if incrementValue == nil {
+			incrementValue = gdao.Ptr(0)
 		}
 
 		fieldType = "any"
@@ -62,11 +66,13 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*field, string) 
 		}
 
 		f := &field{
-			Column:    column,
-			FieldName: g.c.FieldNameMapper.Convert(column),
-			FieldType: fieldType,
-			Comment:   *comment,
-			Valid:     fieldType != "any",
+			Column:            column,
+			FieldName:         fieldNameMapper.Convert(column),
+			FieldType:         fieldType,
+			Comment:           *comment,
+			Valid:             fieldType != "any",
+			IsAutoIncrement:   *incrementValue > 0,
+			AutoIncrementStep: *incrementValue,
 		}
 		fields = append(fields, f)
 	}
@@ -80,7 +86,7 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*field, string) 
 	return exists, fields, tableComment
 }
 
-func newSqlServerGenerator(c Config) sqlServerGenerator {
+func newSqlServerGenerator(c Conf) sqlServerGenerator {
 	db, err := sql.Open("mssql", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))

@@ -10,80 +10,78 @@ import (
 )
 
 type MockLogger struct {
-	DebugMsg  string
-	DebugArgs []any
-	InfoMsg   string
-	InfoArgs  []any
-	WarnMsg   string
-	WarnArgs  []any
-	ErrorMsg  string
-	ErrorArgs []any
+	msg  string
+	args []any
 }
 
 func (d *MockLogger) Debugf(ctx context.Context, msg string, args ...interface{}) {
-	d.DebugMsg = msg
-	d.DebugArgs = append(d.DebugArgs, args...)
+	d.msg = msg
+	d.args = args
 }
 
 func (d *MockLogger) Infof(ctx context.Context, msg string, args ...interface{}) {
-	d.InfoMsg = msg
-	d.InfoArgs = append(d.InfoArgs, args...)
+	d.msg = msg
+	d.args = args
 }
 
 func (d *MockLogger) Warnf(ctx context.Context, msg string, args ...interface{}) {
-	d.WarnMsg = msg
-	d.WarnArgs = append(d.WarnArgs, args...)
+	d.msg = msg
+	d.args = args
 }
 
 func (d *MockLogger) Errorf(ctx context.Context, msg string, args ...interface{}) {
-	d.ErrorMsg = msg
-	d.ErrorArgs = append(d.ErrorArgs, args...)
+	d.msg = msg
+	d.args = args
 }
 
 func TestPrintSql(t *testing.T) {
 	r := require.New(t)
 	{
 		log := &MockLogger{}
-		gdao.Log.Logger = log
-		gdao.Log.PrintSqlLogLevel = gdao.LOG_LEVEL_DEBUG
-		gdao.PrintSql(nil, "SELECT * FROM user WHERE id=? AND status=? AND level=?", []any{gdao.Ptr(1), 2, nil})
-		r.Equal("SQL: SELECT * FROM user WHERE id=? AND status=? AND level=?\nArgs: %v", log.DebugMsg)
-		r.Equal(1, log.DebugArgs[0])
-		r.Equal(2, log.DebugArgs[1])
-		r.Nil(log.DebugArgs[2])
+		gdao.LogConf(log, gdao.LOG_LEVEL_DEBUG)
+		gdao.PrintSql(nil, "SELECT * FROM user WHERE id=? AND status=? AND level=?")
+		r.Equal("SQL: %s", log.msg)
+		r.Equal("SELECT * FROM user WHERE id=? AND status=? AND level=?", log.args[0])
+		gdao.PrintArgs(nil, []any{gdao.Ptr(1), 2, nil, (*int)(nil)})
+		r.Equal("Args: %v", log.msg)
+		args := log.args[0].([]any)
+		r.Equal(4, len(args))
+		r.Equal(1, args[0])
+		r.Equal(2, args[1])
+		r.Equal(nil, args[2])
+		r.Equal(nil, args[3])
+		gdao.PrintAffected(nil, 2)
+		r.Equal("Affected: %d", log.msg)
+
 	}
 	{
 		log := &MockLogger{}
-		gdao.Log.Logger = log
-		gdao.Log.PrintSqlLogLevel = gdao.LOG_LEVEL_INFO
-		gdao.PrintSql(nil, "SELECT * FROM user WHERE id=? AND status=? AND level=?", []any{gdao.Ptr(1), (*int)(nil), nil})
-		r.Equal("SQL: SELECT * FROM user WHERE id=? AND status=? AND level=?\nArgs: %v", log.InfoMsg)
-		r.Equal(1, log.InfoArgs[0])
-		r.Nil(log.InfoArgs[1])
-		r.Nil(log.InfoArgs[2])
+		gdao.LogConf(log, gdao.LOG_LEVEL_INFO)
+		gdao.PrintSql(nil, "test")
+		r.Equal("SQL: %s", log.msg)
+		r.Equal("test", log.args[0])
 	}
 	{
 		log := &MockLogger{}
-		gdao.Log.Logger = log
-		gdao.Log.PrintSqlLogLevel = gdao.LOG_LEVEL_INFO
-		gdao.PrintSql(nil, "SELECT * FROM user WHERE id=1", nil)
-		r.Equal("SQL: SELECT * FROM user WHERE id=1", log.InfoMsg)
-		r.Nil(log.InfoArgs)
+		gdao.LogConf(log, gdao.LOG_LEVEL_INFO)
+		gdao.PrintAffected(nil, 2)
+		r.Equal("Affected: %d", log.msg)
+		r.Equal(int64(2), log.args[0])
 	}
 }
 
 func TestPrintWarn(t *testing.T) {
 	r := require.New(t)
 	log := &MockLogger{}
-	gdao.Log.Logger = log
+	gdao.LogConf(log, 0)
 	gdao.PrintWarn(nil, errors.New("warn"))
-	r.Equal("warn", log.WarnMsg)
+	r.Equal("warn", log.msg)
 }
 
 func TestPrintError(t *testing.T) {
 	r := require.New(t)
 	log := &MockLogger{}
-	gdao.Log.Logger = log
+	gdao.LogConf(log, 0)
 	gdao.PrintError(nil, errors.New("error"))
-	r.Equal("error", log.ErrorMsg)
+	r.Equal("error", log.msg)
 }

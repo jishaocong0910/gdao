@@ -20,25 +20,23 @@ type Logger interface {
 	Errorf(context.Context, string, ...any)
 }
 
-var Log = func() struct {
-	Logger           Logger
-	PrintSqlLogLevel logLevel
-} {
-	return struct {
-		Logger           Logger
-		PrintSqlLogLevel logLevel
-	}{}
-}()
+func LogConf(log Logger, level logLevel) {
+	logger = log
+	printSqlLogLevel = level
+}
 
-func printSql(ctx context.Context, sql string, args []any) {
-	if Log.Logger == nil || Log.PrintSqlLogLevel == 0 { // coverage-ignore
-		return
-	}
+var logger Logger
+var printSqlLogLevel logLevel
 
-	msg := "SQL: " + sql
+func printSql(ctx context.Context, sql string) {
+	printSqlLog(ctx, "SQL: %s", sql)
+}
+
+func printArgs(ctx context.Context, args []any) {
+	msg := ""
 	var argValues []any
 	if len(args) > 0 {
-		msg += "\nArgs: %v"
+		msg = "Args: %v"
 		argValues = make([]any, 0, len(args))
 		for _, a := range args {
 			if a == nil {
@@ -57,25 +55,35 @@ func printSql(ctx context.Context, sql string, args []any) {
 			}
 		}
 	}
+	printSqlLog(ctx, msg, argValues)
+}
 
-	switch Log.PrintSqlLogLevel {
+func printAffected(ctx context.Context, affected int64) {
+	printSqlLog(ctx, "Affected: %d", affected)
+}
+
+func printSqlLog(ctx context.Context, msg string, args ...any) {
+	if logger == nil || printSqlLogLevel == 0 || msg == "" { // coverage-ignore
+		return
+	}
+	switch printSqlLogLevel {
 	case LOG_LEVEL_DEBUG:
-		Log.Logger.Debugf(ctx, msg, argValues...)
+		logger.Debugf(ctx, msg, args...)
 	case LOG_LEVEL_INFO:
-		Log.Logger.Infof(ctx, msg, argValues...)
+		logger.Infof(ctx, msg, args...)
 	}
 }
 
 func printWarn(ctx context.Context, err error) {
-	if Log.Logger == nil || err == nil { // coverage-ignore
+	if logger == nil || err == nil { // coverage-ignore
 		return
 	}
-	Log.Logger.Warnf(ctx, fmt.Sprintf("%v", err))
+	logger.Warnf(ctx, fmt.Sprintf("%v", err))
 }
 
 func printError(ctx context.Context, err error) {
-	if Log.Logger == nil || err == nil { // coverage-ignore
+	if logger == nil || err == nil { // coverage-ignore
 		return
 	}
-	Log.Logger.Errorf(ctx, fmt.Sprintf("%v", err))
+	logger.Errorf(ctx, fmt.Sprintf("%v", err))
 }
