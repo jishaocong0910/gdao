@@ -126,12 +126,13 @@ func (d BaseDao[T]) InsertBatch(ctx context.Context, tx *sql.Tx, entities []*T, 
 //
 //	@param entity       Update values.
 //	@param onlyAssigned If true, update non-nil fields of the entity, otherwise, all fields will be updated.
+//	@param whereColumns Specify the non-nil fields in the entity used as conditions.
 //	@param cond         Conditions of where clause.
-func (d BaseDao[T]) Update(ctx context.Context, tx *sql.Tx, entity *T, onlyAssigned bool, cond Condition) (int64, error) {
+func (d BaseDao[T]) Update(ctx context.Context, tx *sql.Tx, entity *T, onlyAssigned bool, whereColumns []string, cond Condition) (int64, error) {
 	return d.Mutation(gdao.MutationReq[T]{Ctx: ctx, Tx: tx, Entities: []*T{entity},
 		BuildSql: func(b *gdao.Builder[T]) (ok bool) {
 			b.Write("UPDATE ").WriteTable().Write(" SET ")
-			setCvs, _ := b.ColumnValues(onlyAssigned)
+			setCvs, whereCvs := b.ColumnValues(onlyAssigned, whereColumns...)
 			b.EachColumnValues(setCvs, b.Sep(","), func(column string, value any) {
 				ok = true
 				b.Write(column).Write("=")` + tplWrPp + `.Arg(value)
@@ -140,8 +141,25 @@ func (d BaseDao[T]) Update(ctx context.Context, tx *sql.Tx, entity *T, onlyAssig
 				return
 			}
 			b.Write(" WHERE ")
+
+			var whereCond Condition
+			if len(whereCvs) > 0 {
+				var conds []Condition
+				for _, cv := range whereCvs {
+					conds = append(conds, Eq(cv.Column, cv.Value))
+				}
+				whereCond = And(conds...)
+				if cond != nil {
+					whereCond = And(whereCond, cond)
+				}
+			} else if cond != nil {
+				whereCond = cond
+			} else {
+				return false
+			}
+			
 			p := d.daoP.GetBuilderProt(b)
-			ok = cond.write(p)
+			ok = whereCond.write(p)
 			return
 		}}).Exec()
 }
