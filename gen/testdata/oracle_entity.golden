@@ -5,6 +5,7 @@ package testdata
 import "time"
 
 // Oracle oracle
+// table: ORACLE
 type Oracle struct {
 	// Char
 	Char *string `gdao:"column=char"`

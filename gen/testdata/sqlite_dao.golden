@@ -4,7 +4,7 @@ package testdata
 
 import "github.com/jishaocong0910/gdao"
 
-var SqliteDao = _SqliteDao{newBaseDao[Sqlite](gdao.NewDaoReq{Table: "sqlite"})}
+var SqliteDao = _SqliteDao{newBaseDao[Sqlite](gdao.NewDaoReq{}, "sqlite")}
 
 type _SqliteDao struct {
 	*BaseDao[Sqlite]

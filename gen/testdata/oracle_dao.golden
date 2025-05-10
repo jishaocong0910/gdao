@@ -4,7 +4,7 @@ package testdata
 
 import "github.com/jishaocong0910/gdao"
 
-var OracleDao = _OracleDao{newBaseDao[Oracle](gdao.NewDaoReq{Table: "ORACLE"})}
+var OracleDao = _OracleDao{newBaseDao[Oracle](gdao.NewDaoReq{}, "ORACLE")}
 
 type _OracleDao struct {
 	*BaseDao[Oracle]

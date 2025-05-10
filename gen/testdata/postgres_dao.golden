@@ -4,7 +4,7 @@ package testdata
 
 import "github.com/jishaocong0910/gdao"
 
-var PostgresDao = _PostgresDao{newBaseDao[Postgres](gdao.NewDaoReq{Table: "postgres"})}
+var PostgresDao = _PostgresDao{newBaseDao[Postgres](gdao.NewDaoReq{}, "postgres")}
 
 type _PostgresDao struct {
 	*BaseDao[Postgres]

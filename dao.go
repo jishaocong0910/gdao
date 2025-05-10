@@ -10,7 +10,6 @@ import (
 )
 
 type NewDaoReq struct {
-	Table        string
 	Db           *sql.DB
 	ColumnMapper *NameMapper
 }
@@ -33,14 +32,14 @@ type QueryReq[T any] struct {
 	Ctx      context.Context
 	Tx       *sql.Tx
 	Entities []*T
-	BuildSql func(b *Builder[T]) (ok bool)
+	BuildSql func(b *Builder[T])
 }
 
 type MutationReq[T any] struct {
 	Ctx      context.Context
 	Tx       *sql.Tx
 	Entities []*T
-	BuildSql func(b *Builder[T]) (ok bool)
+	BuildSql func(b *Builder[T])
 }
 
 func Ptr[T any](t T) *T {
@@ -55,16 +54,13 @@ func ExtendDao[T any](req NewDaoReq) (*Dao[T], *DaoProt[T]) {
 func NewDao[T any](req NewDaoReq) *Dao[T] {
 	dao := &Dao[T]{}
 	dao.p = newDaoProtected(dao)
-	if req.Table == "" {
-		panic("table must not be blank")
-	}
+
 	t := reflect.TypeOf((*T)(nil)).Elem()
 	if t.Kind() != reflect.Struct {
 		panic("generics must be struct type")
 	}
 
 	dao.p.Db = req.Db
-	dao.p.Table = req.Table
 	dao.p.ColumnToFieldIndexMap = make(map[string]int)
 
 	for i := 0; i < t.NumField(); i++ {
@@ -144,7 +140,6 @@ func newDaoProtected[T any](dao *Dao[T]) *DaoProt[T] {
 type DaoProt[T any] struct {
 	dao                    *Dao[T]
 	Db                     *sql.DB
-	Table                  string
 	CommaColumns           string
 	Columns                []string
 	ColumnToFieldIndexMap  map[string]int
@@ -179,20 +174,11 @@ func (d *Dao[T]) Db() *sql.DB {
 	return d.p.Db
 }
 
-func (d *Dao[T]) RawQuery(req RawQueryReq) (rows *sql.Rows, closeFunc func(), err error) {
-	rows, _, closeFunc, err = d.query(req.Ctx, req.Tx, req.Sql, req.Args)
-	return
-}
-
-func (d *Dao[T]) RawMutation(req RawMutationReq) (result sql.Result, err error) {
-	return d.exec(req.Ctx, req.Tx, req.Sql, req.Args)
-}
-
 func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	list = make([]*T, 0)
 	b := newBuilder(d, req.Entities)
-	ok := req.BuildSql(b)
-	if !ok {
+	req.BuildSql(b)
+	if !b.Ok() {
 		return
 	}
 	rows, columns, closeFunc, err := d.query(req.Ctx, req.Tx, b.p.String(), b.p.args)
@@ -307,8 +293,8 @@ type mutationDao[T any] struct {
 
 func (d *mutationDao[T]) Exec() (affected int64, err error) {
 	b := newBuilder(d.Dao, d.req.Entities)
-	ok := d.req.BuildSql(b)
-	if !ok { // coverage-ignore
+	d.req.BuildSql(b)
+	if !b.Ok() { // coverage-ignore
 		return 0, nil
 	}
 	result, err := d.exec(d.req.Ctx, d.req.Tx, b.p.String(), b.p.args)
@@ -322,8 +308,8 @@ func (d *mutationDao[T]) Exec() (affected int64, err error) {
 
 func (d *mutationDao[T]) Insert() (affected int64, err error) {
 	b := newBuilder(d.Dao, d.req.Entities)
-	ok := d.req.BuildSql(b)
-	if !ok {
+	d.req.BuildSql(b)
+	if !b.Ok() {
 		return 0, nil
 	}
 	result, err := d.exec(d.req.Ctx, d.req.Tx, b.p.String(), b.p.args)
@@ -350,8 +336,8 @@ func (d *mutationDao[T]) Insert() (affected int64, err error) {
 
 func (d *mutationDao[T]) Query() (affected int64, err error) {
 	b := newBuilder(d.Dao, d.req.Entities)
-	ok := d.req.BuildSql(b)
-	if !ok { // coverage-ignore
+	d.req.BuildSql(b)
+	if !b.Ok() { // coverage-ignore
 		return 0, nil
 	}
 	rows, queriedColumns, closeFunc, err := d.query(d.req.Ctx, d.req.Tx, b.p.String(), b.p.args)

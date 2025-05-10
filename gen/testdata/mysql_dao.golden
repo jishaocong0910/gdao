@@ -4,7 +4,7 @@ package testdata
 
 import "github.com/jishaocong0910/gdao"
 
-var MysqlDao = _MysqlDao{newBaseDao[Mysql](gdao.NewDaoReq{Table: "mysql"})}
+var MysqlDao = _MysqlDao{newBaseDao[Mysql](gdao.NewDaoReq{}, "mysql")}
 
 type _MysqlDao struct {
 	*BaseDao[Mysql]

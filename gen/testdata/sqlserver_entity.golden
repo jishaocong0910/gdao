@@ -4,6 +4,8 @@ package testdata
 
 import "time"
 
+// Sqlserver sqlserver
+// table: sqlserver
 type Sqlserver struct {
 	// Tinyint
 	Tinyint *uint `gdao:"column=tinyint"`

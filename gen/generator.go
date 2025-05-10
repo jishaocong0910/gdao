@@ -34,11 +34,12 @@ type Generator struct {
 
 func (g Generator) Gen() {
 	log.Println("start generating...")
+	log.Printf("full output path: %s", g.c.OutPath)
 	var entities []entity
 	for table, fieldTypes := range g.c.Tables {
 		exists, fields, comment := g.d.getTableInfo(table)
 		if !exists {
-			log.Printf("table %s is not exists", table)
+			log.Printf("table \"%s\" is not exists.", table)
 			continue
 		}
 		e := entity{
@@ -80,7 +81,6 @@ func (g Generator) Gen() {
 	}
 
 	g.createOutPath()
-	log.Printf("full output path: %s", g.c.OutPath)
 	if g.c.GenDao {
 		b := baseDao{
 			DbType:  g.c.DbType,
@@ -90,7 +90,7 @@ func (g Generator) Gen() {
 		if err != nil {
 			log.Printf("create base dao fail: %+v\n", err)
 		} else {
-			log.Println("create base dao success")
+			log.Println("create base dao success.")
 		}
 	}
 	for _, e := range entities {
@@ -98,18 +98,18 @@ func (g Generator) Gen() {
 		if err != nil {
 			log.Printf("create entity of table \"%s\" is fail, error: %+v\n", e.Table, err)
 		} else {
-			log.Printf("create entity of table \"%s\" is success\n", e.Table)
+			log.Printf("create entity of table \"%s\" is success.\n", e.Table)
 		}
 		if g.c.GenDao {
 			err := g.createFile(e.DaoFileName, false, tplDao, e)
 			if err != nil {
 				log.Printf("create dao of table \"%s\" is fail, error: %+v\n", e.Table, err)
 			} else {
-				log.Printf("create dao of table \"%s\" is success\n", e.Table)
+				log.Printf("create dao of table \"%s\" is success.\n", e.Table)
 			}
 		}
 	}
-	log.Println("finish generating")
+	log.Println("finish generating.")
 }
 
 func (g Generator) createOutPath() {

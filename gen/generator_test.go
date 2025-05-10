@@ -74,7 +74,7 @@ func TestOracle(t *testing.T) {
 			"APP_USER_PASSWORD":      "12345678",
 			"ORACLE_RANDOM_PASSWORD": "yes",
 		},
-		WaitingFor: wait.ForLog("DATABASE IS READY TO USE!").WithStartupTimeout(time.Minute * 3),
+		WaitingFor: wait.ForLog("DATABASE IS READY TO USE!").WithStartupTimeout(time.Minute * 5),
 	}
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
@@ -163,6 +163,7 @@ func TestSqlServer(t *testing.T) {
 		"mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04",
 		mssql.WithAcceptEULA(),
 		mssql.WithPassword("SuperStrong@PassWord"),
+		testcontainers.WithWaitStrategy(wait.ForLog("Recovery is complete.").WithStartupTimeout(time.Minute*5)),
 	)
 	r.NoError(err)
 	defer func() {

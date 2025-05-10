@@ -10,6 +10,7 @@ type BuilderProt struct {
 	b      strings.Builder
 	args   []any
 	argNum int
+	ok     bool
 }
 
 func (p *BuilderProt) NextArgNum() int {
@@ -33,6 +34,14 @@ func (p *BuilderProt) Args() []any {
 	return p.args
 }
 
+func (p *BuilderProt) SetOk(ok bool) {
+	p.ok = ok
+}
+
+func (p *BuilderProt) Ok() bool {
+	return p.ok
+}
+
 type Builder[T any] struct {
 	dao      *Dao[T]
 	entities []*T
@@ -47,11 +56,6 @@ func (b *Builder[T]) Write(str string, args ...any) *Builder[T] {
 
 func (b *Builder[T]) Arg(a any) *Builder[T] {
 	b.p.SetArgs(a)
-	return b
-}
-
-func (b *Builder[T]) WriteTable() *Builder[T] {
-	b.Write(b.dao.p.Table)
 	return b
 }
 
@@ -234,6 +238,14 @@ func (b *Builder[T]) Sql() string {
 
 func (b *Builder[T]) Args() []any {
 	return b.p.Args()
+}
+
+func (b *Builder[T]) SetOk(ok bool) {
+	b.p.SetOk(ok)
+}
+
+func (b *Builder[T]) Ok() bool {
+	return b.p.Ok()
 }
 
 func (b *Builder[T]) writePrefix(s *separate) {

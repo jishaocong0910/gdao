@@ -77,7 +77,7 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*field, string) 
 		fields = append(fields, f)
 	}
 
-	rows = mustReturn(g.db.Query("SELECT * FROM sys.extended_properties WHERE major_id = object_id (:1) AND minor_id = 0", table))
+	rows = mustReturn(g.db.Query("SELECT value FROM sys.extended_properties WHERE major_id = object_id (:1) AND minor_id = 0", table))
 	defer rows.Close()
 	if rows.Next() {
 		rows.Scan(&tableComment)

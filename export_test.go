@@ -5,7 +5,6 @@ import (
 )
 
 type DaoExport struct {
-	Table                  string
 	ColumnsWithComma       string
 	Columns                []string
 	ColumnToFieldIndexMap  map[string]int
@@ -16,7 +15,6 @@ type DaoExport struct {
 
 func ExportDao[T any](dao *Dao[T]) DaoExport {
 	return DaoExport{
-		Table:                  dao.p.Table,
 		ColumnsWithComma:       dao.p.CommaColumns,
 		Columns:                dao.p.Columns,
 		ColumnToFieldIndexMap:  dao.p.ColumnToFieldIndexMap,

@@ -12,7 +12,7 @@ import (
 func TestBuilder_Arg(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockUserDao(t)
-	dao.Query(gdao.QueryReq[User]{nil, nil, nil, func(b *gdao.Builder[User]) (ok bool) {
+	dao.Query(gdao.QueryReq[User]{nil, nil, nil, func(b *gdao.Builder[User]) {
 		b.Arg("a")
 		r.Equal(1, len(b.Args()))
 		r.Contains(b.Args(), "a")
@@ -20,39 +20,35 @@ func TestBuilder_Arg(t *testing.T) {
 		b.Arg("B")
 		r.Equal(2, len(b.Args()))
 		r.Contains(b.Args(), "a", "B")
-		return false
 	}})
 }
 
 func TestBuilder_Pp(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockUserDao(t)
-	dao.Query(gdao.QueryReq[User]{nil, nil, nil, func(b *gdao.Builder[User]) (ok bool) {
+	dao.Query(gdao.QueryReq[User]{nil, nil, nil, func(b *gdao.Builder[User]) {
 		b.Write(b.Pp("$"))
 		r.Equal("$1", b.Sql())
 		b.Write(b.Pp("$"))
 		r.Equal("$1$2", b.Sql())
-		return false
 	}})
 }
 
 func TestBuilder_Columns(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockUserDao(t)
-	dao.Query(gdao.QueryReq[User]{nil, nil, nil, func(b *gdao.Builder[User]) (ok bool) {
+	dao.Query(gdao.QueryReq[User]{nil, nil, nil, func(b *gdao.Builder[User]) {
 		exportDao := gdao.ExportDao(dao)
 		r.Equal(exportDao.Columns, b.Columns())
-		return false
 	}})
 }
 
 func TestBuilder_AutoColumns(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockUserDao(t)
-	dao.Query(gdao.QueryReq[User]{nil, nil, nil, func(b *gdao.Builder[User]) (ok bool) {
+	dao.Query(gdao.QueryReq[User]{nil, nil, nil, func(b *gdao.Builder[User]) {
 		exportDao := gdao.ExportDao(dao)
 		r.Equal(exportDao.AutoIncrementColumns, b.AutoColumns())
-		return false
 	}})
 }
 
@@ -71,9 +67,8 @@ func TestBuilder_Entity(t *testing.T) {
 		Phone:   gdao.Ptr("2325325"),
 	}
 	dao, _ := mockUserDao(t)
-	dao.Query(gdao.QueryReq[User]{nil, nil, []*User{u, u2}, func(b *gdao.Builder[User]) (ok bool) {
+	dao.Query(gdao.QueryReq[User]{nil, nil, []*User{u, u2}, func(b *gdao.Builder[User]) {
 		r.Equal(u, b.Entity())
-		return false
 	}})
 }
 
@@ -86,7 +81,7 @@ func TestBuilder_ColumnValue(t *testing.T) {
 		Phone:   gdao.Ptr("56789"),
 	}
 	dao, _ := mockUserDao(t)
-	dao.Query(gdao.QueryReq[User]{nil, nil, []*User{u}, func(b *gdao.Builder[User]) (ok bool) {
+	dao.Query(gdao.QueryReq[User]{nil, nil, []*User{u}, func(b *gdao.Builder[User]) {
 		r.Nil(b.ColumnValue(nil, ""))
 		r.Nil(b.ColumnValue(b.Entity(), ""))
 		r.Nil(b.ColumnValue(b.Entity(), "name"))
@@ -95,7 +90,6 @@ func TestBuilder_ColumnValue(t *testing.T) {
 		r.Nil(cvs2)
 		r.Equal(int8(3), reflect.ValueOf(b.ColumnValue(b.Entity(), "status")).Elem().Interface())
 		r.Equal("address", reflect.ValueOf(b.ColumnValue(b.Entity(), "address")).Elem().Interface())
-		return false
 	}})
 }
 
@@ -107,7 +101,7 @@ func TestBuilder_ColumnValues(t *testing.T) {
 		Balance: gdao.Ptr[int64](100),
 	}
 	dao, _ := mockAccountDao(t)
-	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) (ok bool) {
+	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) {
 		cvs, _ := b.ColumnValues(false)
 		for i, cv := range cvs {
 			switch i {
@@ -153,8 +147,6 @@ func TestBuilder_ColumnValues(t *testing.T) {
 				r.Equal(nil, cv.Value)
 			}
 		}
-
-		return false
 	}})
 }
 
@@ -166,39 +158,36 @@ func TestBuilder_Repeat(t *testing.T) {
 		Balance: gdao.Ptr[int64](100),
 	}
 	dao, _ := mockAccountDao(t)
-	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) (ok bool) {
+	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) {
 		b.Repeat(6, b.SepFix("(", ",", ")"), func(i int) bool {
 			return i != 2 && i != 4
 		}, func(n, i int) {
-			b.Write(strconv.Itoa(i))
+			b.Write(strconv.Itoa(n)).Write("-").Write(strconv.Itoa(i))
 		})
-		r.Equal("(0,1,2,3)", b.Sql())
-		return false
+		r.Equal("(1-0,2-1,3-3,4-5)", b.Sql())
 	}})
 }
 
 func TestBuilder_WriteCommaColumns(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockAccountDao(t)
-	dao.Query(gdao.QueryReq[Account]{nil, nil, nil, func(b *gdao.Builder[Account]) (ok bool) {
+	dao.Query(gdao.QueryReq[Account]{nil, nil, nil, func(b *gdao.Builder[Account]) {
 		b.WriteCommaColumns("id", "", "user_id")
 		r.Equal("id,user_id", b.Sql())
 
 		b.WriteCommaColumns()
 		r.Equal("id,user_idid,other_id,user_id,status,balance", b.Sql())
-		return false
 	}})
 }
 
 func TestBuilder_EachColumnName(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockAccountDao(t)
-	dao.Query(gdao.QueryReq[Account]{nil, nil, nil, func(b *gdao.Builder[Account]) (ok bool) {
+	dao.Query(gdao.QueryReq[Account]{nil, nil, nil, func(b *gdao.Builder[Account]) {
 		b.EachColumnName([]string{"id", "", "user_id", "status", "balance"}, b.Sep(","), func(n, i int, column string) {
-			b.Write(strconv.Itoa(i)).Write("-").Write(column)
+			b.Write(strconv.Itoa(n)).Write("-").Write(strconv.Itoa(i)).Write("-").Write(column)
 		}, "user_id", "balance")
-		r.Equal("0-id,1-status", b.Sql())
-		return false
+		r.Equal("1-0-id,2-3-status", b.Sql())
 	}})
 }
 
@@ -210,13 +199,12 @@ func TestBuilder_EachColumnValues(t *testing.T) {
 		Balance: gdao.Ptr[int64](100),
 	}
 	dao, _ := mockAccountDao(t)
-	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) (ok bool) {
+	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) {
 		cvs, _ := b.ColumnValues(false)
 		b.EachColumnValues(cvs, b.SepFix("(", ",", ")"), func(column string, value any) {
 			b.Write(column)
 		})
 		r.Equal("(id,other_id,user_id,status,balance)", b.Sql())
-		return false
 	}})
 }
 
@@ -233,7 +221,7 @@ func TestBuilder_EachEntity(t *testing.T) {
 		Balance: gdao.Ptr[int64](200),
 	}
 	dao, _ := mockAccountDao(t)
-	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a, nil, a2}, func(b *gdao.Builder[Account]) (ok bool) {
+	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a, nil, a2}, func(b *gdao.Builder[Account]) {
 		b.EachEntity(b.Sep(","), func(n, i int, entity *Account) {
 			switch i {
 			case 0:
@@ -242,6 +230,5 @@ func TestBuilder_EachEntity(t *testing.T) {
 				r.Equal(a2, entity)
 			}
 		})
-		return false
 	}})
 }

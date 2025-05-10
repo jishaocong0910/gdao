@@ -4,7 +4,7 @@ package testdata
 
 import "github.com/jishaocong0910/gdao"
 
-var SqlserverDao = _SqlserverDao{newBaseDao[Sqlserver](gdao.NewDaoReq{Table: "sqlserver"})}
+var SqlserverDao = _SqlserverDao{newBaseDao[Sqlserver](gdao.NewDaoReq{}, "sqlserver")}
 
 type _SqlserverDao struct {
 	*BaseDao[Sqlserver]

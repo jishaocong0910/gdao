@@ -5,6 +5,7 @@ package testdata
 import "time"
 
 // Sqlite table comment
+// table: sqlite
 type Sqlite struct {
 	// AutoIncrement auto_increment
 	AutoIncrement *int64 `gdao:"column=auto_increment;auto"`
