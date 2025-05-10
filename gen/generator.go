@@ -186,6 +186,8 @@ type Conf struct {
 	Tables Tables
 	// 是否生成DAO
 	GenDao bool
+	// 生成用于扩展的CountDao
+	GenCountDao bool
 }
 
 type Tables map[string]FieldTypes

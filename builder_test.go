@@ -159,7 +159,7 @@ func TestBuilder_Repeat(t *testing.T) {
 	}
 	dao, _ := mockAccountDao(t)
 	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) {
-		b.Repeat(6, b.SepFix("(", ",", ")"), func(i int) bool {
+		b.Repeat(6, b.SepFix("(", ",", ")", false), func(i int) bool {
 			return i != 2 && i != 4
 		}, func(n, i int) {
 			b.Write(strconv.Itoa(n)).Write("-").Write(strconv.Itoa(i))
@@ -201,7 +201,7 @@ func TestBuilder_EachColumnValues(t *testing.T) {
 	dao, _ := mockAccountDao(t)
 	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) {
 		cvs, _ := b.ColumnValues(false)
-		b.EachColumnValues(cvs, b.SepFix("(", ",", ")"), func(column string, value any) {
+		b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
 			b.Write(column)
 		})
 		r.Equal("(id,other_id,user_id,status,balance)", b.Sql())

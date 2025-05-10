@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// Db is the default db
+var Db *sql.DB
+
 type NewDaoReq struct {
 	Db           *sql.DB
 	ColumnMapper *NameMapper
@@ -159,9 +162,6 @@ func (d DaoProt[T]) GetBuilderProt(b *Builder[T]) *BuilderProt {
 type Dao[T any] struct {
 	p *DaoProt[T]
 }
-
-// Db is the default db
-var Db *sql.DB
 
 func (d *Dao[T]) SetDb(db *sql.DB) {
 	d.p.Db = db

@@ -88,8 +88,8 @@ func (b *Builder[T]) Sep(separator string) *separate {
 	return &separate{separator: separator}
 }
 
-func (b *Builder[T]) SepFix(prefix, separator, suffix string) *separate {
-	return &separate{prefix: prefix, separator: separator, suffix: suffix}
+func (b *Builder[T]) SepFix(prefix, separator, suffix string, writeFixIfEmpty bool) *separate {
+	return &separate{prefix: prefix, separator: separator, suffix: suffix, writeFixIfEmpty: writeFixIfEmpty}
 }
 
 func (b *Builder[T]) Pp(prefix string) string {
@@ -169,66 +169,64 @@ func (b *Builder[T]) EachColumnName(columnNames []string, sep *separate, handle 
 			filterColumnMap[column] = struct{}{}
 		}
 	}
-	b.writePrefix(sep)
-	n := 1
+	var n int
+	b.writePrefix(sep, n)
 	for i, column := range columnNames {
 		_, c := filterColumnMap[column]
 		if c || column == "" {
 			continue
 		}
-		if n != 1 && sep != nil {
-			b.writeSep(sep)
-		}
-		handle(n, i, column)
 		n++
+		b.writePrefix(sep, n)
+		b.writeSep(sep, n)
+		handle(n, i, column)
 	}
-	b.writeSuffix(sep)
+	b.writeSuffix(sep, n)
 }
 
 func (b *Builder[T]) EachEntity(sep *separate, handle func(n, i int, entity *T)) *Builder[T] {
-	b.writePrefix(sep)
-	n := 1
+	var n int
+	b.writePrefix(sep, n)
 	for i := range b.entities {
 		entity := b.EntityAt(i)
 		if entity == nil {
 			continue
 		}
-		if n != 1 && sep != nil {
-			b.writeSep(sep)
-		}
-		handle(n, i, entity)
 		n++
+		b.writePrefix(sep, n)
+		b.writeSep(sep, n)
+		handle(n, i, entity)
 	}
-	b.writeSuffix(sep)
+	b.writeSuffix(sep, n)
 	return b
 }
 
 func (b *Builder[T]) EachColumnValues(cvs []ColumnValue, sep *separate, handle columnValueHandle) *Builder[T] {
-	b.writePrefix(sep)
-	for i, cv := range cvs {
-		if i != 0 {
-			b.writeSep(sep)
-		}
+	var n int
+	b.writePrefix(sep, n)
+	for _, cv := range cvs {
+		n++
+		b.writePrefix(sep, n)
+		b.writeSep(sep, n)
 		handle(cv.Column, cv.Value)
 	}
-	b.writeSuffix(sep)
+	b.writeSuffix(sep, n)
 	return b
 }
 
 func (b *Builder[T]) Repeat(num int, sep *separate, filter func(i int) bool, handle func(n, i int)) *Builder[T] {
-	b.writePrefix(sep)
-	n := 1
+	var n int
+	b.writePrefix(sep, n)
 	for i := 0; i < num; i++ {
 		if filter != nil && !filter(i) {
 			continue
 		}
-		if n != 1 {
-			b.writeSep(sep)
-		}
-		handle(n, i)
 		n++
+		b.writePrefix(sep, n)
+		b.writeSep(sep, n)
+		handle(n, i)
 	}
-	b.writeSuffix(sep)
+	b.writeSuffix(sep, n)
 	return b
 }
 
@@ -248,20 +246,22 @@ func (b *Builder[T]) Ok() bool {
 	return b.p.Ok()
 }
 
-func (b *Builder[T]) writePrefix(s *separate) {
+func (b *Builder[T]) writePrefix(s *separate, n int) {
 	if s != nil {
-		b.Write(s.prefix)
+		if n == 0 && s.writeFixIfEmpty || n != 0 && !s.writeFixIfEmpty {
+			b.Write(s.prefix)
+		}
 	}
 }
 
-func (b *Builder[T]) writeSep(s *separate) {
-	if s != nil {
+func (b *Builder[T]) writeSep(s *separate, n int) {
+	if s != nil && n != 1 {
 		b.Write(s.separator)
 	}
 }
 
-func (b *Builder[T]) writeSuffix(s *separate) {
-	if s != nil {
+func (b *Builder[T]) writeSuffix(s *separate, n int) {
+	if s != nil && n != 0 {
 		b.Write(s.suffix)
 	}
 }
@@ -273,6 +273,7 @@ type ColumnValue struct {
 
 type separate struct {
 	prefix, separator, suffix string
+	writeFixIfEmpty           bool
 }
 
 type columnValueHandle func(column string, value any)
