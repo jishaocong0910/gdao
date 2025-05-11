@@ -179,6 +179,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	b := newBuilder(d, req.Entities)
 	req.BuildSql(b)
 	if !b.Ok() {
+		printSqlLog(req.Ctx, "canceled SQL: %s", b.Sql())
 		return
 	}
 	rows, columns, closeFunc, err := d.query(req.Ctx, req.Tx, b.p.String(), b.p.args)
@@ -295,6 +296,7 @@ func (d *mutationDao[T]) Exec() (affected int64, err error) {
 	b := newBuilder(d.Dao, d.req.Entities)
 	d.req.BuildSql(b)
 	if !b.Ok() { // coverage-ignore
+		printSqlLog(d.req.Ctx, "canceled SQL: %s", b.Sql())
 		return 0, nil
 	}
 	result, err := d.exec(d.req.Ctx, d.req.Tx, b.p.String(), b.p.args)
@@ -309,7 +311,8 @@ func (d *mutationDao[T]) Exec() (affected int64, err error) {
 func (d *mutationDao[T]) Insert() (affected int64, err error) {
 	b := newBuilder(d.Dao, d.req.Entities)
 	d.req.BuildSql(b)
-	if !b.Ok() {
+	if !b.Ok() { // coverage-ignore
+		printSqlLog(d.req.Ctx, "canceled SQL: %s", b.Sql())
 		return 0, nil
 	}
 	result, err := d.exec(d.req.Ctx, d.req.Tx, b.p.String(), b.p.args)
@@ -338,6 +341,7 @@ func (d *mutationDao[T]) Query() (affected int64, err error) {
 	b := newBuilder(d.Dao, d.req.Entities)
 	d.req.BuildSql(b)
 	if !b.Ok() { // coverage-ignore
+		printSqlLog(d.req.Ctx, "canceled SQL: %s", b.Sql())
 		return 0, nil
 	}
 	rows, queriedColumns, closeFunc, err := d.query(d.req.Ctx, d.req.Tx, b.p.String(), b.p.args)

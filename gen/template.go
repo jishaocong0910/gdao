@@ -46,8 +46,8 @@ type ListReq struct {
 	Tx            *sql.Tx
 	SelectColumns []string
 	Cond          Condition
-	OrderBy       OrderBy
-	Pagination    Pagination
+	OrderBy       *OrderBy
+	Pagination    *Pagination
 	ForUpdate     bool
 }
 
@@ -55,11 +55,21 @@ type OrderBy struct {
 	Items []OrderByItem
 }
 
+func (o *OrderBy) Asc(column string) *OrderBy {
+	o.Items = append(o.Items, OrderByItem{Column: column, Sequence: asc})
+	return o
+}
+
+func (o *OrderBy) Desc(column string) *OrderBy {
+	o.Items = append(o.Items, OrderByItem{Column: column, Sequence: desc})
+	return o
+}
+
 type orderBySequence string
 
 const (
-	ASC  orderBySequence = "ASC"
-	DESC                 = "DESC"
+	asc  orderBySequence = "asc"
+	desc                 = "desc"
 )
 
 type OrderByItem struct {
@@ -138,21 +148,25 @@ func (d BaseDao[T]) List(req ListReq) ([]*T, error) {
 		if !b.Ok() {
 			return
 		}
-		b.Repeat(len(req.OrderBy.Items), b.SepFix(" ORDER BY", ",", "", false), nil, func(n, i int) {
-			item := req.OrderBy.Items[i]
-			b.Write(item.Column).Write(" ")
-			if item.Sequence != "" {
-				item.Sequence = ASC
+		if req.OrderBy != nil {
+			b.Repeat(len(req.OrderBy.Items), b.SepFix(" ORDER BY", ",", "", false), nil, func(n, i int) {
+				item := req.OrderBy.Items[i]
+				b.Write(item.Column).Write(" ")
+				if item.Sequence != "" {
+					item.Sequence = asc
+				}
+				b.Write(string(item.Sequence))
+			})
+		}
+		if req.Pagination != nil {
+			page := req.Pagination.Page
+			pageSize := req.Pagination.PageSize
+			if page > 0 && pageSize > 0 {
+				b.Write(" LIMIT ")
+				b.Write(strconv.Itoa((page - 1) * pageSize))
+				b.Write(",")
+				b.Write(strconv.Itoa(pageSize))
 			}
-			b.Write(string(item.Sequence))
-		})
-		page := req.Pagination.Page
-		pageSize := req.Pagination.PageSize
-		if page > 0 && pageSize > 0 {
-			b.Write(" LIMIT ")
-			b.Write(strconv.Itoa((page - 1) * pageSize))
-			b.Write(",")
-			b.Write(strconv.Itoa(pageSize))
 		}
 		if req.ForUpdate {
 			b.Write(" FOR UPDATE")
@@ -592,6 +606,14 @@ func newConditionGroup(orFlag bool, cs []Condition) Condition {
 		}
 		return &conditionGroup{or: orFlag, cs: cs}
 	}
+}
+
+func Asc(column string) *OrderBy {
+	return &OrderBy{Items: []OrderByItem{{Column: column, Sequence: asc}}}
+}
+
+func Desc(column string) *OrderBy {
+	return &OrderBy{Items: []OrderByItem{{Column: column, Sequence: desc}}}
 }
 `
 	tplWrPp = `{{if eq .DbType 1}}.Write("?"){{end}}{{if eq .DbType 2}}.Write(b.Pp(":")){{end}}{{if eq .DbType 3}}.Write(b.Pp("$")){{end}}{{if eq .DbType 4}}.Write(b.Pp(":")){{end}}{{if eq .DbType 5}}.Write("?"){{end}}`
