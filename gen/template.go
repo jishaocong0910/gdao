@@ -141,9 +141,6 @@ func (d BaseDao[T]) List(req ListReq) ([]*T, error) {
 	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Tx: req.Tx, BuildSql: func(b *gdao.Builder[T]) {
 		b.Write("SELECT ").WriteCommaColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
 		p := d.daoP.GetBuilderProt(b)
-		if req.Cond == nil {
-			return
-		}
 		b.SetOk(req.Cond.write(p))
 		if !b.Ok() {
 			return
@@ -152,7 +149,7 @@ func (d BaseDao[T]) List(req ListReq) ([]*T, error) {
 			b.Repeat(len(req.OrderBy.Items), b.SepFix(" ORDER BY", ",", "", false), nil, func(n, i int) {
 				item := req.OrderBy.Items[i]
 				b.Write(item.Column).Write(" ")
-				if item.Sequence != "" {
+				if item.Sequence == "" {
 					item.Sequence = asc
 				}
 				b.Write(string(item.Sequence))
@@ -183,9 +180,6 @@ func (d BaseDao[T]) Get(req GetReq) (*T, error) {
 	first, _, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Tx: req.Tx, BuildSql: func(b *gdao.Builder[T]) {
 		b.Write("SELECT ").WriteCommaColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
 		p := d.daoP.GetBuilderProt(b)
-		if req.Cond == nil {
-			return
-		}
 		b.SetOk(req.Cond.write(p))
 		if !b.Ok() {
 			return
@@ -206,6 +200,7 @@ func (d BaseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: []*T{req.Entity},
 		BuildSql: func(b *gdao.Builder[T]) {
 			var notNullColumnNum, nullColumnNum int
+			b.SetOk(false)
 			b.Write("INSERT INTO ").Write(d.table).Write("(")
 			cvs, _ := b.ColumnValues(true)
 			b.EachColumnValues(cvs, b.Sep(","), func(column string, value any) {
@@ -241,6 +236,7 @@ func (d BaseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 func (d BaseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: req.Entities,
 		BuildSql: func(b *gdao.Builder[T]) {
+			b.SetOk(false)
 			b.Write("INSERT INTO ").Write(d.table)
 			b.EachColumnName(b.Columns(), b.SepFix("(", ",", ")", false), func(_, _ int, column string) {
 				b.Write(column)
@@ -266,6 +262,7 @@ func (d BaseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 func (d BaseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: []*T{req.Entity},
 		BuildSql: func(b *gdao.Builder[T]) {
+			b.SetOk(false)
 			b.Write("UPDATE ").Write(d.table).Write(" SET ")
 			setCvs, whereCvs := b.ColumnValues(req.OnlyAssigned, req.WhereColumns...)
 			b.EachColumnValues(setCvs, b.Sep(","), func(column string, value any) {
@@ -308,6 +305,7 @@ func (d BaseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 //	@param whereColumn    Specify the column which as a condition, and it will be ignored from the update set list.
 func (d BaseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: req.Entities, BuildSql: func(b *gdao.Builder[T]) {
+		b.SetOk(false)
 		if req.WhereColumn == "" {
 			return
 		}
@@ -609,11 +607,15 @@ func newConditionGroup(orFlag bool, cs []Condition) Condition {
 }
 
 func Asc(column string) *OrderBy {
-	return &OrderBy{Items: []OrderByItem{{Column: column, Sequence: asc}}}
+	return &OrderBy{Items: []OrderByItem{
+		{Column: column, Sequence: asc},
+	}}
 }
 
 func Desc(column string) *OrderBy {
-	return &OrderBy{Items: []OrderByItem{{Column: column, Sequence: desc}}}
+	return &OrderBy{Items: []OrderByItem{
+		{Column: column, Sequence: desc},
+	}}
 }
 `
 	tplWrPp = `{{if eq .DbType 1}}.Write("?"){{end}}{{if eq .DbType 2}}.Write(b.Pp(":")){{end}}{{if eq .DbType 3}}.Write(b.Pp("$")){{end}}{{if eq .DbType 4}}.Write(b.Pp(":")){{end}}{{if eq .DbType 5}}.Write("?"){{end}}`

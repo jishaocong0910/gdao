@@ -10,7 +10,7 @@ import (
 )
 
 type oracleGenerator struct {
-	c  Conf
+	c  Cfg
 	db *sql.DB
 }
 
@@ -88,7 +88,7 @@ func (g oracleGenerator) getTableInfo(table string) (bool, []*field, string) {
 	return exists, fields, tableComment
 }
 
-func newOracleGenerator(c Conf) oracleGenerator {
+func newOracleGenerator(c Cfg) oracleGenerator {
 	db, err := sql.Open("oracle", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))

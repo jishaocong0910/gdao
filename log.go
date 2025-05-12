@@ -4,73 +4,83 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-)
-
-type logLevel int
-
-const (
-	LOG_LEVEL_DEBUG logLevel = iota + 1
-	LOG_LEVEL_INFO
+	"strings"
 )
 
 type Logger interface {
-	Debugf(context.Context, string, ...any)
-	Infof(context.Context, string, ...any)
-	Warnf(context.Context, string, ...any)
-	Errorf(context.Context, string, ...any)
+	Debugf(ctx context.Context, msg string, args ...any)
+	Infof(ctx context.Context, msg string, args ...any)
+	Warnf(ctx context.Context, msg string, args ...any)
+	Errorf(ctx context.Context, msg string, args ...any)
 }
 
-func LogConf(log Logger, level logLevel) {
+func LogCfg(log Logger, level string) {
 	logger = log
-	printSqlLogLevel = level
+	printSqlLevel = level
 }
 
 var logger Logger
-var printSqlLogLevel logLevel
+var printSqlLevel string
 
-func printSql(ctx context.Context, sql string) {
-	printSqlLog(ctx, "SQL: %s", sql)
-}
+func printSql(ctx context.Context, sql string, args []any, affected int64) {
+	var msg strings.Builder
+	msg.WriteString("SQL: %s")
+	l := len(args)
+	var msgArgs []any
+	if l > 0 {
+		if affected > -1 {
+			msgArgs = make([]any, 0, 3)
+		} else {
+			msgArgs = make([]any, 0, 2)
+		}
+	} else if affected > -1 {
+		msgArgs = make([]any, 0, 3)
+	}
+	msgArgs = append(msgArgs, sql)
 
-func printArgs(ctx context.Context, args []any) {
-	msg := ""
-	var argValues []any
-	if len(args) > 0 {
-		msg = "Args: %v"
-		argValues = make([]any, 0, len(args))
+	if l > 0 {
+		msg.WriteString("\nArgs: %v")
+		var values = make([]any, 0, l)
 		for _, a := range args {
 			if a == nil {
-				argValues = append(argValues, nil)
+				values = append(values, nil)
 			} else {
 				v := reflect.ValueOf(a)
 				if v.Kind() == reflect.Pointer {
 					if v.IsNil() {
-						argValues = append(argValues, nil)
+						values = append(values, nil)
 					} else {
-						argValues = append(argValues, v.Elem().Interface())
+						values = append(values, v.Elem().Interface())
 					}
 				} else {
-					argValues = append(argValues, a)
+					values = append(values, a)
 				}
 			}
 		}
+		msgArgs = append(msgArgs, values)
 	}
-	printSqlLog(ctx, msg, argValues)
+
+	if affected != -1 {
+		msg.WriteString("\nAffected: %d")
+		msgArgs = append(msgArgs, affected)
+	}
+
+	printSqlLog(ctx, msg.String(), msgArgs...)
 }
 
-func printAffected(ctx context.Context, affected int64) {
-	printSqlLog(ctx, "Affected: %d", affected)
+func printSqlCanceled(ctx context.Context, sql string) {
+	printSqlLog(ctx, "SQL canceled: %s", sql)
 }
 
 func printSqlLog(ctx context.Context, msg string, args ...any) {
-	if logger == nil || printSqlLogLevel == 0 || msg == "" { // coverage-ignore
+	if logger == nil { // coverage-ignore
 		return
 	}
-	switch printSqlLogLevel {
-	case LOG_LEVEL_DEBUG:
-		logger.Debugf(ctx, msg, args...)
-	case LOG_LEVEL_INFO:
+	switch strings.ToLower(printSqlLevel) {
+	case "info":
 		logger.Infof(ctx, msg, args...)
+	default:
+		logger.Debugf(ctx, msg, args...)
 	}
 }
 

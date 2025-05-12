@@ -279,5 +279,5 @@ type separate struct {
 type columnValueHandle func(column string, value any)
 
 func newBuilder[T any](d *Dao[T], entities []*T) *Builder[T] {
-	return &Builder[T]{dao: d, entities: entities, p: &BuilderProt{}}
+	return &Builder[T]{dao: d, entities: entities, p: &BuilderProt{ok: true}}
 }

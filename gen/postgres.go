@@ -10,7 +10,7 @@ import (
 )
 
 type postgresGenerator struct {
-	c        Conf
+	c        Cfg
 	db       *sql.DB
 	schema   string
 	database string
@@ -98,7 +98,7 @@ func (g postgresGenerator) getTableInfo(table string) (bool, []*field, string) {
 	return exists, fields, tableComment
 }
 
-func newPostgresGenerator(c Conf) postgresGenerator {
+func newPostgresGenerator(c Cfg) postgresGenerator {
 	db, err := sql.Open("postgres", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))

@@ -9,7 +9,7 @@ import (
 )
 
 type sqliteGenerator struct {
-	c  Conf
+	c  Cfg
 	db *sql.DB
 }
 
@@ -168,7 +168,7 @@ func (g sqliteGenerator) nextComment(st *stringTokenizer) string {
 	return string(st.chars[begin : st.pos-1])
 }
 
-func newSqliteGenerator(c Conf) sqliteGenerator {
+func newSqliteGenerator(c Cfg) sqliteGenerator {
 	db, err := sql.Open("sqlite3", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))

@@ -9,7 +9,7 @@ import (
 )
 
 type mySqlGenerator struct {
-	c        Conf
+	c        Cfg
 	db       *sql.DB
 	database string
 }
@@ -107,7 +107,7 @@ func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
 	return exists, fields, tableComment
 }
 
-func newMySqlGenerator(c Conf) mySqlGenerator {
+func newMySqlGenerator(c Cfg) mySqlGenerator {
 	db, err := sql.Open("mysql", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))

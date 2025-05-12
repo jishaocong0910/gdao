@@ -19,17 +19,17 @@ func (d *MockLogger) Debugf(ctx context.Context, msg string, args ...interface{}
 	d.args = args
 }
 
-func (d *MockLogger) Infof(ctx context.Context, msg string, args ...interface{}) {
+func (d *MockLogger) Info(ctx context.Context, msg string, args ...interface{}) {
 	d.msg = msg
 	d.args = args
 }
 
-func (d *MockLogger) Warnf(ctx context.Context, msg string, args ...interface{}) {
+func (d *MockLogger) Warn(ctx context.Context, msg string, args ...interface{}) {
 	d.msg = msg
 	d.args = args
 }
 
-func (d *MockLogger) Errorf(ctx context.Context, msg string, args ...interface{}) {
+func (d *MockLogger) Error(ctx context.Context, msg string, args ...interface{}) {
 	d.msg = msg
 	d.args = args
 }
@@ -38,7 +38,7 @@ func TestPrintSql(t *testing.T) {
 	r := require.New(t)
 	{
 		log := &MockLogger{}
-		gdao.LogConf(log, gdao.LOG_LEVEL_DEBUG)
+		gdao.LogCfg(log, gdao.LOG_LEVEL_DEBUG)
 		gdao.PrintSql(nil, "SELECT * FROM user WHERE id=? AND status=? AND level=?")
 		r.Equal("SQL: %s", log.msg)
 		r.Equal("SELECT * FROM user WHERE id=? AND status=? AND level=?", log.args[0])
@@ -56,14 +56,14 @@ func TestPrintSql(t *testing.T) {
 	}
 	{
 		log := &MockLogger{}
-		gdao.LogConf(log, gdao.LOG_LEVEL_INFO)
+		gdao.LogCfg(log, gdao.LOG_LEVEL_INFO)
 		gdao.PrintSql(nil, "test")
 		r.Equal("SQL: %s", log.msg)
 		r.Equal("test", log.args[0])
 	}
 	{
 		log := &MockLogger{}
-		gdao.LogConf(log, gdao.LOG_LEVEL_INFO)
+		gdao.LogCfg(log, gdao.LOG_LEVEL_INFO)
 		gdao.PrintAffected(nil, 2)
 		r.Equal("Affected: %d", log.msg)
 		r.Equal(int64(2), log.args[0])
@@ -73,7 +73,7 @@ func TestPrintSql(t *testing.T) {
 func TestPrintWarn(t *testing.T) {
 	r := require.New(t)
 	log := &MockLogger{}
-	gdao.LogConf(log, 0)
+	gdao.LogCfg(log, 0)
 	gdao.PrintWarn(nil, errors.New("warn"))
 	r.Equal("warn", log.msg)
 }
@@ -81,7 +81,7 @@ func TestPrintWarn(t *testing.T) {
 func TestPrintError(t *testing.T) {
 	r := require.New(t)
 	log := &MockLogger{}
-	gdao.LogConf(log, 0)
+	gdao.LogCfg(log, 0)
 	gdao.PrintError(nil, errors.New("error"))
 	r.Equal("error", log.msg)
 }

@@ -10,7 +10,7 @@ import (
 )
 
 type sqlServerGenerator struct {
-	c  Conf
+	c  Cfg
 	db *sql.DB
 }
 
@@ -86,7 +86,7 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*field, string) 
 	return exists, fields, tableComment
 }
 
-func newSqlServerGenerator(c Conf) sqlServerGenerator {
+func newSqlServerGenerator(c Cfg) sqlServerGenerator {
 	db, err := sql.Open("mssql", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))

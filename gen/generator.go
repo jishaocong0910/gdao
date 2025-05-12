@@ -28,7 +28,7 @@ type dialectGenerator interface {
 }
 
 type Generator struct {
-	c Conf
+	c Cfg
 	d dialectGenerator
 }
 
@@ -172,8 +172,8 @@ type field struct {
 	Valid             bool
 }
 
-// Conf 生成配置
-type Conf struct {
+// Cfg 生成配置
+type Cfg struct {
 	// 数据库类型
 	DbType dbType
 	// 数据库连接URL
@@ -200,8 +200,8 @@ type FieldTypes map[string]string
 //	@param dsn 数据库连接
 //	@param c 实体配置，为nil时不会生成
 //	@param dc DAO配置
-func GetGenerator(c Conf) Generator {
-	checkConf(&c)
+func GetGenerator(c Cfg) Generator {
+	checkCfg(&c)
 	var d dialectGenerator
 	switch c.DbType {
 	case DB_MYSQL:
@@ -220,7 +220,7 @@ func GetGenerator(c Conf) Generator {
 	return Generator{c: c, d: d}
 }
 
-func checkConf(c *Conf) {
+func checkCfg(c *Cfg) {
 	fullOutPath := mustReturn(os.Getwd())
 	if c.OutPath != "" {
 		fullOutPath = filepath.Join(fullOutPath, c.OutPath)
