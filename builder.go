@@ -6,62 +6,29 @@ import (
 	"strings"
 )
 
-type BuilderProt struct {
-	b      strings.Builder
-	args   []any
-	argNum int
-	ok     bool
-}
-
-func (p *BuilderProt) NextArgNum() int {
-	p.argNum++
-	return p.argNum
-}
-
-func (p *BuilderProt) Write(str string) {
-	p.b.WriteString(str)
-}
-
-func (p *BuilderProt) SetArgs(args ...any) {
-	p.args = append(p.args, args...)
-}
-
-func (p *BuilderProt) String() string {
-	return p.b.String()
-}
-
-func (p *BuilderProt) Args() []any {
-	return p.args
-}
-
-func (p *BuilderProt) SetOk(ok bool) {
-	p.ok = ok
-}
-
-func (p *BuilderProt) Ok() bool {
-	return p.ok
-}
-
 type Builder[T any] struct {
 	dao      *Dao[T]
 	entities []*T
-	p        *BuilderProt
+	sql      strings.Builder
+	args     []any
+	argNum   int
+	ok       bool
 }
 
 func (b *Builder[T]) Write(str string, args ...any) *Builder[T] {
-	b.p.Write(str)
-	b.p.SetArgs(args...)
+	b.sql.WriteString(str)
+	b.args = append(b.args, args...)
 	return b
 }
 
 func (b *Builder[T]) Arg(a any) *Builder[T] {
-	b.p.SetArgs(a)
+	b.args = append(b.args, a)
 	return b
 }
 
 func (b *Builder[T]) WriteCommaColumns(columns ...string) *Builder[T] {
 	if len(columns) == 0 {
-		b.Write(b.dao.p.CommaColumns)
+		b.Write(b.dao.commaColumns)
 	} else {
 		for i, c := range columns {
 			if c == "" {
@@ -77,23 +44,32 @@ func (b *Builder[T]) WriteCommaColumns(columns ...string) *Builder[T] {
 }
 
 func (b *Builder[T]) Columns() []string {
-	return b.dao.p.Columns
+	return b.dao.columns
 }
 
 func (b *Builder[T]) AutoColumns() []string {
-	return b.dao.p.AutoIncrementColumns
-}
-
-func (b *Builder[T]) Sep(separator string) *separate {
-	return &separate{separator: separator}
-}
-
-func (b *Builder[T]) SepFix(prefix, separator, suffix string, writeFixIfEmpty bool) *separate {
-	return &separate{prefix: prefix, separator: separator, suffix: suffix, writeFixIfEmpty: writeFixIfEmpty}
+	return b.dao.autoIncrementColumns
 }
 
 func (b *Builder[T]) Pp(prefix string) string {
-	return prefix + strconv.FormatInt(int64(b.p.NextArgNum()), 10)
+	b.argNum++
+	return prefix + strconv.Itoa(b.argNum)
+}
+
+func (b *Builder[T]) Sql() string {
+	return b.sql.String()
+}
+
+func (b *Builder[T]) Args() []any {
+	return b.args
+}
+
+func (b *Builder[T]) SetOk(ok bool) {
+	b.ok = ok
+}
+
+func (b *Builder[T]) Ok() bool {
+	return b.ok
 }
 
 func (b *Builder[T]) EntityAt(index int) *T {
@@ -122,8 +98,8 @@ func (b *Builder[T]) ColumnValuesAt(entity *T, onlyAssigned bool, filterColumns 
 	}
 
 	var cvs1, cvs2 []ColumnValue
-	for _, column := range b.dao.p.Columns {
-		fieldIndex := b.dao.p.ColumnToFieldIndexMap[column]
+	for _, column := range b.dao.columns {
+		fieldIndex := b.dao.columnToFieldIndexMap[column]
 		field := v.Field(fieldIndex)
 		var value any
 		if !field.IsNil() {
@@ -150,7 +126,7 @@ func (b *Builder[T]) ColumnValue(entity *T, column string) any {
 	if entity == nil {
 		return nil
 	}
-	fieldIndex, ok := b.dao.p.ColumnToFieldIndexMap[column]
+	fieldIndex, ok := b.dao.columnToFieldIndexMap[column]
 	if !ok {
 		return nil
 	}
@@ -230,20 +206,12 @@ func (b *Builder[T]) Repeat(num int, sep *separate, filter func(i int) bool, han
 	return b
 }
 
-func (b *Builder[T]) Sql() string {
-	return b.p.String()
+func (b *Builder[T]) Sep(separator string) *separate {
+	return &separate{separator: separator}
 }
 
-func (b *Builder[T]) Args() []any {
-	return b.p.Args()
-}
-
-func (b *Builder[T]) SetOk(ok bool) {
-	b.p.SetOk(ok)
-}
-
-func (b *Builder[T]) Ok() bool {
-	return b.p.Ok()
+func (b *Builder[T]) SepFix(prefix, separator, suffix string, writeFixIfEmpty bool) *separate {
+	return &separate{prefix: prefix, separator: separator, suffix: suffix, writeFixIfEmpty: writeFixIfEmpty}
 }
 
 func (b *Builder[T]) writePrefix(s *separate, n int) {
@@ -279,5 +247,5 @@ type separate struct {
 type columnValueHandle func(column string, value any)
 
 func newBuilder[T any](d *Dao[T], entities []*T) *Builder[T] {
-	return &Builder[T]{dao: d, entities: entities, p: &BuilderProt{ok: true}}
+	return &Builder[T]{dao: d, entities: entities, ok: true}
 }

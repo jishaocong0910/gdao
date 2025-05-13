@@ -9,11 +9,11 @@ import (
 	"strings"
 )
 
-// Db is the default db
-var Db *sql.DB
+// DB is the default db
+var DB *sql.DB
 
 type NewDaoReq struct {
-	Db           *sql.DB
+	DB           *sql.DB
 	ColumnMapper *NameMapper
 }
 
@@ -49,22 +49,16 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
-func ExtendDao[T any](req NewDaoReq) (*Dao[T], *DaoProt[T]) {
-	dao := NewDao[T](req)
-	return dao, dao.p
-}
-
 func NewDao[T any](req NewDaoReq) *Dao[T] {
 	dao := &Dao[T]{}
-	dao.p = newDaoProtected(dao)
 
 	t := reflect.TypeOf((*T)(nil)).Elem()
 	if t.Kind() != reflect.Struct {
 		panic("generics must be struct type")
 	}
 
-	dao.p.Db = req.Db
-	dao.p.ColumnToFieldIndexMap = make(map[string]int)
+	dao.db = req.DB
+	dao.columnToFieldIndexMap = make(map[string]int)
 
 	for i := 0; i < t.NumField(); i++ {
 		tf := t.Field(i)
@@ -120,58 +114,42 @@ func registerField[T any](d *Dao[T], tf reflect.StructField, columnMapper *NameM
 			return
 		}
 	}
-	d.p.Columns = append(d.p.Columns, column)
-	if d.p.CommaColumns != "" {
-		d.p.CommaColumns += ","
+	d.columns = append(d.columns, column)
+	if d.commaColumns != "" {
+		d.commaColumns += ","
 	}
-	d.p.CommaColumns += column
-	d.p.ColumnToFieldIndexMap[column] = tf.Index[0]
+	d.commaColumns += column
+	d.columnToFieldIndexMap[column] = tf.Index[0]
 	if isAutoIncrement {
 		if convertor, ok := lastInsertIdConvertors[tf.Type.Elem().String()]; ok {
-			d.p.AutoIncrementColumns = append(d.p.AutoIncrementColumns, column)
-			d.p.AutoIncrementStep = autoIncrementStep
-			d.p.AutoIncrementConvertor = convertor
+			d.autoIncrementColumns = append(d.autoIncrementColumns, column)
+			d.autoIncrementStep = autoIncrementStep
+			d.autoIncrementConvertor = convertor
 		}
 	}
 	return
 }
 
-func newDaoProtected[T any](dao *Dao[T]) *DaoProt[T] {
-	return &DaoProt[T]{dao: dao}
-}
-
-type DaoProt[T any] struct {
-	dao                    *Dao[T]
-	Db                     *sql.DB
-	CommaColumns           string
-	Columns                []string
-	ColumnToFieldIndexMap  map[string]int
-	AutoIncrementColumns   []string
-	AutoIncrementStep      int64
-	AutoIncrementConvertor func(id int64) reflect.Value
-}
-
-func (d DaoProt[T]) NewBuilder(entities ...*T) *Builder[T] {
-	return newBuilder(d.dao, entities)
-}
-
-func (d DaoProt[T]) GetBuilderProt(b *Builder[T]) *BuilderProt {
-	return b.p
-}
-
 type Dao[T any] struct {
-	p *DaoProt[T]
+	dao                    *Dao[T]
+	db                     *sql.DB
+	commaColumns           string
+	columns                []string
+	columnToFieldIndexMap  map[string]int
+	autoIncrementColumns   []string
+	autoIncrementStep      int64
+	autoIncrementConvertor func(id int64) reflect.Value
 }
 
 func (d *Dao[T]) SetDb(db *sql.DB) {
-	d.p.Db = db
+	d.db = db
 }
 
-func (d *Dao[T]) Db() *sql.DB {
-	if d.p.Db == nil {
-		return Db
+func (d *Dao[T]) DB() *sql.DB {
+	if d.db == nil {
+		return DB
 	}
-	return d.p.Db
+	return d.db
 }
 
 func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
@@ -182,7 +160,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 		printSqlCanceled(req.Ctx, b.Sql())
 		return
 	}
-	rows, columns, closeFunc, err := d.query(req.Ctx, req.Tx, b.p.String(), b.p.args)
+	rows, columns, closeFunc, err := d.query(req.Ctx, req.Tx, b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		return nil, nil, err
 	}
@@ -261,7 +239,7 @@ func (d *Dao[T]) createPrepare(ctx context.Context, tx *sql.Tx, _sql string) (*s
 	var prepare *sql.Stmt
 	var err error
 	if tx == nil {
-		db := d.Db()
+		db := d.DB()
 		if db == nil { // coverage-ignore
 			return nil, errors.New("the db has not been set")
 		}
@@ -282,7 +260,7 @@ func (d *Dao[T]) mappingFields(entity *T, columns []string) []any {
 	v := reflect.ValueOf(entity).Elem()
 	fields := make([]any, 0, len(columns))
 	for _, c := range columns {
-		if value, ok := d.p.ColumnToFieldIndexMap[c]; ok {
+		if value, ok := d.columnToFieldIndexMap[c]; ok {
 			field := v.Field(value)
 			fields = append(fields, field.Addr().Interface())
 		}
@@ -302,7 +280,7 @@ func (d *mutationDao[T]) Exec() (affected int64, err error) {
 		printSqlCanceled(d.req.Ctx, b.Sql())
 		return 0, nil
 	}
-	result, err := d.exec(d.req.Ctx, d.req.Tx, b.p.String(), b.p.args)
+	result, err := d.exec(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		return 0, err
 	}
@@ -318,7 +296,7 @@ func (d *mutationDao[T]) Insert() (affected int64, err error) {
 		printSqlCanceled(d.req.Ctx, b.Sql())
 		return 0, nil
 	}
-	result, err := d.exec(d.req.Ctx, d.req.Tx, b.p.String(), b.p.args)
+	result, err := d.exec(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		return 0, err
 	}
@@ -326,15 +304,15 @@ func (d *mutationDao[T]) Insert() (affected int64, err error) {
 	printError(d.req.Ctx, err)
 	id, err := result.LastInsertId()
 	printError(d.req.Ctx, err)
-	if err == nil && len(d.req.Entities) > 0 && len(d.p.AutoIncrementColumns) == 1 {
-		fieldIndex := d.p.ColumnToFieldIndexMap[d.p.AutoIncrementColumns[0]]
+	if err == nil && len(d.req.Entities) > 0 && len(d.autoIncrementColumns) == 1 {
+		fieldIndex := d.columnToFieldIndexMap[d.autoIncrementColumns[0]]
 		for i, entity := range d.req.Entities {
 			if entity == nil { // coverage-ignore
 				continue
 			}
 			v := reflect.ValueOf(entity).Elem()
 			vf := v.Field(fieldIndex)
-			vf.Set(d.p.AutoIncrementConvertor(id + int64(i)*d.p.AutoIncrementStep))
+			vf.Set(d.autoIncrementConvertor(id + int64(i)*d.autoIncrementStep))
 		}
 	}
 	return
@@ -347,7 +325,7 @@ func (d *mutationDao[T]) Query() (affected int64, err error) {
 		printSqlCanceled(d.req.Ctx, b.Sql())
 		return 0, nil
 	}
-	rows, queriedColumns, closeFunc, err := d.query(d.req.Ctx, d.req.Tx, b.p.String(), b.p.args)
+	rows, queriedColumns, closeFunc, err := d.query(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		return 0, err
 	}
@@ -360,7 +338,7 @@ func (d *mutationDao[T]) Query() (affected int64, err error) {
 
 			var queriedFields []any
 			for _, c := range queriedColumns {
-				if fieldIndex, ok := d.p.ColumnToFieldIndexMap[c]; ok {
+				if fieldIndex, ok := d.columnToFieldIndexMap[c]; ok {
 					field := v.Field(fieldIndex).Addr().Interface()
 					queriedFields = append(queriedFields, field)
 				}

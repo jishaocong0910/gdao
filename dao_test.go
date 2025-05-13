@@ -38,7 +38,7 @@ func mockUserDao(t *testing.T) (*gdao.Dao[User], sqlmock.Sqlmock) {
 	r := require.New(t)
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao := gdao.NewDao[User](gdao.NewDaoReq{Db: db})
+	dao := gdao.NewDao[User](gdao.NewDaoReq{DB: db})
 	return dao, mock
 }
 
@@ -46,7 +46,7 @@ func mockAccountDao(t *testing.T) (*gdao.Dao[Account], sqlmock.Sqlmock) {
 	r := require.New(t)
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao := gdao.NewDao[Account](gdao.NewDaoReq{Db: db, ColumnMapper: gdao.NewNameMapper().LowerSnakeCase()})
+	dao := gdao.NewDao[Account](gdao.NewDaoReq{DB: db, ColumnMapper: gdao.NewNameMapper().LowerSnakeCase()})
 	return dao, mock
 }
 
@@ -314,12 +314,12 @@ func TestMustNewDao(t *testing.T) {
 	r := require.New(t)
 	{
 		r.PanicsWithValue("generics must be struct type", func() {
-			gdao.NewDao[*User](gdao.NewDaoReq{Db: &sql.DB{}})
+			gdao.NewDao[*User](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 	}
 	{
 		r.NotPanics(func() {
-			gdao.NewDao[User](gdao.NewDaoReq{Db: &sql.DB{}})
+			gdao.NewDao[User](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 	}
 }
@@ -331,7 +331,7 @@ func TestTx(t *testing.T) {
 		mock.ExpectBegin()
 		mock.ExpectPrepare(`SELECT \* FROM user WHERE id=\?`).ExpectQuery()
 		mock.ExpectCommit()
-		tx, err := userDao.Db().Begin()
+		tx, err := userDao.DB().Begin()
 		r.NoError(err)
 		userDao.Query(gdao.QueryReq[User]{Tx: tx, BuildSql: func(b *gdao.Builder[User]) {
 			b.Write("SELECT * FROM user WHERE id=?", 1)
