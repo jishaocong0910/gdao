@@ -84,9 +84,9 @@ func (b *Builder[T]) Entity() *T {
 	return b.EntityAt(0)
 }
 
-func (b *Builder[T]) ColumnValuesAt(entity *T, onlyAssigned bool, filterColumns ...string) ([]ColumnValue, []ColumnValue) {
+func (b *Builder[T]) ColumnValuesAt(entity *T, onlyAssigned bool, filterColumns ...string) []ColumnValue {
 	if entity == nil { // coverage-ignore
-		return nil, nil
+		return nil
 	}
 	v := reflect.ValueOf(entity).Elem()
 
@@ -97,7 +97,7 @@ func (b *Builder[T]) ColumnValuesAt(entity *T, onlyAssigned bool, filterColumns 
 		}
 	}
 
-	var cvs1, cvs2 []ColumnValue
+	var cvs []ColumnValue
 	for _, column := range b.dao.columns {
 		fieldIndex := b.dao.columnToFieldIndexMap[column]
 		field := v.Field(fieldIndex)
@@ -110,15 +110,14 @@ func (b *Builder[T]) ColumnValuesAt(entity *T, onlyAssigned bool, filterColumns 
 		}
 		_, c := filterColumnMap[column]
 		if c {
-			cvs2 = append(cvs2, ColumnValue{Column: column, Value: value})
 			continue
 		}
-		cvs1 = append(cvs1, ColumnValue{Column: column, Value: value})
+		cvs = append(cvs, ColumnValue{Column: column, Value: value})
 	}
-	return cvs1, cvs2
+	return cvs
 }
 
-func (b *Builder[T]) ColumnValues(onlyAssigned bool, filterColumns ...string) ([]ColumnValue, []ColumnValue) {
+func (b *Builder[T]) ColumnValues(onlyAssigned bool, filterColumns ...string) []ColumnValue {
 	return b.ColumnValuesAt(b.Entity(), onlyAssigned, filterColumns...)
 }
 
@@ -142,12 +141,17 @@ func (b *Builder[T]) EachColumnName(columnNames []string, sep *separate, handle 
 	filterColumnMap := make(map[string]struct{}, len(filterColumns))
 	if len(filterColumns) > 0 {
 		for _, column := range filterColumns {
+			column = strings.TrimSpace(column)
 			filterColumnMap[column] = struct{}{}
 		}
 	}
 	var n int
 	b.writePrefix(sep, n)
 	for i, column := range columnNames {
+		column = strings.TrimSpace(column)
+		if column == "" {
+			continue
+		}
 		_, c := filterColumnMap[column]
 		if c || column == "" {
 			continue

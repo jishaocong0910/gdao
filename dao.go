@@ -213,24 +213,26 @@ func (d *Dao[T]) query(ctx context.Context, tx *sql.Tx, sql string, args []any) 
 	return rows, columns, closeFunc, nil
 }
 
-func (d *Dao[T]) exec(ctx context.Context, tx *sql.Tx, sql string, args []any) (result sql.Result, err error) {
+func (d *Dao[T]) exec(ctx context.Context, tx *sql.Tx, sql string, args []any) (result sql.Result, affected int64, err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	affected = int64(-1)
 	prepare, err := d.createPrepare(ctx, tx, sql)
 	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, -1)
-		return nil, err
+		printSql(ctx, sql, args, affected)
+		return nil, 0, err
 	}
 	defer func() {
 		printWarn(ctx, prepare.Close())
 	}()
 	result, err = prepare.ExecContext(ctx, args...)
-	affected := int64(-1)
 	if err != nil {
-		affected, err = result.RowsAffected()
-		printWarn(ctx, err)
+		printSql(ctx, sql, args, affected)
+		return nil, 0, err
 	}
+	affected, err = result.RowsAffected()
+	printError(ctx, err)
 	printSql(ctx, sql, args, affected)
 	return
 }
@@ -280,12 +282,7 @@ func (d *mutationDao[T]) Exec() (affected int64, err error) {
 		printSqlCanceled(d.req.Ctx, b.Sql())
 		return 0, nil
 	}
-	result, err := d.exec(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
-	if err != nil { // coverage-ignore
-		return 0, err
-	}
-	affected, err = result.RowsAffected()
-	printError(d.req.Ctx, err)
+	_, affected, err = d.exec(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
 	return
 }
 
@@ -296,12 +293,10 @@ func (d *mutationDao[T]) Insert() (affected int64, err error) {
 		printSqlCanceled(d.req.Ctx, b.Sql())
 		return 0, nil
 	}
-	result, err := d.exec(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
+	result, affected, err := d.exec(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		return 0, err
 	}
-	affected, err = result.RowsAffected()
-	printError(d.req.Ctx, err)
 	id, err := result.LastInsertId()
 	printError(d.req.Ctx, err)
 	if err == nil && len(d.req.Entities) > 0 && len(d.autoIncrementColumns) == 1 {

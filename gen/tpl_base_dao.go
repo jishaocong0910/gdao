@@ -100,8 +100,10 @@ type UpdateReq[T any] struct {
 	Tx  *sql.Tx
 	// it uses to update values or as where clause conditions.
 	Entity *T
-	// if true, update non-nil fields of the entity, otherwise, all fields will be updated.
-	OnlyAssigned bool
+	// if true, all fields will be updated, otherwise, update non-nil fields of the entity.
+	UpdateAll bool
+	// specify the columns update to null, it will not work when UpdateAll is true
+	SetNullColumns []string
 	// specify the non-nil fields in the entity used as conditions.
 	WhereColumns []string
 	// conditions of the where clause.
@@ -109,21 +111,21 @@ type UpdateReq[T any] struct {
 }
 
 type UpdateBatchReq[T any] struct {
-	Ctx            context.Context
-	Tx             *sql.Tx
+	Ctx context.Context
+	Tx  *sql.Tx
 	// each element corresponds to a record to be updated.
-	Entities       []*T
+	Entities []*T
 	// specify the columns which in the update set list, default is all columns.
-	SetColumns     []string
+	SetColumns []string
 	// specify the columns which be ignored from update set list.
 	IgnoredColumns []string
 	// specify the column which as a baseCondition, and it will be ignored from the update set list.
-	WhereColumn    string
+	WhereColumn string
 }
 
 type DeleteReq struct {
-	Ctx  context.Context
-	Tx   *sql.Tx
+	Ctx context.Context
+	Tx  *sql.Tx
 	// conditions of the where clause
 	Condition condition
 }
@@ -193,22 +195,21 @@ func (d BaseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 			var notNullColumnNum, nullColumnNum int
 			b.SetOk(false)
 			b.Write("INSERT INTO ").Write(d.table).Write("(")
-			cvs, _ := b.ColumnValues(true)
+			cvs := b.ColumnValues(true)
 			b.EachColumnValues(cvs, b.Sep(","), func(column string, value any) {
 				b.SetOk(true)
 				notNullColumnNum++
 				b.Write(column, value)
-			}).Repeat(len(req.SetNullColumns), nil, func(i int) bool {
-				c := strings.TrimSpace(req.SetNullColumns[i])
-				return c != ""
-			}, func(n, i int) {
+			})
+			b.EachColumnName(req.SetNullColumns,nil, func(_, _ int, column string) {
 				if b.Ok() {
 					b.Write(",")
 				}
 				b.SetOk(true)
 				nullColumnNum++
-				b.Write(req.SetNullColumns[i])
-			}).Write(")")
+				b.Write(column)
+			})
+			b.Write(")")
 			b.Repeat(notNullColumnNum+nullColumnNum, b.SepFix(" VALUES(", ",", ")", false), nil, func(n, i int) {
 				if i < notNullColumnNum {
 					b` + tplWrPp + `
@@ -232,7 +233,7 @@ func (d BaseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 			}, ignoredColumns...)
 			b.Write(" VALUES")
 			b.EachEntity(b.Sep(","), func(_, _ int, entity *T) {
-				cvs, _ := b.ColumnValuesAt(entity, false, ignoredColumns...)
+				cvs := b.ColumnValuesAt(entity, false, ignoredColumns...)
 				b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
 					b.SetOk(true)
 					b` + tplWrPp + `.Arg(value)
@@ -248,10 +249,17 @@ func (d BaseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 		BuildSql: func(b *gdao.Builder[T]) {
 			b.SetOk(false)
 			b.Write("UPDATE ").Write(d.table).Write(" SET ")
-			setCvs, whereCvs := b.ColumnValues(req.OnlyAssigned, req.WhereColumns...)
+			setCvs := b.ColumnValues(!req.UpdateAll, req.WhereColumns...)
 			b.EachColumnValues(setCvs, b.Sep(","), func(column string, value any) {
 				b.SetOk(true)
 				b.Write(column).Write("=")` + tplWrPp + `.Arg(value)
+			})
+			b.EachColumnName(req.SetNullColumns,nil, func(_, _ int, column string) {
+				if b.Ok() {
+					b.Write(",")
+				}
+				b.SetOk(true)
+				b.Write("column=null")
 			})
 			if !b.Ok() {
 				return
@@ -259,10 +267,15 @@ func (d BaseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 			b.Write(" WHERE ")
 
 			var whereCond condition
-			if len(whereCvs) > 0 {
+			if len(req.WhereColumns) > 0 {
 				a := And()
-				for _, cv := range whereCvs {
-					a.Eq(cv.Column, cv.Value)
+				for _, c := range req.WhereColumns {
+					value := b.ColumnValue(b.Entity(), c)
+					if value == nil {
+						a.IsNull(c)
+					} else {
+						a.Eq(c, value)
+					}
 				}
 				if req.Condition != nil {
 					a.And(req.Condition)
@@ -571,10 +584,7 @@ func (c conditionBetween) write(b conditionBuilder) bool {
 	}
 	c.doWrite(b, func() {
 		b.write(c.column)
-		b.write(" BETWEEN ")
-		b.write("?")
-		b.write(" AND ")
-		b.write("?", c.min, c.max)
+		b.write(" BETWEEN ? AND ?", c.min, c.max)
 	})
 	return true
 }
