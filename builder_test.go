@@ -168,14 +168,14 @@ func TestBuilder_Repeat(t *testing.T) {
 	}})
 }
 
-func TestBuilder_WriteCommaColumns(t *testing.T) {
+func TestBuilder_WriteColumns(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockAccountDao(t)
 	dao.Query(gdao.QueryReq[Account]{nil, nil, nil, func(b *gdao.Builder[Account]) {
-		b.WriteCommaColumns("id", "", "user_id")
+		b.WriteColumns("id", "", "user_id")
 		r.Equal("id,user_id", b.Sql())
 
-		b.WriteCommaColumns()
+		b.WriteColumns()
 		r.Equal("id,user_idid,other_id,user_id,status,balance", b.Sql())
 	}})
 }

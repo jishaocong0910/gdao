@@ -26,7 +26,7 @@ func (b *Builder[T]) Arg(a any) *Builder[T] {
 	return b
 }
 
-func (b *Builder[T]) WriteCommaColumns(columns ...string) *Builder[T] {
+func (b *Builder[T]) WriteColumns(columns ...string) *Builder[T] {
 	if len(columns) == 0 {
 		b.Write(b.dao.commaColumns)
 	} else {

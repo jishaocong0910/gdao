@@ -136,7 +136,7 @@ type BaseDao[T any] struct {
 // List queries records of the conditions, it won't execute if there is no baseCondition.
 func (d BaseDao[T]) List(req ListReq) ([]*T, error) {
 	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Tx: req.Tx, BuildSql: func(b *gdao.Builder[T]) {
-		b.Write("SELECT ").WriteCommaColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
+		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
 		cb := getConditionBuilder(b)
 		b.SetOk(req.Condition.write(cb))
 		if !b.Ok() {
@@ -172,7 +172,7 @@ func (d BaseDao[T]) List(req ListReq) ([]*T, error) {
 // Get queries a record of the conditions, it won't execute if there is no baseCondition.
 func (d BaseDao[T]) Get(req GetReq) (*T, error) {
 	first, _, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Tx: req.Tx, BuildSql: func(b *gdao.Builder[T]) {
-		b.Write("SELECT ").WriteCommaColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
+		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
 		cb := getConditionBuilder(b)
 		b.SetOk(req.Condition.write(cb))
 		if !b.Ok() {
