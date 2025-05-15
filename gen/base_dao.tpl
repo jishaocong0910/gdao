@@ -382,7 +382,7 @@ func (d BaseDao[T]) List(req ListReq) ([]*T, error) {
 			return
 		}
 		if req.OrderBy != nil {
-			b.Repeat(len(req.OrderBy.Items), b.SepFix(" ORDER BY", ",", "", false), nil, func(n, i int) {
+			b.Repeat(len(req.OrderBy.Items), b.SepFix(" ORDER BY ", ",", "", false), nil, func(n, i int) {
 				item := req.OrderBy.Items[i]
 				b.Write(item.Column).Write(" ")
 				if item.Sequence == "" {

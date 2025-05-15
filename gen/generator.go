@@ -27,51 +27,6 @@ type dialectGenerator interface {
 	getTableInfo(table string) (bool, []*field, string)
 }
 
-var supportedFieldTypes = map[string]struct{}{
-	"bool": {}, "string": {}, "time.Time": {}, "float32": {}, "float64": {}, "int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {}, "uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {},
-}
-
-type methodType int
-
-const (
-	METHOD_GET methodType = iota
-	METHOD_LIST
-	METHOD_INSERT
-	METHOD_INSERT_BATCH
-	METHOD_UPDATE
-	METHOD_UPDATE_BATCH
-	METHOD_DELETE
-)
-
-//go:embed entity.tpl
-var entityTpl string
-
-//go:embed dao.tpl
-var daoTpl string
-
-//go:embed base_dao.tpl
-var baseDaoTpl string
-
-//go:embed wr_pp.tpl
-var wrPpTpl string
-
-var tplEntity *template.Template
-var tplDao *template.Template
-var tplBaseDao *template.Template
-var tplWrPp *template.Template
-
-var entityNameMapper = gdao.NewNameMapper().UpperCamelCase()
-var fieldNameMapper = gdao.NewNameMapper().UpperCamelCase()
-var daoNameMapper = gdao.NewNameMapper().UpperCamelCase().AddSuffix("Dao")
-var entityFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
-var daoFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix("_dao.go")
-
-func init() {
-	tplEntity = mustReturn(template.New("").Parse(entityTpl))
-	tplDao = mustReturn(template.New("").Parse(daoTpl))
-	tplBaseDao = mustReturn(template.New("").Parse(baseDaoTpl + wrPpTpl))
-}
-
 type Generator struct {
 	c Cfg
 	d dialectGenerator
@@ -272,6 +227,39 @@ func checkCfg(c *Cfg) {
 		_, p := filepath.Split(c.OutPath)
 		c.Package = p
 	}
+}
+
+var entityNameMapper = gdao.NewNameMapper().UpperCamelCase()
+var fieldNameMapper = gdao.NewNameMapper().UpperCamelCase()
+var daoNameMapper = gdao.NewNameMapper().UpperCamelCase().AddSuffix("Dao")
+var entityFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
+var daoFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix("_dao.go")
+
+var supportedFieldTypes = map[string]struct{}{
+	"bool": {}, "string": {}, "time.Time": {}, "float32": {}, "float64": {}, "int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {}, "uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {},
+}
+
+//go:embed entity.tpl
+var entityTpl string
+
+//go:embed dao.tpl
+var daoTpl string
+
+//go:embed base_dao.tpl
+var baseDaoTpl string
+
+//go:embed wr_pp.tpl
+var wrPpTpl string
+
+var tplEntity *template.Template
+var tplDao *template.Template
+var tplBaseDao *template.Template
+var tplWrPp *template.Template
+
+func init() {
+	tplEntity = mustReturn(template.New("").Parse(entityTpl))
+	tplDao = mustReturn(template.New("").Parse(daoTpl))
+	tplBaseDao = mustReturn(template.New("").Parse(baseDaoTpl + wrPpTpl))
 }
 
 func mustNoError(err error) {
