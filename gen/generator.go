@@ -11,6 +11,7 @@ import (
 	"text/template"
 
 	"github.com/jishaocong0910/gdao"
+	"golang.org/x/tools/imports"
 )
 
 type dbType int
@@ -129,11 +130,11 @@ func (g Generator) createFile(fileName string, cover bool, tpl *template.Templat
 	if err != nil {
 		return err
 	}
-	//content, err := imports.Process("", buf.Bytes(), nil)
+	content, err := imports.Process("", buf.Bytes(), nil)
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(path, buf.Bytes(), 0644)
+	err = os.WriteFile(path, content, 0644)
 	if err != nil {
 		return err
 	}
