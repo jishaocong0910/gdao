@@ -220,7 +220,7 @@ func (b *Builder[T]) SepFix(prefix, separator, suffix string, writeFixIfEmpty bo
 
 func (b *Builder[T]) writePrefix(s *separate, n int) {
 	if s != nil {
-		if n == 0 && s.writeFixIfEmpty || n != 0 && !s.writeFixIfEmpty {
+		if n == 0 && s.writeFixIfEmpty || n == 1 && !s.writeFixIfEmpty {
 			b.Write(s.prefix)
 		}
 	}

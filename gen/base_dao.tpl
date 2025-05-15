@@ -107,8 +107,8 @@ func (o *orderBy) Desc(column string) *orderBy {
 type orderBySequence string
 
 const (
-	asc  orderBySequence = "asc"
-	desc                 = "desc"
+	asc  orderBySequence = "ASC"
+	desc                 = "DESC"
 )
 
 type OrderByItem struct {
