@@ -131,7 +131,6 @@ func registerField[T any](d *Dao[T], tf reflect.StructField, columnMapper *NameM
 }
 
 type Dao[T any] struct {
-	dao                    *Dao[T]
 	db                     *sql.DB
 	commaColumns           string
 	columns                []string

@@ -2,6 +2,7 @@ package gen
 
 import (
 	"bytes"
+	_ "embed"
 	"errors"
 	"log"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"text/template"
 
 	"github.com/jishaocong0910/gdao"
-	"golang.org/x/tools/imports"
 )
 
 type dbType int
@@ -25,6 +25,51 @@ const (
 
 type dialectGenerator interface {
 	getTableInfo(table string) (bool, []*field, string)
+}
+
+var supportedFieldTypes = map[string]struct{}{
+	"bool": {}, "string": {}, "time.Time": {}, "float32": {}, "float64": {}, "int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {}, "uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {},
+}
+
+type methodType int
+
+const (
+	METHOD_GET methodType = iota
+	METHOD_LIST
+	METHOD_INSERT
+	METHOD_INSERT_BATCH
+	METHOD_UPDATE
+	METHOD_UPDATE_BATCH
+	METHOD_DELETE
+)
+
+//go:embed entity.tpl
+var entityTpl string
+
+//go:embed dao.tpl
+var daoTpl string
+
+//go:embed base_dao.tpl
+var baseDaoTpl string
+
+//go:embed wr_pp.tpl
+var wrPpTpl string
+
+var tplEntity *template.Template
+var tplDao *template.Template
+var tplBaseDao *template.Template
+var tplWrPp *template.Template
+
+var entityNameMapper = gdao.NewNameMapper().UpperCamelCase()
+var fieldNameMapper = gdao.NewNameMapper().UpperCamelCase()
+var daoNameMapper = gdao.NewNameMapper().UpperCamelCase().AddSuffix("Dao")
+var entityFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
+var daoFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix("_dao.go")
+
+func init() {
+	tplEntity = mustReturn(template.New("").Parse(entityTpl))
+	tplDao = mustReturn(template.New("").Parse(daoTpl))
+	tplBaseDao = mustReturn(template.New("").Parse(baseDaoTpl + wrPpTpl))
 }
 
 type Generator struct {
@@ -116,7 +161,7 @@ func (g Generator) createOutPath() {
 	mustNoError(os.MkdirAll(g.c.OutPath, os.ModePerm))
 }
 
-func (g Generator) createFile(fileName string, cover bool, tmpl string, param any) error {
+func (g Generator) createFile(fileName string, cover bool, tpl *template.Template, param any) error {
 	path := filepath.Join(g.c.OutPath, fileName)
 	if !cover {
 		_, err := os.Stat(path)
@@ -125,19 +170,15 @@ func (g Generator) createFile(fileName string, cover bool, tmpl string, param an
 		}
 	}
 	var buf bytes.Buffer
-	t, err := template.New("").Parse(tmpl)
+	err := tpl.Execute(&buf, param)
 	if err != nil {
 		return err
 	}
-	err = t.Execute(&buf, param)
+	//content, err := imports.Process("", buf.Bytes(), nil)
 	if err != nil {
 		return err
 	}
-	content, err := imports.Process("", buf.Bytes(), nil)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(path, content, 0644)
+	err = os.WriteFile(path, buf.Bytes(), 0644)
 	if err != nil {
 		return err
 	}
@@ -233,12 +274,6 @@ func checkCfg(c *Cfg) {
 	}
 }
 
-var entityNameMapper = gdao.NewNameMapper().UpperCamelCase()
-var fieldNameMapper = gdao.NewNameMapper().UpperCamelCase()
-var daoNameMapper = gdao.NewNameMapper().UpperCamelCase().AddSuffix("Dao")
-var entityFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
-var daoFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix("_dao.go")
-
 func mustNoError(err error) {
 	if err != nil { // coverage-ignore
 		panic(err)
@@ -251,19 +286,3 @@ func mustReturn[T any](t T, err error) T {
 	}
 	return t
 }
-
-var supportedFieldTypes = map[string]struct{}{
-	"bool": {}, "string": {}, "time.Time": {}, "float32": {}, "float64": {}, "int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {}, "uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {},
-}
-
-type methodType int
-
-const (
-	METHOD_GET methodType = iota
-	METHOD_LIST
-	METHOD_INSERT
-	METHOD_INSERT_BATCH
-	METHOD_UPDATE
-	METHOD_UPDATE_BATCH
-	METHOD_DELETE
-)
