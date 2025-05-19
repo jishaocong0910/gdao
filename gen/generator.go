@@ -26,6 +26,7 @@ const (
 
 type dialectGenerator interface {
 	getTableInfo(table string) (bool, []*field, string)
+	getBaseDaoTemplate() *template.Template
 }
 
 type Generator struct {
@@ -87,7 +88,7 @@ func (g Generator) Gen() {
 			DbType:  g.c.DbType,
 			Package: g.c.Package,
 		}
-		err := g.createFile("base_dao.go", false, tplBaseDao, b)
+		err := g.createFile("base_dao.go", false, g.d.getBaseDaoTemplate(), b)
 		if err != nil {
 			log.Printf("create base dao fail: %+v\n", err)
 		} else {
@@ -246,21 +247,12 @@ var entityTpl string
 //go:embed dao.tpl
 var daoTpl string
 
-//go:embed base_dao.tpl
-var baseDaoTpl string
-
-//go:embed wr_pp.tpl
-var wrPpTpl string
-
 var tplEntity *template.Template
 var tplDao *template.Template
-var tplBaseDao *template.Template
-var tplWrPp *template.Template
 
 func init() {
 	tplEntity = mustReturn(template.New("").Parse(entityTpl))
 	tplDao = mustReturn(template.New("").Parse(daoTpl))
-	tplBaseDao = mustReturn(template.New("").Parse(baseDaoTpl + wrPpTpl))
 }
 
 func mustNoError(err error) {

@@ -31,7 +31,7 @@ func TestMySql(t *testing.T) {
 		mysql.WithDatabase("test"),
 		mysql.WithUsername("root"),
 		mysql.WithPassword("12345678"),
-		mysql.WithScripts(filepath.Join("testdata", "mysql.sql")),
+		mysql.WithScripts("testdata/mysql/init_script.sql"),
 	)
 	r.NoError(err)
 
@@ -43,10 +43,10 @@ func TestMySql(t *testing.T) {
 	dsn, err := mysqlContainer.ConnectionString(ctx)
 	r.NoError(err)
 
-	gen.GetGenerator(gen.Conf{
+	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_MYSQL,
 		Dsn:     dsn,
-		OutPath: "testdata",
+		OutPath: "testdata/mysql",
 		Tables: gen.Tables{"mysql": gen.FieldTypes{
 			"other":  "[]string",
 			"other2": "[]rune",
@@ -57,9 +57,13 @@ func TestMySql(t *testing.T) {
 		GenDao: true,
 	}).Gen()
 
-	defer os.Remove("testdata/base_dao.go")
-	compareFile(r, "testdata/mysql_entity.golden", "testdata/mysql.go")
-	compareFile(r, "testdata/mysql_dao.golden", "testdata/mysql_dao.go")
+	defer os.Remove("testdata/mysql/mysql.go")
+	defer os.Remove("testdata/mysql/mysql_dao.go")
+	defer os.Remove("testdata/mysql/base_dao.go")
+
+	compareFile(r, "testdata/mysql/entity.golden", "testdata/mysql/mysql.go")
+	compareFile(r, "testdata/mysql/dao.golden", "testdata/mysql/mysql_dao.go")
+	compareFile(r, "testdata/mysql/mysql_base_dao.go", "testdata/mysql/base_dao.go")
 }
 
 func TestOracle(t *testing.T) {
@@ -102,7 +106,7 @@ func TestOracle(t *testing.T) {
 	}
 	db.Close()
 
-	gen.GetGenerator(gen.Conf{
+	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_ORACLE,
 		Dsn:     dsn,
 		OutPath: "testdata",
@@ -141,7 +145,7 @@ func TestPostgres(t *testing.T) {
 	dsn, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	r.NoError(err)
 
-	gen.GetGenerator(gen.Conf{
+	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_POSTGRES,
 		Dsn:     dsn,
 		OutPath: "testdata",
@@ -189,7 +193,7 @@ func TestSqlServer(t *testing.T) {
 	}
 	db.Close()
 
-	gen.GetGenerator(gen.Conf{
+	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_SQLSERVER,
 		Dsn:     dsn,
 		OutPath: "testdata",
@@ -204,21 +208,24 @@ func TestSqlServer(t *testing.T) {
 
 func TestSqlite(t *testing.T) {
 	r := require.New(t)
-	gen.GetGenerator(gen.Conf{
+	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_SQLITE,
-		Dsn:     "testdata/sqlite.db",
-		OutPath: "testdata",
+		Dsn:     "testdata/sqlite/sqlite.db",
+		OutPath: "testdata/sqlite",
 		Tables:  gen.Tables{"sqlite": nil},
 		GenDao:  true,
 	}).Gen()
 
-	defer os.Remove("testdata/base_dao.go")
-	compareFile(r, "testdata/sqlite_entity.golden", "testdata/sqlite.go")
-	compareFile(r, "testdata/sqlite_dao.golden", "testdata/sqlite_dao.go")
+	defer os.Remove("testdata/sqlite/sqlite.go")
+	defer os.Remove("testdata/sqlite/sqlite_dao.go")
+	defer os.Remove("testdata/sqlite/base_dao.go")
+
+	compareFile(r, "testdata/sqlite/entity.golden", "testdata/sqlite/sqlite.go")
+	compareFile(r, "testdata/sqlite/dao.golden", "testdata/sqlite/sqlite_dao.go")
+	compareFile(r, "testdata/sqlite/sqlite_base_dao.go", "testdata/sqlite/base_dao.go")
 }
 
 func compareFile(r *require.Assertions, golden, gen string) {
-	defer os.Remove(gen)
 	goldenEntity, err := os.ReadFile(golden)
 	r.NoError(err)
 	genEntity, err := os.ReadFile(gen)
@@ -229,6 +236,6 @@ func compareFile(r *require.Assertions, golden, gen string) {
 func TestUnsupportedDb(t *testing.T) {
 	r := require.New(t)
 	r.PanicsWithValue("not support this db type yet", func() {
-		gen.GetGenerator(gen.Conf{DbType: gen.DbType(999)})
+		gen.GetGenerator(gen.Cfg{DbType: gen.DbType(999)})
 	})
 }

@@ -4,14 +4,25 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"text/template"
+
+	_ "embed"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
+//go:embed mysql_base_dao.tpl
+var mysqlBaseDaoTpl string
+
 type mySqlGenerator struct {
-	c        Cfg
-	db       *sql.DB
-	database string
+	baseDaoTemplate *template.Template
+	c               Cfg
+	db              *sql.DB
+	database        string
+}
+
+func (g mySqlGenerator) getBaseDaoTemplate() *template.Template {
+	return g.baseDaoTemplate
 }
 
 func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
@@ -118,5 +129,6 @@ func newMySqlGenerator(c Cfg) mySqlGenerator {
 		rows.Scan(&database)
 	}
 	rows.Close()
-	return mySqlGenerator{c: c, db: db, database: database}
+	t := mustReturn(template.New("").Parse(mysqlBaseDaoTpl))
+	return mySqlGenerator{baseDaoTemplate: t, c: c, db: db, database: database}
 }

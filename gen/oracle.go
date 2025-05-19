@@ -2,16 +2,26 @@ package gen
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"strings"
+	"text/template"
 
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/sijms/go-ora/v2"
 )
 
+//go:embed oracle_base_dao.tpl
+var oracleBaseDaoTpl string
+
 type oracleGenerator struct {
-	c  Cfg
-	db *sql.DB
+	baseDaoTemplate *template.Template
+	c               Cfg
+	db              *sql.DB
+}
+
+func (g oracleGenerator) getBaseDaoTemplate() *template.Template {
+	return g.baseDaoTemplate
 }
 
 func (g oracleGenerator) getTableInfo(table string) (bool, []*field, string) {
@@ -93,5 +103,6 @@ func newOracleGenerator(c Cfg) oracleGenerator {
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
 	}
-	return oracleGenerator{c: c, db: db}
+	t := mustReturn(template.New("").Parse(oracleBaseDaoTpl))
+	return oracleGenerator{baseDaoTemplate: t, c: c, db: db}
 }

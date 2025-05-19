@@ -15,19 +15,18 @@ type DaoExport struct {
 
 func ExportDao[T any](dao *Dao[T]) DaoExport {
 	return DaoExport{
-		ColumnsWithComma:       dao.p.CommaColumns,
-		Columns:                dao.p.Columns,
-		ColumnToFieldIndexMap:  dao.p.ColumnToFieldIndexMap,
-		AutoIncrementColumns:   dao.p.AutoIncrementColumns,
-		AutoIncrementStep:      dao.p.AutoIncrementStep,
-		AutoIncrementConvertor: dao.p.AutoIncrementConvertor,
+		ColumnsWithComma:       dao.commaColumns,
+		Columns:                dao.columns,
+		ColumnToFieldIndexMap:  dao.columnToFieldIndexMap,
+		AutoIncrementColumns:   dao.autoIncrementColumns,
+		AutoIncrementStep:      dao.autoIncrementStep,
+		AutoIncrementConvertor: dao.autoIncrementConvertor,
 	}
 }
 
 var LastInsertIdConvertors = lastInsertIdConvertors
 
 var PrintSql = printSql
-var PrintArgs = printArgs
-var PrintAffected = printAffected
+var PrintSqlCanceled = printSqlCanceled
 var PrintWarn = printWarn
 var PrintError = printError

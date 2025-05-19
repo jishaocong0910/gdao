@@ -2,16 +2,26 @@ package gen
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"strings"
+	"text/template"
 
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/microsoft/go-mssqldb"
 )
 
+//go:embed sqlserver_base_dao.tpl
+var sqlserverBaseDaoTpl string
+
 type sqlServerGenerator struct {
-	c  Cfg
-	db *sql.DB
+	baseDaoTemplate *template.Template
+	c               Cfg
+	db              *sql.DB
+}
+
+func (g sqlServerGenerator) getBaseDaoTemplate() *template.Template {
+	return g.baseDaoTemplate
 }
 
 func (g sqlServerGenerator) getTableInfo(table string) (bool, []*field, string) {
@@ -91,5 +101,6 @@ func newSqlServerGenerator(c Cfg) sqlServerGenerator {
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
 	}
-	return sqlServerGenerator{c: c, db: db}
+	t := mustReturn(template.New("").Parse(postgresBaseDaoTpl))
+	return sqlServerGenerator{baseDaoTemplate: t, c: c, db: db}
 }

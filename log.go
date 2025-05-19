@@ -22,25 +22,15 @@ func LogCfg(log Logger, level string) {
 var logger Logger
 var printSqlLevel string
 
-func printSql(ctx context.Context, sql string, args []any, affected int64) {
+func printSql(ctx context.Context, sql string, args []any, affected int64, err error) {
 	var msg strings.Builder
 	msg.WriteString("SQL: %s")
-	l := len(args)
-	var msgArgs []any
-	if l > 0 {
-		if affected > -1 {
-			msgArgs = make([]any, 0, 3)
-		} else {
-			msgArgs = make([]any, 0, 2)
-		}
-	} else if affected > -1 {
-		msgArgs = make([]any, 0, 3)
-	}
+	msgArgs := make([]any, 0, 3)
 	msgArgs = append(msgArgs, sql)
 
-	if l > 0 {
-		msg.WriteString("\nArgs: %v")
-		var values = make([]any, 0, l)
+	if len(args) > 0 {
+		msg.WriteString("\nargs: %v")
+		var values = make([]any, 0, len(args))
 		for _, a := range args {
 			if a == nil {
 				values = append(values, nil)
@@ -61,8 +51,13 @@ func printSql(ctx context.Context, sql string, args []any, affected int64) {
 	}
 
 	if affected != -1 {
-		msg.WriteString("\nAffected: %d")
+		msg.WriteString("\naffected: %d")
 		msgArgs = append(msgArgs, affected)
+	}
+
+	if err != nil {
+		msg.WriteString("\nerror: %+v")
+		msgArgs = append(msgArgs, err)
 	}
 
 	printSqlLog(ctx, msg.String(), msgArgs...)

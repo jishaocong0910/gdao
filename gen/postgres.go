@@ -2,18 +2,28 @@ package gen
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"strings"
+	"text/template"
 
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/lib/pq"
 )
 
+//go:embed postgres_base_dao.tpl
+var postgresBaseDaoTpl string
+
 type postgresGenerator struct {
-	c        Cfg
-	db       *sql.DB
-	schema   string
-	database string
+	baseDaoTemplate *template.Template
+	c               Cfg
+	db              *sql.DB
+	schema          string
+	database        string
+}
+
+func (g postgresGenerator) getBaseDaoTemplate() *template.Template {
+	return g.baseDaoTemplate
 }
 
 func (g postgresGenerator) getTableInfo(table string) (bool, []*field, string) {
@@ -117,5 +127,6 @@ func newPostgresGenerator(c Cfg) postgresGenerator {
 		rows.Scan(&database)
 	}
 	rows.Close()
-	return postgresGenerator{c: c, db: db, schema: schema, database: database}
+	t := mustReturn(template.New("").Parse(postgresBaseDaoTpl))
+	return postgresGenerator{baseDaoTemplate: t, c: c, db: db, schema: schema, database: database}
 }

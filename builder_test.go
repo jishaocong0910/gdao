@@ -34,6 +34,16 @@ func TestBuilder_Pp(t *testing.T) {
 	}})
 }
 
+func TestBuilder_SetOk(t *testing.T) {
+	r := require.New(t)
+	dao, _ := mockUserDao(t)
+	dao.Query(gdao.QueryReq[User]{nil, nil, nil, func(b *gdao.Builder[User]) {
+		r.True(b.Ok())
+		b.SetOk(false)
+		r.False(b.Ok())
+	}})
+}
+
 func TestBuilder_Columns(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockUserDao(t)
@@ -85,9 +95,8 @@ func TestBuilder_ColumnValue(t *testing.T) {
 		r.Nil(b.ColumnValue(nil, ""))
 		r.Nil(b.ColumnValue(b.Entity(), ""))
 		r.Nil(b.ColumnValue(b.Entity(), "name"))
-		cvs1, cvs2 := b.ColumnValuesAt(nil, false)
-		r.Nil(cvs1)
-		r.Nil(cvs2)
+		cvs := b.ColumnValuesAt(nil, false)
+		r.Nil(cvs)
 		r.Equal(int8(3), reflect.ValueOf(b.ColumnValue(b.Entity(), "status")).Elem().Interface())
 		r.Equal("address", reflect.ValueOf(b.ColumnValue(b.Entity(), "address")).Elem().Interface())
 	}})
@@ -102,7 +111,7 @@ func TestBuilder_ColumnValues(t *testing.T) {
 	}
 	dao, _ := mockAccountDao(t)
 	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) {
-		cvs, _ := b.ColumnValues(false)
+		cvs := b.ColumnValues(false)
 		for i, cv := range cvs {
 			switch i {
 			case 0:
@@ -123,7 +132,7 @@ func TestBuilder_ColumnValues(t *testing.T) {
 			}
 		}
 
-		cvs2, cvs3 := b.ColumnValues(true, "user_id")
+		cvs2 := b.ColumnValues(true, "user_id")
 		for i, cv := range cvs2 {
 			switch i {
 			case 0:
@@ -132,19 +141,6 @@ func TestBuilder_ColumnValues(t *testing.T) {
 			case 1:
 				r.Equal("balance", cv.Column)
 				r.Equal(int64(100), reflect.ValueOf(cv.Value).Elem().Interface())
-			}
-		}
-		for i, cv := range cvs3 {
-			switch i {
-			case 0:
-				r.Equal("user_id", cv.Column)
-				r.Equal(int32(1), reflect.ValueOf(cv.Value).Elem().Interface())
-			case 1:
-				r.Equal("id", cv.Column)
-				r.Equal(nil, cv.Value)
-			case 2:
-				r.Equal("other_id", cv.Column)
-				r.Equal(nil, cv.Value)
 			}
 		}
 	}})
@@ -200,7 +196,7 @@ func TestBuilder_EachColumnValues(t *testing.T) {
 	}
 	dao, _ := mockAccountDao(t)
 	dao.Query(gdao.QueryReq[Account]{nil, nil, []*Account{a}, func(b *gdao.Builder[Account]) {
-		cvs, _ := b.ColumnValues(false)
+		cvs := b.ColumnValues(false)
 		b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
 			b.Write(column)
 		})

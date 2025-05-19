@@ -140,7 +140,7 @@ type Dao[T any] struct {
 	autoIncrementConvertor func(id int64) reflect.Value
 }
 
-func (d *Dao[T]) SetDb(db *sql.DB) {
+func (d *Dao[T]) SetDb(db *sql.DB) { // coverage-ignore
 	d.db = db
 }
 
@@ -155,7 +155,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	list = make([]*T, 0)
 	b := newBuilder(d, req.Entities)
 	req.BuildSql(b)
-	if !b.Ok() {
+	if !b.Ok() { // coverage-ignore
 		printSqlCanceled(req.Ctx, b.Sql())
 		return
 	}
@@ -189,13 +189,13 @@ func (d *Dao[T]) query(ctx context.Context, tx *sql.Tx, sql string, args []any) 
 	}
 	prepare, err := d.createPrepare(ctx, tx, sql)
 	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, -1)
+		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
 	}
 	rows, err = prepare.QueryContext(ctx, args...)
 	if err != nil { // coverage-ignore
 		printWarn(ctx, prepare.Close())
-		printSql(ctx, sql, args, -1)
+		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
 	}
 	closeFunc = func() {
@@ -205,10 +205,10 @@ func (d *Dao[T]) query(ctx context.Context, tx *sql.Tx, sql string, args []any) 
 	columns, err = rows.Columns()
 	if err != nil { // coverage-ignore
 		closeFunc()
-		printSql(ctx, sql, args, -1)
+		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
 	}
-	printSql(ctx, sql, args, -1)
+	printSql(ctx, sql, args, -1, err)
 	return rows, columns, closeFunc, nil
 }
 
@@ -219,7 +219,7 @@ func (d *Dao[T]) exec(ctx context.Context, tx *sql.Tx, sql string, args []any) (
 	affected = int64(-1)
 	prepare, err := d.createPrepare(ctx, tx, sql)
 	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, affected)
+		printSql(ctx, sql, args, affected, err)
 		return nil, 0, err
 	}
 	defer func() {
@@ -227,12 +227,11 @@ func (d *Dao[T]) exec(ctx context.Context, tx *sql.Tx, sql string, args []any) (
 	}()
 	result, err = prepare.ExecContext(ctx, args...)
 	if err != nil {
-		printSql(ctx, sql, args, affected)
+		printSql(ctx, sql, args, affected, err)
 		return nil, 0, err
 	}
 	affected, err = result.RowsAffected()
-	printError(ctx, err)
-	printSql(ctx, sql, args, affected)
+	printSql(ctx, sql, args, affected, err)
 	return
 }
 

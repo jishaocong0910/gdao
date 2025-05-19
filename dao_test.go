@@ -149,7 +149,7 @@ func TestMutationDao_Exec(t *testing.T) {
 			Entities: []*User{user},
 			BuildSql: func(b *gdao.Builder[User]) {
 				b.Write("UPDATE user SET ")
-				cvs, _ := b.ColumnValues(true)
+				cvs := b.ColumnValues(true)
 				b.EachColumnValues(cvs, b.Sep(","), func(column string, value any) {
 					b.Write(column).Write("=?", value)
 				})
@@ -179,7 +179,7 @@ func TestMutationDao_Exec(t *testing.T) {
 			Entities: []*User{user},
 			BuildSql: func(b *gdao.Builder[User]) {
 				b.Write("INSERT user")
-				cvs, _ := b.ColumnValues(true)
+				cvs := b.ColumnValues(true)
 				b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
 					b.Write(column)
 				})
@@ -212,7 +212,7 @@ func TestMutationDao_Exec(t *testing.T) {
 			Entities: []*User{user},
 			BuildSql: func(b *gdao.Builder[User]) {
 				b.Write("INSERT user").Write("(").WriteColumns().Write(") VALUES(")
-				cvs, _ := b.ColumnValues(false)
+				cvs := b.ColumnValues(false)
 				b.EachColumnValues(cvs, b.Sep(","),
 					func(column string, value any) {
 						b.Write("?", value)
@@ -256,7 +256,7 @@ func TestMutationDao_Insert(t *testing.T) {
 		BuildSql: func(b *gdao.Builder[User]) {
 			b.Write("INSERT user").Write("(").WriteColumns().Write(") VALUES")
 			b.EachEntity(b.Sep(","), func(n, i int, entity *User) {
-				cvs, _ := b.ColumnValuesAt(entity, false)
+				cvs := b.ColumnValuesAt(entity, false)
 				b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
 					b.Write("?", value)
 				})

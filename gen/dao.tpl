@@ -5,6 +5,6 @@ package {{.Package}}
 var {{.DaoName}} = _{{.DaoName}}{newBaseDao[{{.EntityName}}](gdao.NewDaoReq{}, "{{.Table}}")}
 
 type _{{.DaoName}} struct {
-	*BaseDao[{{.EntityName}}]
+	*baseDao[{{.EntityName}}]
 }
 

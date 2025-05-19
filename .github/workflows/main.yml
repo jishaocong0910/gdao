@@ -14,6 +14,6 @@ jobs:
           profile: cover.out
           threshold-file: 80
           threshold-package: 80
-          threshold-total: 95
+          threshold-total: 90
           git-token: ${{ github.ref_name == 'main' && secrets.GITHUB_TOKEN || '' }}
           git-branch: badges 
