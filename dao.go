@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -48,6 +49,25 @@ type MutationReq[T any] struct {
 
 func Ptr[T any](t T) *T {
 	return &t
+}
+
+func Tx(tx *sql.Tx, f func(tx *sql.Tx)) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			if e, ok := r.(error); ok {
+				err = e
+			} else if s, ok := r.(string); ok {
+				err = errors.New(s)
+			} else {
+				err = fmt.Errorf("%+v", r)
+			}
+		} else {
+			tx.Commit()
+		}
+	}()
+	f(tx)
+	return nil
 }
 
 func NewDao[T any](req NewDaoReq) *Dao[T] {
