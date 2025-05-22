@@ -20,10 +20,6 @@ type User struct {
 	Status   *int8      `gdao:"column=status"`
 	Level    *int32     `gdao:"column=level"`
 	CreateAt *time.Time `gdao:"column=create_at"`
-	// test invalid field
-	field1 *string `gdao:"column=field1"`
-	Field2 string  `gdao:"column=field2"`
-	Field3 *string
 }
 
 type Account struct {
@@ -32,6 +28,14 @@ type Account struct {
 	UserId  *int32
 	Status  *int8
 	Balance *int64
+}
+
+type InvalidField struct {
+	field *string `gdao:"column=field"`
+}
+
+type InvalidField2 struct {
+	Field string `gdao:"column=field"`
 }
 
 func mockUserDao(t *testing.T) (*gdao.Dao[User], sqlmock.Sqlmock) {
@@ -310,16 +314,30 @@ func TestMutationDao_Query(t *testing.T) {
 	r.Equal(int32(2002), *accounts[1].Id)
 }
 
-func TestMustNewDao(t *testing.T) {
+func TestNewDaoPanic(t *testing.T) {
 	r := require.New(t)
 	{
 		r.PanicsWithValue("generics must be struct type", func() {
 			gdao.NewDao[*User](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
-	}
-	{
 		r.NotPanics(func() {
 			gdao.NewDao[User](gdao.NewDaoReq{DB: &sql.DB{}})
+		})
+	}
+	{
+		r.PanicsWithValue(`field "field" is invalid`, func() {
+			gdao.NewDao[InvalidField](gdao.NewDaoReq{DB: &sql.DB{}})
+		})
+		r.NotPanics(func() {
+			gdao.NewDao[InvalidField](gdao.NewDaoReq{DB: &sql.DB{}, AllowInvalidField: true})
+		})
+	}
+	{
+		r.PanicsWithValue(`field "Field" is invalid`, func() {
+			gdao.NewDao[InvalidField2](gdao.NewDaoReq{DB: &sql.DB{}})
+		})
+		r.NotPanics(func() {
+			gdao.NewDao[InvalidField2](gdao.NewDaoReq{DB: &sql.DB{}, AllowInvalidField: true})
 		})
 	}
 }

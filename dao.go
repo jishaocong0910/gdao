@@ -13,8 +13,9 @@ import (
 var DB *sql.DB
 
 type NewDaoReq struct {
-	DB           *sql.DB
-	ColumnMapper *NameMapper
+	DB                *sql.DB
+	AllowInvalidField bool
+	ColumnMapper      *NameMapper
 }
 
 type RawQueryReq struct {
@@ -63,12 +64,22 @@ func NewDao[T any](req NewDaoReq) *Dao[T] {
 	for i := 0; i < t.NumField(); i++ {
 		tf := t.Field(i)
 		if !tf.IsExported() {
-			continue
+			if req.AllowInvalidField {
+				continue
+			} else {
+				panic("field \"" + tf.Name + "\" is invalid")
+			}
 		}
 		if !tf.Anonymous {
 			if ft := tf.Type; ft.Kind() == reflect.Pointer {
 				if _, ok := supportedFieldTypes[ft.Elem().String()]; ok {
 					registerField[T](dao, tf, req.ColumnMapper)
+				}
+			} else {
+				if req.AllowInvalidField {
+					continue
+				} else {
+					panic("field \"" + tf.Name + "\" is invalid")
 				}
 			}
 		}

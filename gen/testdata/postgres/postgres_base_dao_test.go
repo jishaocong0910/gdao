@@ -1,12 +1,12 @@
 package dao_test
 
 import (
+	dao "github.com/jishaocong0910/gdao/gen/testdata/postgres"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jishaocong0910/gdao"
-	"github.com/jishaocong0910/gdao/gen/testdata/mysql"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,14 +25,14 @@ type User struct {
 func TestNewBaseDaoPanic(t *testing.T) {
 	r := require.New(t)
 	r.PanicsWithValue("table must not be blank", func() {
-		dao.MockMysqlBaseDao[User](r, "")
+		dao.MockPostgresBaseDao[User](r, "")
 	})
 }
 
 func TestBaseDao_List(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`SELECT id,name FROM user WHERE status=\? ORDER BY name ASC,address DESC LIMIT 10,10 FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy").AddRow(2, "nick"))
@@ -53,7 +53,7 @@ func TestBaseDao_List(t *testing.T) {
 		r.Equal("nick", *list[1].Name)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		list, err := d.List(dao.ListReq{
 			SelectColumns: []string{"id", "name"},
 			Condition:     dao.And(),
@@ -68,7 +68,7 @@ func TestBaseDao_List(t *testing.T) {
 		r.NoError(mock.ExpectationsWereMet())
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 
 		list, err := d.List(dao.ListReq{
 			SelectColumns: []string{"id", "name"},
@@ -87,7 +87,7 @@ func TestBaseDao_List(t *testing.T) {
 func TestBaseDao_Get(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`SELECT id,phone FROM user WHERE status=\? FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy"))
@@ -104,7 +104,7 @@ func TestBaseDao_Get(t *testing.T) {
 		r.Equal("lucy", *get.Name)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 
 		get, err := d.Get(dao.GetReq{
 			SelectColumns: []string{"id", "phone"},
@@ -117,7 +117,7 @@ func TestBaseDao_Get(t *testing.T) {
 		r.Nil(get)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 
 		get, err := d.Get(dao.GetReq{
 			SelectColumns: []string{"id", "phone"},
@@ -133,7 +133,7 @@ func TestBaseDao_Get(t *testing.T) {
 func TestBaseDao_Insert(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`INSERT INTO user\(name,phone,email,level\) VALUES\(\?,\?,\?,NULL\)`).
 			ExpectExec().WithArgs("abc", "12345", "email").WillReturnResult(sqlmock.NewResult(7, 1))
 
@@ -153,7 +153,7 @@ func TestBaseDao_Insert(t *testing.T) {
 		r.Equal(int32(7), *u.Id)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`INSERT INTO user\(id\,name\,age\,address\,phone\,email\,status\,level\,create_at\) VALUES\(\?\,\?\,\?\,\?\,\?\,\?\,\?\,\?\,\?\)`).
 			ExpectExec().WithArgs(nil, "abc", nil, nil, "12345", "email", nil, nil, nil).WillReturnResult(sqlmock.NewResult(7, 1))
 
@@ -174,7 +174,7 @@ func TestBaseDao_Insert(t *testing.T) {
 		r.Equal(int32(7), *u.Id)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 
 		u := &User{}
 		affected, err := d.Insert(dao.InsertReq[User]{
@@ -189,7 +189,7 @@ func TestBaseDao_Insert(t *testing.T) {
 
 func TestBaseDao_InsertBatch(t *testing.T) {
 	r := require.New(t)
-	d, mock := dao.MockMysqlBaseDao[User](r, "user")
+	d, mock := dao.MockPostgresBaseDao[User](r, "user")
 	mock.ExpectPrepare(`INSERT INTO user\(name,phone,email\) VALUES\(\?,\?,\?\),\(\?,\?,\?\)`).
 		ExpectExec().WithArgs("abc", "12345", nil, "def", "6789", nil).WillReturnResult(sqlmock.NewResult(8, 2))
 
@@ -216,7 +216,7 @@ func TestBaseDao_InsertBatch(t *testing.T) {
 func TestBaseDao_Update(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`UPDATE user SET address=\?,status=\?,level=\?,email=NULL,phone=NULL WHERE age=\?`).
 			ExpectExec().WithArgs("addr", 2, 10, 20).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -236,7 +236,7 @@ func TestBaseDao_Update(t *testing.T) {
 		r.Equal(int64(3), affected)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`UPDATE user SET id=\?,name=\?,address=\?,phone=\?,email=\?,level=\?,create_at=\? WHERE status=\? AND age IS NULL AND address IS NULL AND level=\?`).
 			ExpectExec().WithArgs(nil, nil, "addr", nil, nil, 10, nil, 2, 9).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -258,7 +258,7 @@ func TestBaseDao_Update(t *testing.T) {
 		r.Equal(int64(3), affected)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 
 		u := &User{
 			Status:  gdao.Ptr[int8](2),
@@ -280,7 +280,7 @@ func TestBaseDao_Update(t *testing.T) {
 func TestBaseDao_UpdateBatch(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`UPDATE user SET name=CASE id WHEN \? THEN \? WHEN \? THEN \? WHEN \? THEN \? END,address=CASE id WHEN \? THEN \? WHEN \? THEN \? WHEN \? THEN \? END,phone=CASE id WHEN \? THEN \? WHEN \? THEN \? WHEN \? THEN \? END,email=CASE id WHEN \? THEN \? WHEN \? THEN \? WHEN \? THEN \? END WHERE id IN\(\?,\?,\?\)`).
 			ExpectExec().WithArgs(1, "name1", 2, "name2", 3, "name3", 1, nil, 2, nil, 3, nil, 1, "phone1", 2, "phone2", 3, "phone3", 1, "email1", 2, "email2", 3, "email3", 1, 2, 3).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -313,7 +313,7 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 		r.Equal(int64(3), affected)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`UPDATE user SET name=CASE id WHEN \? THEN \? WHEN \? THEN \? WHEN \? THEN \? END WHERE id IN\(\?,\?,\?\)`).
 			ExpectExec().WithArgs(1, "name1", 2, "name2", 3, "name3", 1, 2, 3).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -347,7 +347,7 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 		r.Equal(int64(3), affected)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 
 		u := &User{
 			Id:    gdao.Ptr[int32](1),
@@ -369,7 +369,7 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 
 func TestBaseDao_Delete(t *testing.T) {
 	r := require.New(t)
-	d, mock := dao.MockMysqlBaseDao[User](r, "user")
+	d, mock := dao.MockPostgresBaseDao[User](r, "user")
 	mock.ExpectPrepare(`DELETE FROM user WHERE status=\?`).
 		ExpectExec().WithArgs(1).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -385,7 +385,7 @@ func TestBaseDao_Delete(t *testing.T) {
 func TestCondition(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`c1=\? AND c2=\?`).
 			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows(nil))
 
@@ -398,7 +398,7 @@ func TestCondition(t *testing.T) {
 		r.NoError(err)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`c1=\? AND c2<>\? AND c3>\? AND c4<\? AND c5>=\? AND c6<=\? AND c7 LIKE \? AND c8 LIKE \? AND c9 LIKE \? AND c10 IN\(\?,\?,\?\) AND c11 BETWEEN \? AND \? AND c12 IS NULL AND c13 IS NOT NULL`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, "%abc%", "abc%", "%abc", 1, 2, 3, 1, 3).WillReturnRows(mock.NewRows(nil))
 
@@ -421,7 +421,7 @@ func TestCondition(t *testing.T) {
 		r.NoError(err)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`NOT c1=\? AND NOT \(c2=\? AND c3=\?\) AND c4=\? AND \(c5=\? OR c6=\?\) AND NOT c7=\? AND NOT \(c8=\? OR c9=\?\)`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, 7, 8, 9).WillReturnRows(mock.NewRows(nil))
 
@@ -438,7 +438,7 @@ func TestCondition(t *testing.T) {
 		r.NoError(err)
 	}
 	{
-		d, mock := dao.MockMysqlBaseDao[User](r, "user")
+		d, mock := dao.MockPostgresBaseDao[User](r, "user")
 		mock.ExpectPrepare(`\(c1=\? OR c2=\?\) AND c3=\? AND c4=\?`).
 			ExpectQuery().WithArgs(1, 2, 3, 4).WillReturnRows(mock.NewRows(nil))
 

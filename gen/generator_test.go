@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +46,7 @@ func TestMySql(t *testing.T) {
 		DbType:  gen.DB_MYSQL,
 		Dsn:     dsn,
 		OutPath: "testdata/mysql",
+		Package: "dao",
 		Tables: gen.Tables{"mysql": gen.FieldTypes{
 			"other":  "[]string",
 			"other2": "[]rune",
@@ -110,6 +110,7 @@ func TestOracle(t *testing.T) {
 		DbType:  gen.DB_ORACLE,
 		Dsn:     dsn,
 		OutPath: "testdata",
+		Package: "dao",
 		Tables:  gen.Tables{"ORACLE": nil},
 		GenDao:  true,
 	}).Gen()
@@ -128,7 +129,7 @@ func TestPostgres(t *testing.T) {
 		postgres.WithDatabase("postgres"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("12345678"),
-		postgres.WithInitScripts(filepath.Join("testdata", "postgres.sql")),
+		postgres.WithInitScripts("testdata/postgres/init_script.sql"),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
@@ -148,14 +149,19 @@ func TestPostgres(t *testing.T) {
 	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_POSTGRES,
 		Dsn:     dsn,
-		OutPath: "testdata",
+		OutPath: "testdata/postgres",
+		Package: "dao",
 		Tables:  gen.Tables{"postgres": nil},
 		GenDao:  true,
 	}).Gen()
 
-	defer os.Remove("testdata/base_dao.go")
-	compareFile(r, "testdata/postgres_entity.golden", "testdata/postgres.go")
-	compareFile(r, "testdata/postgres_dao.golden", "testdata/postgres_dao.go")
+	defer os.Remove("testdata/postgres/postgres.go")
+	defer os.Remove("testdata/postgres/postgres_dao.go")
+	defer os.Remove("testdata/postgres/base_dao.go")
+
+	compareFile(r, "testdata/postgres/entity.golden", "testdata/postgres/postgres.go")
+	compareFile(r, "testdata/postgres/dao.golden", "testdata/postgres/postgres_dao.go")
+	compareFile(r, "testdata/postgres/postgres_base_dao.go", "testdata/postgres/base_dao.go")
 }
 
 // 由于容器镜像只支持Intel芯片，此用例只能在Intel芯片执行
@@ -197,6 +203,7 @@ func TestSqlServer(t *testing.T) {
 		DbType:  gen.DB_SQLSERVER,
 		Dsn:     dsn,
 		OutPath: "testdata",
+		Package: "dao",
 		Tables:  gen.Tables{"sqlserver": nil},
 		GenDao:  true,
 	}).Gen()
@@ -212,6 +219,7 @@ func TestSqlite(t *testing.T) {
 		DbType:  gen.DB_SQLITE,
 		Dsn:     "testdata/sqlite/sqlite.db",
 		OutPath: "testdata/sqlite",
+		Package: "dao",
 		Tables:  gen.Tables{"sqlite": nil},
 		GenDao:  true,
 	}).Gen()
