@@ -29,7 +29,7 @@ func printSql(ctx context.Context, sql string, args []any, affected int64, err e
 	msgArgs = append(msgArgs, sql)
 
 	if len(args) > 0 {
-		msg.WriteString("\nargs: %v")
+		msg.WriteString(", args: %v")
 		var values = make([]any, 0, len(args))
 		for _, a := range args {
 			if a == nil {
@@ -51,12 +51,12 @@ func printSql(ctx context.Context, sql string, args []any, affected int64, err e
 	}
 
 	if affected != -1 {
-		msg.WriteString("\naffected: %d")
+		msg.WriteString(", affected: %d")
 		msgArgs = append(msgArgs, affected)
 	}
 
 	if err != nil {
-		msg.WriteString("\nerror: %+v")
+		msg.WriteString(", error: %+v")
 		msgArgs = append(msgArgs, err)
 	}
 
