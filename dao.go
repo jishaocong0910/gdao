@@ -51,9 +51,12 @@ func Ptr[T any](t T) *T {
 }
 
 func Tx(ctx context.Context, tx *sql.Tx, opts *sql.TxOptions, f func(tx *sql.Tx)) (err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if tx == nil {
 		if DEFAULT_DB == nil {
-			return errors.New("tx is nil or DEFAULT_DB has not been set")
+			return errors.New("either tx or gdao.DEFAULT_DB cannot be nil")
 		}
 		tx, err = DEFAULT_DB.BeginTx(ctx, opts)
 		if err != nil {
