@@ -50,7 +50,7 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
-func Tx(ctx context.Context, tx *sql.Tx, opts *sql.TxOptions, f func(tx *sql.Tx)) (err error) {
+func Tx(ctx context.Context, tx *sql.Tx, opts *sql.TxOptions, do func(ctx context.Context, tx *sql.Tx)) (err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -77,7 +77,7 @@ func Tx(ctx context.Context, tx *sql.Tx, opts *sql.TxOptions, f func(tx *sql.Tx)
 			tx.Commit()
 		}
 	}()
-	f(tx)
+	do(ctx, tx)
 	return nil
 }
 
