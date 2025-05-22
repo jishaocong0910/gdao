@@ -10,8 +10,7 @@ import (
 	"strings"
 )
 
-// DB is the default db
-var DB *sql.DB
+var DEFAULT_DB *sql.DB
 
 type NewDaoReq struct {
 	DB                *sql.DB
@@ -51,7 +50,16 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
-func Tx(tx *sql.Tx, f func(tx *sql.Tx)) (err error) {
+func Tx(ctx context.Context, tx *sql.Tx, opts *sql.TxOptions, f func(tx *sql.Tx)) (err error) {
+	if tx == nil {
+		if DEFAULT_DB == nil {
+			return errors.New("tx is nil or DEFAULT_DB has not been set")
+		}
+		tx, err = DEFAULT_DB.BeginTx(ctx, opts)
+		if err != nil {
+			return err
+		}
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -177,7 +185,7 @@ func (d *Dao[T]) SetDb(db *sql.DB) { // coverage-ignore
 
 func (d *Dao[T]) DB() *sql.DB {
 	if d.db == nil {
-		return DB
+		return DEFAULT_DB
 	}
 	return d.db
 }
