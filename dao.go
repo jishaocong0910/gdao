@@ -346,46 +346,84 @@ func (d *mutationDao[T]) Insert() (affected int64, err error) {
 				continue
 			}
 			v := reflect.ValueOf(entity).Elem()
-			vf := v.Field(fieldIndex)
-			vf.Set(d.autoIncrementConvertor(id + int64(i)*d.autoIncrementStep))
+			field := v.Field(fieldIndex)
+			field.Set(d.autoIncrementConvertor(id + int64(i)*d.autoIncrementStep))
 		}
 	}
 	return
 }
 
-func (d *mutationDao[T]) Query() (affected int64, err error) {
+func (d *mutationDao[T]) InsertReturning() (err error) {
 	b := newBuilder(d.Dao, d.req.Entities)
 	d.req.BuildSql(b)
 	if !b.Ok() { // coverage-ignore
 		printSqlCanceled(d.req.Ctx, b.Sql())
-		return 0, nil
+		return nil
 	}
 	rows, queriedColumns, closeFunc, err := d.query(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
 	if err != nil { // coverage-ignore
-		return 0, err
+		return err
 	}
 	defer closeFunc()
 
-	for rows.Next() {
-		if len(queriedColumns) > 0 && affected < int64(len(d.req.Entities)) {
-			entity := d.req.Entities[affected]
-			v := reflect.ValueOf(entity).Elem()
+	for i := 0; rows.Next() && i < len(d.req.Entities); i++ {
+		entity := d.req.Entities[i]
+		if entity == nil { // coverage-ignore
+			continue
+		}
+		v := reflect.ValueOf(entity).Elem()
 
-			var queriedFields []any
-			for _, c := range queriedColumns {
-				if fieldIndex, ok := d.columnToFieldIndexMap[c]; ok {
-					field := v.Field(fieldIndex).Addr().Interface()
-					queriedFields = append(queriedFields, field)
-				}
-			}
-
-			if len(queriedFields) > 0 {
-				printError(d.req.Ctx, rows.Scan(queriedFields...))
+		var queriedFields []any
+		for _, c := range queriedColumns {
+			if fieldIndex, ok := d.columnToFieldIndexMap[c]; ok {
+				field := v.Field(fieldIndex).Addr().Interface()
+				queriedFields = append(queriedFields, field)
 			}
 		}
-		affected++
+
+		if len(queriedFields) > 0 {
+			printError(d.req.Ctx, rows.Scan(queriedFields...))
+		}
 	}
-	return affected, nil
+	return nil
+}
+
+func (d *mutationDao[T]) InsertSelectIdentity() (err error) {
+	b := newBuilder(d.Dao, d.req.Entities)
+	d.req.BuildSql(b)
+	if !b.Ok() { // coverage-ignore
+		printSqlCanceled(d.req.Ctx, b.Sql())
+		return nil
+	}
+	rows, queriedColumns, closeFunc, err := d.query(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
+	if err != nil { // coverage-ignore
+		return err
+	}
+	defer closeFunc()
+
+	var identity *int64
+	if rows.Next() && len(queriedColumns) == 1 && len(d.autoIncrementColumns) == 1 {
+		err = rows.Scan(&identity)
+		printError(d.req.Ctx, err)
+		if err != nil && rows.Next() { // coverage-ignore
+			identity = nil
+		}
+	}
+
+	if identity != nil {
+		fieldIndex := d.columnToFieldIndexMap[d.autoIncrementColumns[0]]
+		entityLength := len(d.req.Entities)
+		for i := 0; i < entityLength; i++ {
+			entity := d.req.Entities[i]
+			if entity == nil { // coverage-ignore
+				continue
+			}
+			v := reflect.ValueOf(entity).Elem()
+			field := v.Field(fieldIndex)
+			field.Set(d.autoIncrementConvertor(*identity - int64(entityLength-1-i)*d.autoIncrementStep))
+		}
+	}
+	return nil
 }
 
 var lastInsertIdConvertors = map[string]func(id int64) reflect.Value{

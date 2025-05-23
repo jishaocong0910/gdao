@@ -130,10 +130,7 @@ func TestPostgres(t *testing.T) {
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("12345678"),
 		postgres.WithInitScripts("testdata/postgres/init_script.sql"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second)),
+		testcontainers.WithWaitStrategyAndDeadline(time.Minute*3, wait.ForLog("database system is ready to accept connections")),
 	)
 	r.NoError(err)
 
@@ -173,7 +170,7 @@ func TestSqlServer(t *testing.T) {
 		"mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04",
 		mssql.WithAcceptEULA(),
 		mssql.WithPassword("SuperStrong@PassWord"),
-		testcontainers.WithWaitStrategy(wait.ForLog("Recovery is complete.").WithStartupTimeout(time.Minute*5)),
+		testcontainers.WithWaitStrategyAndDeadline(time.Minute*5, wait.ForLog("Recovery is complete.")),
 	)
 	r.NoError(err)
 	defer func() {
@@ -187,7 +184,7 @@ func TestSqlServer(t *testing.T) {
 	db, err := sql.Open("mssql", dsn)
 	r.NoError(err)
 
-	script, err := os.ReadFile("testdata/sqlserver.sql")
+	script, err := os.ReadFile("testdata/sqlserver/init_script.sql")
 	r.NoError(err)
 	sqls := strings.Split(string(script), ";")
 	for _, s := range sqls {
@@ -202,15 +199,19 @@ func TestSqlServer(t *testing.T) {
 	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_SQLSERVER,
 		Dsn:     dsn,
-		OutPath: "testdata",
+		OutPath: "testdata/sqlserver",
 		Package: "dao",
 		Tables:  gen.Tables{"sqlserver": nil},
 		GenDao:  true,
 	}).Gen()
 
-	defer os.Remove("testdata/base_dao.go")
-	compareFile(r, "testdata/sqlserver_entity.golden", "testdata/sqlserver.go")
-	compareFile(r, "testdata/sqlserver_dao.golden", "testdata/sqlserver_dao.go")
+	defer os.Remove("testdata/sqlserver/sqlserver.go")
+	defer os.Remove("testdata/sqlserver/sqlserver_dao.go")
+	defer os.Remove("testdata/sqlserver/base_dao.go")
+
+	compareFile(r, "testdata/sqlserver/entity.golden", "testdata/sqlserver/sqlserver.go")
+	compareFile(r, "testdata/sqlserver/dao.golden", "testdata/sqlserver/sqlserver_dao.go")
+	compareFile(r, "testdata/sqlserver/sqlserver_base_dao.go", "testdata/sqlserver/base_dao.go")
 }
 
 func TestSqlite(t *testing.T) {

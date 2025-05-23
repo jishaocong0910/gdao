@@ -418,13 +418,12 @@ func (d baseDao[T]) Get(req GetReq) (*T, error) {
 		if req.ForUpdate {
 			b.Write(" FOR UPDATE")
 		}
-		return
 	}})
 	return first, err
 }
 
 // Insert saves a record and return the auto generated keys.
-func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
+func (d baseDao[T]) Insert(req InsertReq[T]) error {
 	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: []*T{req.Entity},
 		BuildSql: func(b *gdao.Builder[T]) {
 			var entityFieldNum, setNullColumnNum int
@@ -459,12 +458,17 @@ func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 					b.Write("NULL")
 				}
 			})
-			return
-		}}).Insert()
+			if len(b.AutoColumns()) > 0 {
+				b.Write(" RETURNING ")
+				b.EachColumnName(b.AutoColumns(), b.Sep(","), func(_, _ int, column string) {
+					b.Write(column)
+				})
+			}
+		}}).InsertReturning()
 }
 
 // InsertBatch saves records and return the auto generated keys.
-func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
+func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) error {
 	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: req.Entities,
 		BuildSql: func(b *gdao.Builder[T]) {
 			var allIgnoredColumns []string
@@ -481,8 +485,13 @@ func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 					b.Write(b.Pp("$")).Arg(value)
 				})
 			})
-			return
-		}}).Insert()
+			if len(b.AutoColumns()) > 0 {
+				b.Write(" RETURNING ")
+				b.EachColumnName(b.AutoColumns(), b.Sep(","), func(_, _ int, column string) {
+					b.Write(column)
+				})
+			}
+		}}).InsertReturning()
 }
 
 // Update modifies a record, it won't execute if there is no column to set or no condition.
@@ -537,7 +546,6 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 			}
 			cb := getConditionBuilder(b)
 			b.SetOk(whereCond.write(cb))
-			return
 		}}).Exec()
 }
 
@@ -567,7 +575,6 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 		b.EachEntity(b.SepFix("(", ",", ")", false), func(_, _ int, entity *T) {
 			b.Write(b.Pp("$")).Arg(b.ColumnValue(entity, req.WhereColumn))
 		})
-		return
 	}}).Exec()
 }
 
@@ -577,7 +584,6 @@ func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
 		b.Write("DELETE FROM ").Write(d.table).Write(" WHERE ")
 		cb := getConditionBuilder(b)
 		b.SetOk(req.Condition.write(cb))
-		return
 	}}).Exec()
 }
 

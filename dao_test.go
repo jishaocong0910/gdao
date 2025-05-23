@@ -93,7 +93,6 @@ func TestDao_Query(t *testing.T) {
 				b.Write("SELECT ").WriteColumns().
 					Write(" FROM user").
 					Write(" WHERE id=? AND status=?", 1, 2)
-				b.SetOk(true)
 			},
 		})
 		r.NoError(err)
@@ -129,7 +128,6 @@ func TestDao_Query(t *testing.T) {
 				b.Write("status=").Write(b.Pp("$"), e.Status)
 				b.Write(" AND ").Write("level=").Write(b.Pp("$"), e.Level)
 				b.Write(" AND ").Write("create_at=").Write(b.Pp("$"), e.CreateAt)
-				b.SetOk(true)
 			},
 		})
 		r.NoError(err)
@@ -158,7 +156,6 @@ func TestMutationDao_Exec(t *testing.T) {
 					b.Write(column).Write("=?", value)
 				})
 				b.Write(" WHERE id=?", 1001)
-				b.SetOk(true)
 			},
 		}).Exec()
 
@@ -190,7 +187,6 @@ func TestMutationDao_Exec(t *testing.T) {
 				b.EachColumnValues(cvs, b.SepFix(" VALUES(", ",", ")", false), func(column string, value any) {
 					b.Write("?", value)
 				})
-				b.SetOk(true)
 			},
 		}).Exec()
 
@@ -222,7 +218,6 @@ func TestMutationDao_Exec(t *testing.T) {
 						b.Write("?", value)
 					})
 				b.Write(")")
-				b.SetOk(true)
 			},
 		}).Insert()
 
@@ -265,7 +260,6 @@ func TestMutationDao_Insert(t *testing.T) {
 					b.Write("?", value)
 				})
 			})
-			b.SetOk(true)
 		},
 	}).Insert()
 
@@ -276,7 +270,7 @@ func TestMutationDao_Insert(t *testing.T) {
 	r.Equal(int32(1002), *users[1].Id)
 }
 
-func TestMutationDao_Query(t *testing.T) {
+func TestMutationDao_InsertReturning(t *testing.T) {
 	r := require.New(t)
 	dao, mock := mockAccountDao(t)
 	accounts := []*Account{
@@ -295,7 +289,7 @@ func TestMutationDao_Query(t *testing.T) {
 		ExpectQuery().WithArgs(accounts[0].UserId, accounts[0].Status, accounts[0].Balance,
 		accounts[1].UserId, accounts[1].Status, accounts[1].Balance).
 		WillReturnRows(mock.NewRows([]string{"id"}).AddRow(2001).AddRow(2002))
-	affected, err := dao.Mutation(gdao.MutationReq[Account]{
+	err := dao.Mutation(gdao.MutationReq[Account]{
 		Entities: accounts,
 		BuildSql: func(b *gdao.Builder[Account]) {
 			b.Write("INSERT account").Write("(user_id,status,balance) VALUES")
@@ -303,13 +297,11 @@ func TestMutationDao_Query(t *testing.T) {
 				b.Write("(?,?,?)", entity.UserId, entity.Status, entity.Balance)
 			})
 			b.Write(" RETURNING id")
-			b.SetOk(true)
 		},
-	}).Query()
+	}).InsertReturning()
 
 	r.NoError(err)
 	r.NoError(mock.ExpectationsWereMet())
-	r.Equal(int64(2), affected)
 	r.Equal(int32(2001), *accounts[0].Id)
 	r.Equal(int32(2002), *accounts[1].Id)
 }
@@ -353,7 +345,6 @@ func TestTx(t *testing.T) {
 		r.NoError(err)
 		userDao.Query(gdao.QueryReq[User]{Tx: tx, BuildSql: func(b *gdao.Builder[User]) {
 			b.Write("SELECT * FROM user WHERE id=?", 1)
-			b.SetOk(true)
 		}})
 		tx.Commit()
 		r.NoError(mock.ExpectationsWereMet())

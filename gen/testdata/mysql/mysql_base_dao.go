@@ -411,7 +411,6 @@ func (d baseDao[T]) Get(req GetReq) (*T, error) {
 		if req.ForUpdate {
 			b.Write(" FOR UPDATE")
 		}
-		return
 	}})
 	return first, err
 }
@@ -452,7 +451,6 @@ func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 					b.Write("NULL")
 				}
 			})
-			return
 		}}).Insert()
 }
 
@@ -474,7 +472,6 @@ func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 					b.Write("?").Arg(value)
 				})
 			})
-			return
 		}}).Insert()
 }
 
@@ -530,7 +527,6 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 			}
 			cb := getConditionBuilder(b)
 			b.SetOk(whereCond.write(cb))
-			return
 		}}).Exec()
 }
 
@@ -560,7 +556,6 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 		b.EachEntity(b.SepFix("(", ",", ")", false), func(_, _ int, entity *T) {
 			b.Write("?").Arg(b.ColumnValue(entity, req.WhereColumn))
 		})
-		return
 	}}).Exec()
 }
 
@@ -570,7 +565,6 @@ func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
 		b.Write("DELETE FROM ").Write(d.table).Write(" WHERE ")
 		cb := getConditionBuilder(b)
 		b.SetOk(req.Condition.write(cb))
-		return
 	}}).Exec()
 }
 
