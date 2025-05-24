@@ -94,7 +94,7 @@ func TestOracle(t *testing.T) {
 	db, err := sql.Open("oracle", dsn)
 	r.NoError(err)
 
-	script, err := os.ReadFile("testdata/oracle.sql")
+	script, err := os.ReadFile("testdata/oracle/init_script.sql")
 	r.NoError(err)
 	sqls := strings.Split(string(script), ";")
 	for _, s := range sqls {
@@ -109,15 +109,19 @@ func TestOracle(t *testing.T) {
 	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_ORACLE,
 		Dsn:     dsn,
-		OutPath: "testdata",
+		OutPath: "testdata/oracle",
 		Package: "dao",
 		Tables:  gen.Tables{"ORACLE": nil},
 		GenDao:  true,
 	}).Gen()
 
-	defer os.Remove("testdata/base_dao.go")
-	compareFile(r, "testdata/oracle_entity.golden", "testdata/oracle.go")
-	compareFile(r, "testdata/oracle_dao.golden", "testdata/oracle_dao.go")
+	defer os.Remove("testdata/oracle/oracle.go")
+	defer os.Remove("testdata/oracle/oracle_dao.go")
+	defer os.Remove("testdata/oracle/base_dao.go")
+
+	compareFile(r, "testdata/oracle/entity.golden", "testdata/oracle/oracle.go")
+	compareFile(r, "testdata/oracle/dao.golden", "testdata/oracle/oracle_dao.go")
+	compareFile(r, "testdata/oracle/oracle_base_dao.go", "testdata/oracle/base_dao.go")
 }
 
 func TestPostgres(t *testing.T) {
