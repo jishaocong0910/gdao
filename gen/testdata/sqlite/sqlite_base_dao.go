@@ -418,7 +418,7 @@ func (d baseDao[T]) Get(req GetReq) (*T, error) {
 
 // Insert saves a record and return the auto generated keys.
 func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
-	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: []*T{req.Entity},
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Tx: req.Tx, LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID, Entities: []*T{req.Entity},
 		BuildSql: func(b *gdao.Builder[T]) {
 			var entityFieldNum, setNullColumnNum int
 			b.Write("INSERT INTO ").Write(d.table).Write("(")
@@ -453,12 +453,12 @@ func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 				}
 			})
 			return
-		}}).Insert()
+		}})
 }
 
 // InsertBatch saves records and return the auto generated keys.
 func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
-	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: req.Entities,
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Tx: req.Tx, LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID, Entities: req.Entities,
 		BuildSql: func(b *gdao.Builder[T]) {
 			var allIgnoredColumns []string
 			allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
@@ -475,12 +475,12 @@ func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 				})
 			})
 			return
-		}}).Insert()
+		}})
 }
 
 // Update modifies a record, it won't execute if there is no column to set or no condition.
 func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
-	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: []*T{req.Entity},
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: []*T{req.Entity},
 		BuildSql: func(b *gdao.Builder[T]) {
 			b.Write("UPDATE ").Write(d.table).Write(" SET ")
 			var setCvs []gdao.ColumnValue
@@ -531,12 +531,12 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 			cb := getConditionBuilder(b)
 			b.SetOk(whereCond.write(cb))
 			return
-		}}).Exec()
+		}})
 }
 
 // UpdateBatch modifies multiple records by a SQL, it won't execute if there is no condition.
 func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
-	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: req.Entities, BuildSql: func(b *gdao.Builder[T]) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: req.Entities, BuildSql: func(b *gdao.Builder[T]) {
 		b.SetOk(false)
 		if req.WhereColumn == "" {
 			return
@@ -561,17 +561,17 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 			b.Write("?").Arg(b.ColumnValue(entity, req.WhereColumn))
 		})
 		return
-	}}).Exec()
+	}})
 }
 
 // Delete removes records, it won't execute if there is no conditions.
 func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
-	return d.Mutation(gdao.MutationReq[T]{Ctx: req.Ctx, Tx: req.Tx, BuildSql: func(b *gdao.Builder[T]) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Tx: req.Tx, BuildSql: func(b *gdao.Builder[T]) {
 		b.Write("DELETE FROM ").Write(d.table).Write(" WHERE ")
 		cb := getConditionBuilder(b)
 		b.SetOk(req.Condition.write(cb))
 		return
-	}}).Exec()
+	}})
 }
 
 func newBaseDao[T any](req gdao.NewDaoReq, table string) *baseDao[T] {

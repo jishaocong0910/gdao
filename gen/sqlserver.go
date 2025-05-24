@@ -101,6 +101,6 @@ func newSqlServerGenerator(c Cfg) sqlServerGenerator {
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
 	}
-	t := mustReturn(template.New("").Parse(postgresBaseDaoTpl))
+	t := mustReturn(template.New("").Parse(sqlserverBaseDaoTpl))
 	return sqlServerGenerator{baseDaoTemplate: t, c: c, db: db}
 }

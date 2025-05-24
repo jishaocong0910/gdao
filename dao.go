@@ -12,38 +12,265 @@ import (
 
 var DEFAULT_DB *sql.DB
 
+type lastInsertIdAs int
+
+const (
+	LAST_INSERT_ID_AS_FIRST_ID lastInsertIdAs = iota + 1
+	LAST_INSERT_ID_AS_LAST_ID
+)
+
+type rowAs int
+
+const (
+	ROW_AS_LAST_ID rowAs = iota + 1
+	ROW_AS_RETURNING
+)
+
 type NewDaoReq struct {
 	DB                *sql.DB
 	AllowInvalidField bool
 	ColumnMapper      *NameMapper
 }
 
-type RawQueryReq struct {
-	Ctx  context.Context
-	Tx   *sql.Tx
-	Sql  string
-	Args []any
-}
-
-type RawMutationReq struct {
-	Ctx  context.Context
-	Tx   *sql.Tx
-	Sql  string
-	Args []any
-}
-
 type QueryReq[T any] struct {
 	Ctx      context.Context
 	Tx       *sql.Tx
+	RowAs    rowAs
 	Entities []*T
 	BuildSql func(b *Builder[T])
 }
 
-type MutationReq[T any] struct {
-	Ctx      context.Context
-	Tx       *sql.Tx
-	Entities []*T
-	BuildSql func(b *Builder[T])
+type ExecReq[T any] struct {
+	Ctx            context.Context
+	Tx             *sql.Tx
+	LastInsertIdAs lastInsertIdAs
+	Entities       []*T
+	BuildSql       func(b *Builder[T])
+}
+
+type Dao[T any] struct {
+	db                     *sql.DB
+	commaColumns           string
+	columns                []string
+	columnToFieldIndexMap  map[string]int
+	autoIncrementColumns   []string
+	autoIncrementStep      int64
+	autoIncrementConvertor func(id int64) reflect.Value
+}
+
+func (d *Dao[T]) SetDb(db *sql.DB) { // coverage-ignore
+	d.db = db
+}
+
+func (d *Dao[T]) DB() *sql.DB {
+	if d.db == nil {
+		return DEFAULT_DB
+	}
+	return d.db
+}
+
+func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
+	list = make([]*T, 0)
+	b := newBuilder(d, req.Entities)
+	req.BuildSql(b)
+	if !b.Ok() { // coverage-ignore
+		printSqlCanceled(req.Ctx, b.Sql())
+		return
+	}
+	rows, columns, closeFunc, err := d.queryCore(req.Ctx, req.Tx, b.Sql(), b.args)
+	if err != nil { // coverage-ignore
+		return nil, nil, err
+	}
+	defer closeFunc()
+
+	switch req.RowAs {
+	case ROW_AS_RETURNING:
+		for i := 0; rows.Next() && i < len(req.Entities); i++ {
+			entity := req.Entities[i]
+			if entity == nil { // coverage-ignore
+				continue
+			}
+			v := reflect.ValueOf(entity).Elem()
+			var fields []any
+			for _, c := range columns {
+				if fieldIndex, ok := d.columnToFieldIndexMap[c]; ok {
+					field := v.Field(fieldIndex).Addr().Interface()
+					fields = append(fields, field)
+				}
+			}
+			if len(fields) > 0 {
+				printError(req.Ctx, rows.Scan(fields...))
+			}
+		}
+	case ROW_AS_LAST_ID:
+		var id *int64
+		if rows.Next() && len(columns) == 1 && len(d.autoIncrementColumns) == 1 {
+			err = rows.Scan(&id)
+			printError(req.Ctx, err)
+			if err != nil && rows.Next() { // coverage-ignore
+				id = nil
+			}
+		}
+		if id != nil {
+			fieldIndex := d.columnToFieldIndexMap[d.autoIncrementColumns[0]]
+			entityLength := len(req.Entities)
+			for i := 0; i < entityLength; i++ {
+				entity := req.Entities[i]
+				if entity == nil { // coverage-ignore
+					continue
+				}
+				v := reflect.ValueOf(entity).Elem()
+				field := v.Field(fieldIndex)
+				field.Set(d.autoIncrementConvertor(*id - int64(entityLength-1-i)*d.autoIncrementStep))
+			}
+		}
+	default:
+		for rows.Next() {
+			entity := new(T)
+			fields := d.mappingFields(entity, columns)
+			err = rows.Scan(fields...)
+			if err != nil {
+				return
+			}
+			list = append(list, entity)
+		}
+		if len(list) > 0 {
+			first = list[0]
+		}
+	}
+	return
+}
+
+func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
+	b := newBuilder(d, req.Entities)
+	req.BuildSql(b)
+	if !b.Ok() { // coverage-ignore
+		printSqlCanceled(req.Ctx, b.Sql())
+		return 0, nil
+	}
+	result, affected, err := d.execCore(req.Ctx, req.Tx, b.Sql(), b.args)
+	if err != nil { // coverage-ignore
+		return
+	}
+
+	switch req.LastInsertIdAs {
+	case LAST_INSERT_ID_AS_FIRST_ID:
+		id, err := result.LastInsertId()
+		printError(req.Ctx, err)
+		if err == nil && len(req.Entities) > 0 && len(d.autoIncrementColumns) == 1 {
+			fieldIndex := d.columnToFieldIndexMap[d.autoIncrementColumns[0]]
+			for i, entity := range req.Entities {
+				if entity == nil { // coverage-ignore
+					continue
+				}
+				v := reflect.ValueOf(entity).Elem()
+				field := v.Field(fieldIndex)
+				field.Set(d.autoIncrementConvertor(id + int64(i)*d.autoIncrementStep))
+			}
+		}
+	case LAST_INSERT_ID_AS_LAST_ID:
+		id, err := result.LastInsertId()
+		printError(req.Ctx, err)
+		if err == nil && len(req.Entities) > 0 && len(d.autoIncrementColumns) == 1 {
+			fieldIndex := d.columnToFieldIndexMap[d.autoIncrementColumns[0]]
+			entityLength := len(req.Entities)
+			for i := 0; i < entityLength; i++ {
+				entity := req.Entities[i]
+				if entity == nil { // coverage-ignore
+					continue
+				}
+				v := reflect.ValueOf(entity).Elem()
+				field := v.Field(fieldIndex)
+				field.Set(d.autoIncrementConvertor(id - int64(entityLength-1-i)*d.autoIncrementStep))
+			}
+		}
+	}
+	return
+}
+
+func (d *Dao[T]) queryCore(ctx context.Context, tx *sql.Tx, sql string, args []any) (rows *sql.Rows, columns []string, closeFunc func(), err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	prepare, err := d.createPrepare(ctx, tx, sql)
+	if err != nil { // coverage-ignore
+		printSql(ctx, sql, args, -1, err)
+		return nil, nil, nil, err
+	}
+	rows, err = prepare.QueryContext(ctx, args...)
+	if err != nil { // coverage-ignore
+		printWarn(ctx, prepare.Close())
+		printSql(ctx, sql, args, -1, err)
+		return nil, nil, nil, err
+	}
+	closeFunc = func() {
+		printWarn(ctx, rows.Close())
+		printWarn(ctx, prepare.Close())
+	}
+	columns, err = rows.Columns()
+	if err != nil { // coverage-ignore
+		closeFunc()
+		printSql(ctx, sql, args, -1, err)
+		return nil, nil, nil, err
+	}
+	printSql(ctx, sql, args, -1, err)
+	return rows, columns, closeFunc, nil
+}
+
+func (d *Dao[T]) execCore(ctx context.Context, tx *sql.Tx, sql string, args []any) (result sql.Result, affected int64, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	affected = int64(-1)
+	prepare, err := d.createPrepare(ctx, tx, sql)
+	if err != nil { // coverage-ignore
+		printSql(ctx, sql, args, affected, err)
+		return nil, 0, err
+	}
+	defer func() {
+		printWarn(ctx, prepare.Close())
+	}()
+	result, err = prepare.ExecContext(ctx, args...)
+	if err != nil {
+		printSql(ctx, sql, args, affected, err)
+		return nil, 0, err
+	}
+	affected, err = result.RowsAffected()
+	printSql(ctx, sql, args, affected, err)
+	return
+}
+
+func (d *Dao[T]) createPrepare(ctx context.Context, tx *sql.Tx, _sql string) (*sql.Stmt, error) {
+	var prepare *sql.Stmt
+	var err error
+	if tx == nil {
+		db := d.DB()
+		if db == nil { // coverage-ignore
+			return nil, errors.New("the db has not been set")
+		}
+		prepare, err = db.PrepareContext(ctx, _sql)
+		if err != nil { // coverage-ignore
+			return nil, err
+		}
+	} else {
+		prepare, err = tx.PrepareContext(ctx, _sql)
+		if err != nil { // coverage-ignore
+			return nil, err
+		}
+	}
+	return prepare, nil
+}
+
+func (d *Dao[T]) mappingFields(entity *T, columns []string) []any {
+	v := reflect.ValueOf(entity).Elem()
+	fields := make([]any, 0, len(columns))
+	for _, c := range columns {
+		if value, ok := d.columnToFieldIndexMap[c]; ok {
+			field := v.Field(value)
+			fields = append(fields, field.Addr().Interface())
+		}
+	}
+	return fields
 }
 
 func Ptr[T any](t T) *T {
@@ -170,260 +397,6 @@ func registerField[T any](d *Dao[T], tf reflect.StructField, columnMapper *NameM
 		}
 	}
 	return
-}
-
-type Dao[T any] struct {
-	db                     *sql.DB
-	commaColumns           string
-	columns                []string
-	columnToFieldIndexMap  map[string]int
-	autoIncrementColumns   []string
-	autoIncrementStep      int64
-	autoIncrementConvertor func(id int64) reflect.Value
-}
-
-func (d *Dao[T]) SetDb(db *sql.DB) { // coverage-ignore
-	d.db = db
-}
-
-func (d *Dao[T]) DB() *sql.DB {
-	if d.db == nil {
-		return DEFAULT_DB
-	}
-	return d.db
-}
-
-func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
-	list = make([]*T, 0)
-	b := newBuilder(d, req.Entities)
-	req.BuildSql(b)
-	if !b.Ok() { // coverage-ignore
-		printSqlCanceled(req.Ctx, b.Sql())
-		return
-	}
-	rows, columns, closeFunc, err := d.query(req.Ctx, req.Tx, b.Sql(), b.args)
-	if err != nil { // coverage-ignore
-		return nil, nil, err
-	}
-	defer closeFunc()
-	for rows.Next() {
-		entity := new(T)
-		fields := d.mappingFields(entity, columns)
-		err := rows.Scan(fields...)
-		if err != nil {
-			return nil, nil, err
-		}
-		list = append(list, entity)
-	}
-	if len(list) > 0 {
-		first = list[0]
-	}
-	return first, list, nil
-}
-
-func (d *Dao[T]) Mutation(req MutationReq[T]) *mutationDao[T] {
-	return &mutationDao[T]{Dao: d, req: &req}
-}
-
-func (d *Dao[T]) query(ctx context.Context, tx *sql.Tx, sql string, args []any) (rows *sql.Rows, columns []string, closeFunc func(), err error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	prepare, err := d.createPrepare(ctx, tx, sql)
-	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, -1, err)
-		return nil, nil, nil, err
-	}
-	rows, err = prepare.QueryContext(ctx, args...)
-	if err != nil { // coverage-ignore
-		printWarn(ctx, prepare.Close())
-		printSql(ctx, sql, args, -1, err)
-		return nil, nil, nil, err
-	}
-	closeFunc = func() {
-		printWarn(ctx, rows.Close())
-		printWarn(ctx, prepare.Close())
-	}
-	columns, err = rows.Columns()
-	if err != nil { // coverage-ignore
-		closeFunc()
-		printSql(ctx, sql, args, -1, err)
-		return nil, nil, nil, err
-	}
-	printSql(ctx, sql, args, -1, err)
-	return rows, columns, closeFunc, nil
-}
-
-func (d *Dao[T]) exec(ctx context.Context, tx *sql.Tx, sql string, args []any) (result sql.Result, affected int64, err error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	affected = int64(-1)
-	prepare, err := d.createPrepare(ctx, tx, sql)
-	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, affected, err)
-		return nil, 0, err
-	}
-	defer func() {
-		printWarn(ctx, prepare.Close())
-	}()
-	result, err = prepare.ExecContext(ctx, args...)
-	if err != nil {
-		printSql(ctx, sql, args, affected, err)
-		return nil, 0, err
-	}
-	affected, err = result.RowsAffected()
-	printSql(ctx, sql, args, affected, err)
-	return
-}
-
-func (d *Dao[T]) createPrepare(ctx context.Context, tx *sql.Tx, _sql string) (*sql.Stmt, error) {
-	var prepare *sql.Stmt
-	var err error
-	if tx == nil {
-		db := d.DB()
-		if db == nil { // coverage-ignore
-			return nil, errors.New("the db has not been set")
-		}
-		prepare, err = db.PrepareContext(ctx, _sql)
-		if err != nil { // coverage-ignore
-			return nil, err
-		}
-	} else {
-		prepare, err = tx.PrepareContext(ctx, _sql)
-		if err != nil { // coverage-ignore
-			return nil, err
-		}
-	}
-	return prepare, nil
-}
-
-func (d *Dao[T]) mappingFields(entity *T, columns []string) []any {
-	v := reflect.ValueOf(entity).Elem()
-	fields := make([]any, 0, len(columns))
-	for _, c := range columns {
-		if value, ok := d.columnToFieldIndexMap[c]; ok {
-			field := v.Field(value)
-			fields = append(fields, field.Addr().Interface())
-		}
-	}
-	return fields
-}
-
-type mutationDao[T any] struct {
-	*Dao[T]
-	req *MutationReq[T]
-}
-
-func (d *mutationDao[T]) Exec() (affected int64, err error) {
-	b := newBuilder(d.Dao, d.req.Entities)
-	d.req.BuildSql(b)
-	if !b.Ok() { // coverage-ignore
-		printSqlCanceled(d.req.Ctx, b.Sql())
-		return 0, nil
-	}
-	_, affected, err = d.exec(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
-	return
-}
-
-func (d *mutationDao[T]) Insert() (affected int64, err error) {
-	b := newBuilder(d.Dao, d.req.Entities)
-	d.req.BuildSql(b)
-	if !b.Ok() { // coverage-ignore
-		printSqlCanceled(d.req.Ctx, b.Sql())
-		return 0, nil
-	}
-	result, affected, err := d.exec(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
-	if err != nil { // coverage-ignore
-		return 0, err
-	}
-	id, err := result.LastInsertId()
-	printError(d.req.Ctx, err)
-	if err == nil && len(d.req.Entities) > 0 && len(d.autoIncrementColumns) == 1 {
-		fieldIndex := d.columnToFieldIndexMap[d.autoIncrementColumns[0]]
-		for i, entity := range d.req.Entities {
-			if entity == nil { // coverage-ignore
-				continue
-			}
-			v := reflect.ValueOf(entity).Elem()
-			field := v.Field(fieldIndex)
-			field.Set(d.autoIncrementConvertor(id + int64(i)*d.autoIncrementStep))
-		}
-	}
-	return
-}
-
-func (d *mutationDao[T]) InsertReturning() (err error) {
-	b := newBuilder(d.Dao, d.req.Entities)
-	d.req.BuildSql(b)
-	if !b.Ok() { // coverage-ignore
-		printSqlCanceled(d.req.Ctx, b.Sql())
-		return nil
-	}
-	rows, queriedColumns, closeFunc, err := d.query(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
-	if err != nil { // coverage-ignore
-		return err
-	}
-	defer closeFunc()
-
-	for i := 0; rows.Next() && i < len(d.req.Entities); i++ {
-		entity := d.req.Entities[i]
-		if entity == nil { // coverage-ignore
-			continue
-		}
-		v := reflect.ValueOf(entity).Elem()
-
-		var queriedFields []any
-		for _, c := range queriedColumns {
-			if fieldIndex, ok := d.columnToFieldIndexMap[c]; ok {
-				field := v.Field(fieldIndex).Addr().Interface()
-				queriedFields = append(queriedFields, field)
-			}
-		}
-
-		if len(queriedFields) > 0 {
-			printError(d.req.Ctx, rows.Scan(queriedFields...))
-		}
-	}
-	return nil
-}
-
-func (d *mutationDao[T]) InsertSelectIdentity() (err error) {
-	b := newBuilder(d.Dao, d.req.Entities)
-	d.req.BuildSql(b)
-	if !b.Ok() { // coverage-ignore
-		printSqlCanceled(d.req.Ctx, b.Sql())
-		return nil
-	}
-	rows, queriedColumns, closeFunc, err := d.query(d.req.Ctx, d.req.Tx, b.Sql(), b.args)
-	if err != nil { // coverage-ignore
-		return err
-	}
-	defer closeFunc()
-
-	var identity *int64
-	if rows.Next() && len(queriedColumns) == 1 && len(d.autoIncrementColumns) == 1 {
-		err = rows.Scan(&identity)
-		printError(d.req.Ctx, err)
-		if err != nil && rows.Next() { // coverage-ignore
-			identity = nil
-		}
-	}
-
-	if identity != nil {
-		fieldIndex := d.columnToFieldIndexMap[d.autoIncrementColumns[0]]
-		entityLength := len(d.req.Entities)
-		for i := 0; i < entityLength; i++ {
-			entity := d.req.Entities[i]
-			if entity == nil { // coverage-ignore
-				continue
-			}
-			v := reflect.ValueOf(entity).Elem()
-			field := v.Field(fieldIndex)
-			field.Set(d.autoIncrementConvertor(*identity - int64(entityLength-1-i)*d.autoIncrementStep))
-		}
-	}
-	return nil
 }
 
 var lastInsertIdConvertors = map[string]func(id int64) reflect.Value{

@@ -135,7 +135,44 @@ func TestDao_Query(t *testing.T) {
 	}
 }
 
-func TestMutationDao_Exec(t *testing.T) {
+func TestDao_Query_RowAsReturning(t *testing.T) {
+	r := require.New(t)
+	dao, mock := mockAccountDao(t)
+	accounts := []*Account{
+		{
+			UserId:  gdao.Ptr[int32](1),
+			Status:  gdao.Ptr[int8](1),
+			Balance: gdao.Ptr[int64](100),
+		},
+		{
+			UserId:  gdao.Ptr[int32](2),
+			Status:  gdao.Ptr[int8](1),
+			Balance: gdao.Ptr[int64](200),
+		},
+	}
+	mock.ExpectPrepare(`INSERT account\(user_id,status,balance\) VALUES\(\?,\?,\?\),\(\?,\?,\?\) RETURNING id`).
+		ExpectQuery().WithArgs(accounts[0].UserId, accounts[0].Status, accounts[0].Balance,
+		accounts[1].UserId, accounts[1].Status, accounts[1].Balance).
+		WillReturnRows(mock.NewRows([]string{"id"}).AddRow(2001).AddRow(2002))
+	_, _, err := dao.Query(gdao.QueryReq[Account]{
+		Entities: accounts,
+		RowAs:    gdao.ROW_AS_RETURNING,
+		BuildSql: func(b *gdao.Builder[Account]) {
+			b.Write("INSERT account").Write("(user_id,status,balance) VALUES")
+			b.EachEntity(b.Sep(","), func(n, i int, entity *Account) {
+				b.Write("(?,?,?)", entity.UserId, entity.Status, entity.Balance)
+			})
+			b.Write(" RETURNING id")
+		},
+	})
+
+	r.NoError(err)
+	r.NoError(mock.ExpectationsWereMet())
+	r.Equal(int32(2001), *accounts[0].Id)
+	r.Equal(int32(2002), *accounts[1].Id)
+}
+
+func TestDao_Exec(t *testing.T) {
 	r := require.New(t)
 	{
 		dao, mock := mockUserDao(t)
@@ -147,7 +184,7 @@ func TestMutationDao_Exec(t *testing.T) {
 		}
 		mock.ExpectPrepare(`UPDATE user SET address=\?,phone=\?,status=\?,level=\? WHERE id=\?`).
 			ExpectExec().WithArgs(user.Address, user.Phone, user.Status, user.Level, 1001).WillReturnResult(sqlmock.NewResult(0, 1))
-		affected, err := dao.Mutation(gdao.MutationReq[User]{
+		affected, err := dao.Exec(gdao.ExecReq[User]{
 			Entities: []*User{user},
 			BuildSql: func(b *gdao.Builder[User]) {
 				b.Write("UPDATE user SET ")
@@ -157,7 +194,7 @@ func TestMutationDao_Exec(t *testing.T) {
 				})
 				b.Write(" WHERE id=?", 1001)
 			},
-		}).Exec()
+		})
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -176,7 +213,7 @@ func TestMutationDao_Exec(t *testing.T) {
 			ExpectExec().
 			WithArgs(user.Name, user.Address, user.Phone, user.Status, user.Level).
 			WillReturnResult(sqlmock.NewResult(1, 1))
-		affected, err := dao.Mutation(gdao.MutationReq[User]{
+		affected, err := dao.Exec(gdao.ExecReq[User]{
 			Entities: []*User{user},
 			BuildSql: func(b *gdao.Builder[User]) {
 				b.Write("INSERT user")
@@ -188,46 +225,16 @@ func TestMutationDao_Exec(t *testing.T) {
 					b.Write("?", value)
 				})
 			},
-		}).Exec()
+		})
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
 		r.Equal(int64(1), affected)
 		r.Nil(user.Id)
 	}
-	{
-		dao, mock := mockUserDao(t)
-		export := gdao.ExportDao(dao)
-		user := &User{
-			Status:  gdao.Ptr[int8](3),
-			Level:   gdao.Ptr[int32](10),
-			Address: gdao.Ptr("address"),
-			Phone:   gdao.Ptr("56789"),
-		}
-		mock.ExpectPrepare(`INSERT user\(`+export.ColumnsWithComma+`\) VALUES\(\?,\?,\?,\?,\?,\?,\?,\?,\?\)`).
-			ExpectExec().
-			WithArgs(user.Id, user.Name, user.Age, user.Address, user.Phone, user.Email, user.Status, user.Level, user.CreateAt).
-			WillReturnResult(sqlmock.NewResult(0, 2))
-		affected, err := dao.Mutation(gdao.MutationReq[User]{
-			Entities: []*User{user},
-			BuildSql: func(b *gdao.Builder[User]) {
-				b.Write("INSERT user").Write("(").WriteColumns().Write(") VALUES(")
-				cvs := b.ColumnValues(false)
-				b.EachColumnValues(cvs, b.Sep(","),
-					func(column string, value any) {
-						b.Write("?", value)
-					})
-				b.Write(")")
-			},
-		}).Insert()
-
-		r.NoError(err)
-		r.NoError(mock.ExpectationsWereMet())
-		r.Equal(int64(2), affected)
-	}
 }
 
-func TestMutationDao_Insert(t *testing.T) {
+func TestDao_Exec_LastInsertIdAsFirstId(t *testing.T) {
 	r := require.New(t)
 	dao, mock := mockUserDao(t)
 	export := gdao.ExportDao(dao)
@@ -250,8 +257,9 @@ func TestMutationDao_Insert(t *testing.T) {
 		WithArgs(users[0].Id, users[0].Name, users[0].Age, users[0].Address, users[0].Phone, users[0].Email, users[0].Status, users[0].Level, users[0].CreateAt,
 			users[1].Id, users[1].Name, users[1].Age, users[1].Address, users[1].Phone, users[1].Email, users[1].Status, users[1].Level, users[1].CreateAt).
 		WillReturnResult(sqlmock.NewResult(1001, 2))
-	affected, err := dao.Mutation(gdao.MutationReq[User]{
-		Entities: users,
+	affected, err := dao.Exec(gdao.ExecReq[User]{
+		Entities:       users,
+		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
 		BuildSql: func(b *gdao.Builder[User]) {
 			b.Write("INSERT user").Write("(").WriteColumns().Write(") VALUES")
 			b.EachEntity(b.Sep(","), func(n, i int, entity *User) {
@@ -261,49 +269,13 @@ func TestMutationDao_Insert(t *testing.T) {
 				})
 			})
 		},
-	}).Insert()
+	})
 
 	r.NoError(err)
 	r.NoError(mock.ExpectationsWereMet())
 	r.Equal(int64(2), affected)
 	r.Equal(int32(1001), *users[0].Id)
 	r.Equal(int32(1002), *users[1].Id)
-}
-
-func TestMutationDao_InsertReturning(t *testing.T) {
-	r := require.New(t)
-	dao, mock := mockAccountDao(t)
-	accounts := []*Account{
-		{
-			UserId:  gdao.Ptr[int32](1),
-			Status:  gdao.Ptr[int8](1),
-			Balance: gdao.Ptr[int64](100),
-		},
-		{
-			UserId:  gdao.Ptr[int32](2),
-			Status:  gdao.Ptr[int8](1),
-			Balance: gdao.Ptr[int64](200),
-		},
-	}
-	mock.ExpectPrepare(`INSERT account\(user_id,status,balance\) VALUES\(\?,\?,\?\),\(\?,\?,\?\) RETURNING id`).
-		ExpectQuery().WithArgs(accounts[0].UserId, accounts[0].Status, accounts[0].Balance,
-		accounts[1].UserId, accounts[1].Status, accounts[1].Balance).
-		WillReturnRows(mock.NewRows([]string{"id"}).AddRow(2001).AddRow(2002))
-	err := dao.Mutation(gdao.MutationReq[Account]{
-		Entities: accounts,
-		BuildSql: func(b *gdao.Builder[Account]) {
-			b.Write("INSERT account").Write("(user_id,status,balance) VALUES")
-			b.EachEntity(b.Sep(","), func(n, i int, entity *Account) {
-				b.Write("(?,?,?)", entity.UserId, entity.Status, entity.Balance)
-			})
-			b.Write(" RETURNING id")
-		},
-	}).InsertReturning()
-
-	r.NoError(err)
-	r.NoError(mock.ExpectationsWereMet())
-	r.Equal(int32(2001), *accounts[0].Id)
-	r.Equal(int32(2002), *accounts[1].Id)
 }
 
 func TestNewDaoPanic(t *testing.T) {

@@ -130,7 +130,7 @@ func TestPostgres(t *testing.T) {
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("12345678"),
 		postgres.WithInitScripts("testdata/postgres/init_script.sql"),
-		testcontainers.WithWaitStrategyAndDeadline(time.Minute*3, wait.ForLog("database system is ready to accept connections")),
+		testcontainers.WithWaitStrategyAndDeadline(time.Minute*5, wait.ForLog("database system is ready to accept connections").WithStartupTimeout(time.Minute*5)),
 	)
 	r.NoError(err)
 
@@ -170,7 +170,7 @@ func TestSqlServer(t *testing.T) {
 		"mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04",
 		mssql.WithAcceptEULA(),
 		mssql.WithPassword("SuperStrong@PassWord"),
-		testcontainers.WithWaitStrategyAndDeadline(time.Minute*5, wait.ForLog("Recovery is complete.")),
+		testcontainers.WithWaitStrategyAndDeadline(time.Minute*5, wait.ForLog("Recovery is complete.").WithStartupTimeout(time.Minute*5)),
 	)
 	r.NoError(err)
 	defer func() {

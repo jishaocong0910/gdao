@@ -299,7 +299,7 @@ func (c conditionBinOp) write(b conditionBuilder) bool {
 	c.doWrite(b, func() {
 		b.write(c.column)
 		b.write(c.op)
-		b.write(b.pp("$"), c.arg)
+		b.write(b.pp(":"), c.arg)
 	})
 	return true
 }
@@ -318,7 +318,7 @@ func (c conditionIn) write(b conditionBuilder) bool {
 			if i != 0 {
 				b.write(",")
 			}
-			b.write(b.pp("$"))
+			b.write(b.pp(":"))
 		}
 		b.write(")", c.args...)
 	})
@@ -353,9 +353,9 @@ func (c conditionBetween) write(b conditionBuilder) bool {
 	c.doWrite(b, func() {
 		b.write(c.column)
 		b.write(" BETWEEN ")
-		b.write(b.pp("$"))
+		b.write(b.pp(":"))
 		b.write(" AND ")
-		b.write(b.pp("$"), c.min, c.max)
+		b.write(b.pp(":"), c.min, c.max)
 	})
 	return true
 }
@@ -423,8 +423,8 @@ func (d baseDao[T]) Get(req GetReq) (*T, error) {
 }
 
 // Insert saves a record and return the auto generated keys.
-func (d baseDao[T]) Insert(req InsertReq[T]) error {
-	_, _, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Tx: req.Tx, RowAs: gdao.ROW_AS_RETURNING, Entities: []*T{req.Entity},
+func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: []*T{req.Entity},
 		BuildSql: func(b *gdao.Builder[T]) {
 			var entityFieldNum, setNullColumnNum int
 			b.Write("INSERT INTO ").Write(d.table).Write("(")
@@ -453,24 +453,20 @@ func (d baseDao[T]) Insert(req InsertReq[T]) error {
 			b.Write(")")
 			b.Repeat(entityFieldNum+setNullColumnNum, b.SepFix(" VALUES(", ",", ")", false), nil, func(n, i int) {
 				if i < entityFieldNum {
-					b.Write(b.Pp("$"))
+					b.Write(b.Pp(":"))
 				} else {
 					b.Write("NULL")
 				}
 			})
-			if len(b.AutoColumns()) > 0 {
-				b.Write(" RETURNING ")
-				b.EachColumnName(b.AutoColumns(), b.Sep(","), func(_, _ int, column string) {
-					b.Write(column)
-				})
+			if len(b.AutoColumns()) == 1 {
+				b.Write("; SELECT ID=convert(bigint, SCOPE_IDENTITY())")
 			}
 		}})
-	return err
 }
 
 // InsertBatch saves records and return the auto generated keys.
-func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) error {
-	_, _, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Tx: req.Tx, RowAs: gdao.ROW_AS_RETURNING, Entities: req.Entities,
+func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Tx: req.Tx, Entities: req.Entities,
 		BuildSql: func(b *gdao.Builder[T]) {
 			var allIgnoredColumns []string
 			allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
@@ -483,17 +479,13 @@ func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) error {
 			b.EachEntity(b.Sep(","), func(_, _ int, entity *T) {
 				cvs := b.ColumnValuesAt(entity, false, allIgnoredColumns...)
 				b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
-					b.Write(b.Pp("$")).Arg(value)
+					b.Write(b.Pp(":")).Arg(value)
 				})
 			})
-			if len(b.AutoColumns()) > 0 {
-				b.Write(" RETURNING ")
-				b.EachColumnName(b.AutoColumns(), b.Sep(","), func(_, _ int, column string) {
-					b.Write(column)
-				})
+			if len(b.AutoColumns()) == 1 {
+				b.Write("; SELECT ID=convert(bigint, SCOPE_IDENTITY())")
 			}
 		}})
-	return err
 }
 
 // Update modifies a record, it won't execute if there is no column to set or no condition.
@@ -513,7 +505,7 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 			b.SetOk(false)
 			b.EachColumnValues(setCvs, b.Sep(","), func(column string, value any) {
 				b.SetOk(true)
-				b.Write(column).Write("=").Write(b.Pp("$")).Arg(value)
+				b.Write(column).Write("=").Write(b.Pp(":")).Arg(value)
 			})
 			if !req.UpdateAll {
 				b.EachColumnName(req.SetNullColumns, nil, func(_, _ int, column string) {
@@ -569,13 +561,13 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 			b.SetOk(true)
 			b.Write(column).Write("=CASE ").Write(req.WhereColumn)
 			b.EachEntity(nil, func(_, _ int, entity *T) {
-				b.Write(" WHEN ").Write(b.Pp("$")).Arg(b.ColumnValue(entity, req.WhereColumn)).Write(" THEN ").Write(b.Pp("$")).Arg(b.ColumnValue(entity, column))
+				b.Write(" WHEN ").Write(b.Pp(":")).Arg(b.ColumnValue(entity, req.WhereColumn)).Write(" THEN ").Write(b.Pp(":")).Arg(b.ColumnValue(entity, column))
 			})
 			b.Write(" END")
 		}, allIgnoredColumns...)
 		b.Write(" WHERE ").Write(req.WhereColumn).Write(" IN")
 		b.EachEntity(b.SepFix("(", ",", ")", false), func(_, _ int, entity *T) {
-			b.Write(b.Pp("$")).Arg(b.ColumnValue(entity, req.WhereColumn))
+			b.Write(b.Pp(":")).Arg(b.ColumnValue(entity, req.WhereColumn))
 		})
 	}})
 }
