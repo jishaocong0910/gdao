@@ -231,7 +231,7 @@ func (d *Dao[T]) execCore(ctx context.Context, tx *sql.Tx, sql string, args []an
 		printWarn(ctx, prepare.Close())
 	}()
 	result, err = prepare.ExecContext(ctx, args...)
-	if err != nil {
+	if err != nil { // coverage-ignore
 		printSql(ctx, sql, args, affected, err)
 		return nil, 0, err
 	}
@@ -277,21 +277,23 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
-func Tx(ctx context.Context, tx *sql.Tx, opts *sql.TxOptions, do func(ctx context.Context, tx *sql.Tx)) (err error) {
+func Tx(ctx context.Context, tx *sql.Tx, opts *sql.TxOptions, do func(ctx context.Context, tx *sql.Tx) error) (err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if tx == nil {
-		if DEFAULT_DB == nil {
-			return errors.New("either tx or gdao.DEFAULT_DB cannot be nil")
+		if DEFAULT_DB == nil { // coverage-ignore
+			return errors.New("tx or gdao.DEFAULT_DB cannot be nil")
 		}
 		tx, err = DEFAULT_DB.BeginTx(ctx, opts)
-		if err != nil {
+		if err != nil { // coverage-ignore
 			return err
 		}
 	}
 	defer func() {
-		if r := recover(); r != nil {
+		if err != nil {
+			tx.Rollback()
+		} else if r := recover(); r != nil {
 			tx.Rollback()
 			if e, ok := r.(error); ok {
 				err = e
@@ -304,8 +306,8 @@ func Tx(ctx context.Context, tx *sql.Tx, opts *sql.TxOptions, do func(ctx contex
 			tx.Commit()
 		}
 	}()
-	do(ctx, tx)
-	return nil
+	err = do(ctx, tx)
+	return err
 }
 
 func NewDao[T any](req NewDaoReq) *Dao[T] {
