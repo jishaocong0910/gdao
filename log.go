@@ -4,78 +4,117 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-)
-
-type logLevel int
-
-const (
-	LOG_LEVEL_DEBUG logLevel = iota + 1
-	LOG_LEVEL_INFO
+	"strings"
 )
 
 type Logger interface {
-	Debugf(context.Context, string, ...any)
-	Infof(context.Context, string, ...any)
-	Warnf(context.Context, string, ...any)
-	Errorf(context.Context, string, ...any)
+	Debugf(ctx context.Context, msg string, args ...any)
+	Infof(ctx context.Context, msg string, args ...any)
+	Warnf(ctx context.Context, msg string, args ...any)
+	Errorf(ctx context.Context, msg string, args ...any)
 }
 
-var Log = func() struct {
-	Logger           Logger
-	PrintSqlLogLevel logLevel
-} {
-	return struct {
-		Logger           Logger
-		PrintSqlLogLevel logLevel
-	}{}
-}()
+func LogCfg(log Logger, printSqlLevel string, singleLineSql bool) {
+	_logger = log
+	_printSqlLevel = printSqlLevel
+	_singleLineSql = singleLineSql
+}
 
-func printSql(ctx context.Context, sql string, args []any) {
-	if Log.Logger == nil || Log.PrintSqlLogLevel == 0 { // coverage-ignore
-		return
+var _logger Logger
+var _printSqlLevel string
+var _singleLineSql bool
+
+func formatSql(sql string) string {
+	if _singleLineSql {
+		var line strings.Builder
+		chars := []rune(sql)
+		var prevC rune
+		for i, c := range chars {
+			if c == '\n' {
+				if prevC != ' ' && i < len(chars)-1 && chars[i+1] != ' ' {
+					line.WriteRune(' ')
+				}
+				continue
+			}
+			line.WriteRune(c)
+			prevC = c
+		}
+		sql = line.String()
 	}
+	return sql
+}
 
-	msg := "SQL: " + sql
-	var argValues []any
+func printSql(ctx context.Context, sql string, args []any, affected int64, err error) {
+	var msg strings.Builder
+	msg.WriteString("SQL: %s")
+	msgArgs := make([]any, 0, 3)
+	msgArgs = append(msgArgs, formatSql(sql))
+
 	if len(args) > 0 {
-		msg += "\nArgs: %v"
-		argValues = make([]any, 0, len(args))
+		msg.WriteString(", args: %v")
+		var values = make([]any, 0, len(args))
 		for _, a := range args {
 			if a == nil {
-				argValues = append(argValues, nil)
+				values = append(values, nil)
 			} else {
 				v := reflect.ValueOf(a)
 				if v.Kind() == reflect.Pointer {
 					if v.IsNil() {
-						argValues = append(argValues, nil)
+						values = append(values, nil)
 					} else {
-						argValues = append(argValues, v.Elem().Interface())
+						values = append(values, v.Elem().Interface())
 					}
 				} else {
-					argValues = append(argValues, a)
+					values = append(values, a)
 				}
 			}
 		}
+		msgArgs = append(msgArgs, values)
 	}
 
-	switch Log.PrintSqlLogLevel {
-	case LOG_LEVEL_DEBUG:
-		Log.Logger.Debugf(ctx, msg, argValues...)
-	case LOG_LEVEL_INFO:
-		Log.Logger.Infof(ctx, msg, argValues...)
+	if affected != -1 {
+		msg.WriteString(", affected: %d")
+		msgArgs = append(msgArgs, affected)
+	}
+
+	if err != nil {
+		msg.WriteString(", error: %+v")
+		msgArgs = append(msgArgs, err)
+	}
+
+	printSqlLog(ctx, err != nil, msg.String(), msgArgs...)
+}
+
+func printSqlCanceled(ctx context.Context, sql string) {
+	printSqlLog(ctx, false, "SQL canceled: %s", formatSql(sql))
+}
+
+func printSqlLog(ctx context.Context, hasError bool, msg string, args ...any) {
+	if _logger == nil { // coverage-ignore
+		return
+	}
+	if hasError {
+		_logger.Errorf(ctx, msg, args...)
+	} else {
+		switch strings.ToLower(_printSqlLevel) {
+		case "info":
+			_logger.Infof(ctx, msg, args...)
+		default:
+			_logger.Debugf(ctx, msg, args...)
+		}
 	}
 }
 
 func printWarn(ctx context.Context, err error) {
-	if Log.Logger == nil || err == nil { // coverage-ignore
+	if _logger == nil || err == nil { // coverage-ignore
 		return
 	}
-	Log.Logger.Warnf(ctx, fmt.Sprintf("%v", err))
+	_logger.Warnf(ctx, fmt.Sprintf("%v", err))
 }
 
 func printError(ctx context.Context, err error) {
-	if Log.Logger == nil || err == nil { // coverage-ignore
+	if _logger == nil || err == nil { // coverage-ignore
 		return
 	}
-	Log.Logger.Errorf(ctx, fmt.Sprintf("%v", err))
+	_logger.Errorf(ctx, fmt.Sprintf("%v", err))
 }

@@ -2,15 +2,25 @@ package gen
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"strings"
+	"text/template"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
+//go:embed sqlite_base_dao.tpl
+var sqliteBaseDaoTpl string
+
 type sqliteGenerator struct {
-	c  Config
-	db *sql.DB
+	baseDaoTemplate *template.Template
+	c               Cfg
+	db              *sql.DB
+}
+
+func (g sqliteGenerator) getBaseDaoTemplate() *template.Template {
+	return g.baseDaoTemplate
 }
 
 func (g sqliteGenerator) getTableInfo(table string) (bool, []*field, string) {
@@ -118,7 +128,7 @@ func (g sqliteGenerator) getTableInfo(table string) (bool, []*field, string) {
 
 		f := &field{
 			Column:          column,
-			FieldName:       g.c.FieldNameMapper.Convert(column),
+			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,
 			IsAutoIncrement: isAutoIncrement,
 			Comment:         comment,
@@ -168,12 +178,13 @@ func (g sqliteGenerator) nextComment(st *stringTokenizer) string {
 	return string(st.chars[begin : st.pos-1])
 }
 
-func newSqliteGenerator(c Config) sqliteGenerator {
+func newSqliteGenerator(c Cfg) sqliteGenerator {
 	db, err := sql.Open("sqlite3", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
 	}
-	return sqliteGenerator{c: c, db: db}
+	t := mustReturn(template.New("").Parse(sqliteBaseDaoTpl))
+	return sqliteGenerator{baseDaoTemplate: t, c: c, db: db}
 }
 
 type stringTokenizer struct {

@@ -4,14 +4,25 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"text/template"
+
+	_ "embed"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
+//go:embed mysql_base_dao.tpl
+var mysqlBaseDaoTpl string
+
 type mySqlGenerator struct {
-	c        Config
-	db       *sql.DB
-	database string
+	baseDaoTemplate *template.Template
+	c               Cfg
+	db              *sql.DB
+	database        string
+}
+
+func (g mySqlGenerator) getBaseDaoTemplate() *template.Template {
+	return g.baseDaoTemplate
 }
 
 func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
@@ -36,7 +47,7 @@ func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
 
 		f := &field{
 			Column:          column,
-			FieldName:       g.c.FieldNameMapper.Convert(column),
+			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       "any",
 			Comment:         comment,
 			IsAutoIncrement: isAutoIncrement,
@@ -107,7 +118,7 @@ func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
 	return exists, fields, tableComment
 }
 
-func newMySqlGenerator(c Config) mySqlGenerator {
+func newMySqlGenerator(c Cfg) mySqlGenerator {
 	db, err := sql.Open("mysql", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
@@ -118,5 +129,6 @@ func newMySqlGenerator(c Config) mySqlGenerator {
 		rows.Scan(&database)
 	}
 	rows.Close()
-	return mySqlGenerator{c: c, db: db, database: database}
+	t := mustReturn(template.New("").Parse(mysqlBaseDaoTpl))
+	return mySqlGenerator{baseDaoTemplate: t, c: c, db: db, database: database}
 }

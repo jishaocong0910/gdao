@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +30,7 @@ func TestMySql(t *testing.T) {
 		mysql.WithDatabase("test"),
 		mysql.WithUsername("root"),
 		mysql.WithPassword("12345678"),
-		mysql.WithScripts(filepath.Join("testdata", "mysql.sql")),
+		mysql.WithScripts("testdata/mysql/init_script.sql"),
 	)
 	r.NoError(err)
 
@@ -43,10 +42,11 @@ func TestMySql(t *testing.T) {
 	dsn, err := mysqlContainer.ConnectionString(ctx)
 	r.NoError(err)
 
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_MYSQL,
+	gen.GetGenerator(gen.Cfg{
+		DbType:  gen.DB_MYSQL,
 		Dsn:     dsn,
-		OutPath: "testdata",
+		OutPath: "testdata/mysql",
+		Package: "dao",
 		Tables: gen.Tables{"mysql": gen.FieldTypes{
 			"other":  "[]string",
 			"other2": "[]rune",
@@ -54,17 +54,16 @@ func TestMySql(t *testing.T) {
 			"other4": "string",
 			"other5": "rune",
 		}},
+		GenDao: true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "mysql.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/mysql.golden")
-	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
-	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	defer os.Remove("testdata/mysql/mysql.go")
+	defer os.Remove("testdata/mysql/mysql_dao.go")
+	defer os.Remove("testdata/mysql/base_dao.go")
+
+	compareFile(r, "testdata/mysql/entity.golden", "testdata/mysql/mysql.go")
+	compareFile(r, "testdata/mysql/dao.golden", "testdata/mysql/mysql_dao.go")
+	compareFile(r, "testdata/mysql/mysql_base_dao.go", "testdata/mysql/base_dao.go")
 }
 
 func TestOracle(t *testing.T) {
@@ -79,7 +78,7 @@ func TestOracle(t *testing.T) {
 			"APP_USER_PASSWORD":      "12345678",
 			"ORACLE_RANDOM_PASSWORD": "yes",
 		},
-		WaitingFor: wait.ForLog("DATABASE IS READY TO USE!").WithStartupTimeout(time.Minute * 3),
+		WaitingFor: wait.ForLog("DATABASE IS READY TO USE!").WithStartupTimeout(time.Minute * 5),
 	}
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
@@ -95,7 +94,7 @@ func TestOracle(t *testing.T) {
 	db, err := sql.Open("oracle", dsn)
 	r.NoError(err)
 
-	script, err := os.ReadFile("testdata/oracle.sql")
+	script, err := os.ReadFile("testdata/oracle/init_script.sql")
 	r.NoError(err)
 	sqls := strings.Split(string(script), ";")
 	for _, s := range sqls {
@@ -107,22 +106,22 @@ func TestOracle(t *testing.T) {
 	}
 	db.Close()
 
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_ORACLE,
+	gen.GetGenerator(gen.Cfg{
+		DbType:  gen.DB_ORACLE,
 		Dsn:     dsn,
-		OutPath: "testdata",
+		OutPath: "testdata/oracle",
+		Package: "dao",
 		Tables:  gen.Tables{"ORACLE": nil},
+		GenDao:  true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "oracle.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/oracle.golden")
-	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
-	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	defer os.Remove("testdata/oracle/oracle.go")
+	defer os.Remove("testdata/oracle/oracle_dao.go")
+	defer os.Remove("testdata/oracle/base_dao.go")
+
+	compareFile(r, "testdata/oracle/entity.golden", "testdata/oracle/oracle.go")
+	compareFile(r, "testdata/oracle/dao.golden", "testdata/oracle/oracle_dao.go")
+	compareFile(r, "testdata/oracle/oracle_base_dao.go", "testdata/oracle/base_dao.go")
 }
 
 func TestPostgres(t *testing.T) {
@@ -134,11 +133,8 @@ func TestPostgres(t *testing.T) {
 		postgres.WithDatabase("postgres"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("12345678"),
-		postgres.WithInitScripts(filepath.Join("testdata", "postgres.sql")),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second)),
+		postgres.WithInitScripts("testdata/postgres/init_script.sql"),
+		testcontainers.WithWaitStrategyAndDeadline(time.Minute*5, wait.ForLog("database system is ready to accept connections").WithStartupTimeout(time.Minute*5)),
 	)
 	r.NoError(err)
 
@@ -148,25 +144,27 @@ func TestPostgres(t *testing.T) {
 		}
 	}()
 
+	time.Sleep(time.Second * 5)
+
 	dsn, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	r.NoError(err)
 
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_POSTGRES,
+	gen.GetGenerator(gen.Cfg{
+		DbType:  gen.DB_POSTGRES,
 		Dsn:     dsn,
-		OutPath: "testdata",
+		OutPath: "testdata/postgres",
+		Package: "dao",
 		Tables:  gen.Tables{"postgres": nil},
+		GenDao:  true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "postgres.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/postgres.golden")
-	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
-	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	defer os.Remove("testdata/postgres/postgres.go")
+	defer os.Remove("testdata/postgres/postgres_dao.go")
+	defer os.Remove("testdata/postgres/base_dao.go")
+
+	compareFile(r, "testdata/postgres/entity.golden", "testdata/postgres/postgres.go")
+	compareFile(r, "testdata/postgres/dao.golden", "testdata/postgres/postgres_dao.go")
+	compareFile(r, "testdata/postgres/postgres_base_dao.go", "testdata/postgres/base_dao.go")
 }
 
 // 由于容器镜像只支持Intel芯片，此用例只能在Intel芯片执行
@@ -178,6 +176,7 @@ func TestSqlServer(t *testing.T) {
 		"mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04",
 		mssql.WithAcceptEULA(),
 		mssql.WithPassword("SuperStrong@PassWord"),
+		testcontainers.WithWaitStrategyAndDeadline(time.Minute*5, wait.ForLog("Recovery is complete.").WithStartupTimeout(time.Minute*5)),
 	)
 	r.NoError(err)
 	defer func() {
@@ -191,7 +190,7 @@ func TestSqlServer(t *testing.T) {
 	db, err := sql.Open("mssql", dsn)
 	r.NoError(err)
 
-	script, err := os.ReadFile("testdata/sqlserver.sql")
+	script, err := os.ReadFile("testdata/sqlserver/init_script.sql")
 	r.NoError(err)
 	sqls := strings.Split(string(script), ";")
 	for _, s := range sqls {
@@ -203,49 +202,55 @@ func TestSqlServer(t *testing.T) {
 	}
 	db.Close()
 
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_SQLSERVER,
+	gen.GetGenerator(gen.Cfg{
+		DbType:  gen.DB_SQLSERVER,
 		Dsn:     dsn,
-		OutPath: "testdata",
+		OutPath: "testdata/sqlserver",
+		Package: "dao",
 		Tables:  gen.Tables{"sqlserver": nil},
+		GenDao:  true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "sqlserver.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/sqlserver.golden")
-	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
-	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	defer os.Remove("testdata/sqlserver/sqlserver.go")
+	defer os.Remove("testdata/sqlserver/sqlserver_dao.go")
+	defer os.Remove("testdata/sqlserver/base_dao.go")
+
+	compareFile(r, "testdata/sqlserver/entity.golden", "testdata/sqlserver/sqlserver.go")
+	compareFile(r, "testdata/sqlserver/dao.golden", "testdata/sqlserver/sqlserver_dao.go")
+	compareFile(r, "testdata/sqlserver/sqlserver_base_dao.go", "testdata/sqlserver/base_dao.go")
 }
 
 func TestSqlite(t *testing.T) {
 	r := require.New(t)
-	gen.GetGenerator(gen.Config{
-		DbType:  gen.DB_TYPE_SQLITE,
-		Dsn:     "testdata/sqlite.db",
-		OutPath: "testdata",
+	gen.GetGenerator(gen.Cfg{
+		DbType:  gen.DB_SQLITE,
+		Dsn:     "testdata/sqlite/sqlite.db",
+		OutPath: "testdata/sqlite",
+		Package: "dao",
 		Tables:  gen.Tables{"sqlite": nil},
+		GenDao:  true,
 	}).Gen()
-	wd, err := os.Getwd()
-	r.NoError(err)
-	genFile := filepath.Join(wd, "testdata", "sqlite.go")
-	defer os.Remove(genFile)
 
-	golden, err := os.ReadFile("testdata/sqlite.golden")
+	defer os.Remove("testdata/sqlite/sqlite.go")
+	defer os.Remove("testdata/sqlite/sqlite_dao.go")
+	defer os.Remove("testdata/sqlite/base_dao.go")
+
+	compareFile(r, "testdata/sqlite/entity.golden", "testdata/sqlite/sqlite.go")
+	compareFile(r, "testdata/sqlite/dao.golden", "testdata/sqlite/sqlite_dao.go")
+	compareFile(r, "testdata/sqlite/sqlite_base_dao.go", "testdata/sqlite/base_dao.go")
+}
+
+func compareFile(r *require.Assertions, golden, gen string) {
+	goldenEntity, err := os.ReadFile(golden)
 	r.NoError(err)
-	gen, err := os.ReadFile(genFile)
+	genEntity, err := os.ReadFile(gen)
 	r.NoError(err)
-	r.Equal(string(golden), string(gen))
+	r.Equal(string(goldenEntity), string(genEntity))
 }
 
 func TestUnsupportedDb(t *testing.T) {
 	r := require.New(t)
 	r.PanicsWithValue("not support this db type yet", func() {
-		gen.GetGenerator(gen.Config{
-			DbType: gen.DbType(999),
-		})
+		gen.GetGenerator(gen.Cfg{DbType: gen.DbType(999)})
 	})
 }
