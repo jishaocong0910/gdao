@@ -1,12 +1,12 @@
 package dao_test
 
 import (
+	"github.com/jishaocong0910/gdao/gen/testdata/internal/mysql"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jishaocong0910/gdao"
-	"github.com/jishaocong0910/gdao/gen/testdata/mysql"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +24,7 @@ type User struct {
 
 func TestNewBaseDaoPanic(t *testing.T) {
 	r := require.New(t)
-	r.PanicsWithValue("table must not be blank", func() {
+	r.PanicsWithValue(`parameter "table" must not be blank`, func() {
 		dao.MockMysqlBaseDao[User](r, "")
 	})
 }
@@ -36,7 +36,7 @@ func TestBaseDao_List(t *testing.T) {
 		mock.ExpectPrepare(`SELECT id,name FROM user WHERE status=\? ORDER BY name ASC,address DESC LIMIT 20,10 FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy").AddRow(2, "nick"))
-		list, err := d.List(dao.ListReq{
+		list, err := d.List(dao.dao{
 			SelectColumns: []string{"id", "name"},
 			Condition:     dao.And().Eq("status", 4),
 			OrderBy:       dao.OrderBy().Asc("name").Desc("address"),

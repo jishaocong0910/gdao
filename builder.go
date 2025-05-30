@@ -12,16 +12,17 @@ type baseBuilder[T any] struct {
 	args       []any
 	argNum     int
 	ok         bool
+	err        error
 }
 
 func (b *baseBuilder[T]) Write(str string, args ...any) *T {
 	b.sql.WriteString(str)
-	b.args = append(b.args, args...)
+	b.Arg(args...)
 	return b.subBuilder
 }
 
-func (b *baseBuilder[T]) Arg(a any) *T {
-	b.args = append(b.args, a)
+func (b *baseBuilder[T]) Arg(args ...any) *T {
+	b.args = append(b.args, args...)
 	return b.subBuilder
 }
 
@@ -38,8 +39,21 @@ func (b *baseBuilder[T]) Args() []any {
 	return b.args
 }
 
+func (b *baseBuilder[T]) SetError(err error) {
+	if b.err == nil && err != nil {
+		b.err = err
+		b.ok = false
+	}
+}
+
+func (b *baseBuilder[T]) Error() error {
+	return b.err
+}
+
 func (b *baseBuilder[T]) SetOk(ok bool) {
-	b.ok = ok
+	if b.err == nil {
+		b.ok = ok
+	}
 }
 
 func (b *baseBuilder[T]) Ok() bool {

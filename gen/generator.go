@@ -41,7 +41,7 @@ func (g Generator) Gen() {
 	for table, fieldTypes := range g.c.Tables {
 		exists, fields, comment := g.d.getTableInfo(table)
 		if !exists {
-			log.Printf("table \"%s\" is not exists.", table)
+			log.Printf("table \"%s\" is not exists", table)
 			continue
 		}
 		e := entity{
@@ -92,7 +92,7 @@ func (g Generator) Gen() {
 		if err != nil {
 			log.Printf("create base dao fail: %+v\n", err)
 		} else {
-			log.Println("create base dao success.")
+			log.Println("create base dao success")
 		}
 	}
 	for _, e := range entities {
@@ -111,7 +111,7 @@ func (g Generator) Gen() {
 			}
 		}
 	}
-	log.Println("finish generating.")
+	log.Println("finish generating")
 }
 
 func (g Generator) createOutPath() {

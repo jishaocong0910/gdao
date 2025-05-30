@@ -1,6 +1,7 @@
 package gdao_test
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 	"testing"
@@ -40,6 +41,18 @@ func TestBuilder_SetOk(t *testing.T) {
 	dao.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
 		r.True(b.Ok())
 		b.SetOk(false)
+		r.False(b.Ok())
+	}})
+}
+
+func TestBuilder_SetError(t *testing.T) {
+	r := require.New(t)
+	dao, _ := mockUserDao(r)
+	dao.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
+		b.SetError(errors.New("this is an error"))
+		r.EqualError(b.Error(), "this is an error")
+		r.False(b.Ok())
+		b.SetOk(true)
 		r.False(b.Ok())
 	}})
 }
@@ -217,7 +230,7 @@ func TestBuilder_EachEntity(t *testing.T) {
 		Balance: gdao.Ptr[int64](200),
 	}
 	dao, _ := mockAccountDao(r)
-	dao.Query(gdao.QueryReq[Account]{nil, nil, nil, 0, []*Account{a, nil, a2}, func(b *gdao.Builder[Account]) {
+	dao.Query(gdao.QueryReq[Account]{Entities: []*Account{a, nil, a2}, BuildSql: func(b *gdao.Builder[Account]) {
 		b.EachEntity(b.Sep(","), func(n, i int, entity *Account) {
 			switch i {
 			case 0:
