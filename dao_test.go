@@ -396,7 +396,7 @@ func TestTx(t *testing.T) {
 		mock.ExpectCommit()
 		tx, err := userDao.DB().Begin()
 		r.NoError(err)
-		affected, err := userDao.Exec(gdao.ExecReq[User]{Tx: tx, BuildSql: func(b *gdao.Builder[User]) {
+		affected, err := userDao.Exec(gdao.ExecReq[User]{Ctx: gdao.WithTx(nil, tx), BuildSql: func(b *gdao.Builder[User]) {
 			b.Write("UPDATE user set status=1 WHERE id=?", 1)
 		}})
 		tx.Commit()
@@ -410,10 +410,9 @@ func TestTx(t *testing.T) {
 		mock.ExpectBegin()
 		mock.ExpectPrepare(`UPDATE user set status=1 WHERE id=\?`).ExpectExec().WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectCommit()
-		err := gdao.Tx(nil, nil, nil, func(ctx context.Context, tx *sql.Tx) error {
+		err := gdao.Tx(nil, nil, nil, func(ctx context.Context) error {
 			_, err := userDao.Exec(gdao.ExecReq[User]{
 				Ctx: ctx,
-				Tx:  tx,
 				BuildSql: func(b *gdao.Builder[User]) {
 					b.Write("UPDATE user set status=1 WHERE id=?", 1)
 				},
@@ -428,7 +427,7 @@ func TestTx(t *testing.T) {
 		gdao.DEFAULT_DB = userDao.DB()
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		err := gdao.Tx(nil, nil, nil, func(ctx context.Context, tx *sql.Tx) error {
+		err := gdao.Tx(nil, nil, nil, func(ctx context.Context) error {
 			return errors.New("error")
 		})
 		r.EqualError(err, "error")
@@ -439,7 +438,7 @@ func TestTx(t *testing.T) {
 		gdao.DEFAULT_DB = userDao.DB()
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		err := gdao.Tx(nil, nil, nil, func(ctx context.Context, tx *sql.Tx) error {
+		err := gdao.Tx(nil, nil, nil, func(ctx context.Context) error {
 			panic(errors.New("panic error"))
 		})
 		r.EqualError(err, "panic error")
@@ -450,18 +449,7 @@ func TestTx(t *testing.T) {
 		gdao.DEFAULT_DB = userDao.DB()
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		err := gdao.Tx(nil, nil, nil, func(ctx context.Context, tx *sql.Tx) error {
-			panic("panic")
-		})
-		r.EqualError(err, "panic")
-		r.NoError(mock.ExpectationsWereMet())
-	}
-	{
-		userDao, mock := mockUserDao(r)
-		gdao.DEFAULT_DB = userDao.DB()
-		mock.ExpectBegin()
-		mock.ExpectRollback()
-		err := gdao.Tx(nil, nil, nil, func(ctx context.Context, tx *sql.Tx) error {
+		err := gdao.Tx(nil, nil, nil, func(ctx context.Context) error {
 			panic(1)
 		})
 		r.EqualError(err, "1")

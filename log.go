@@ -85,10 +85,6 @@ func printSql(ctx context.Context, sql string, args []any, affected int64, err e
 	printSqlLog(ctx, err != nil, msg.String(), msgArgs...)
 }
 
-func printSqlCanceled(ctx context.Context, sql string) {
-	printSqlLog(ctx, false, "SQL canceled: %s", formatSql(sql))
-}
-
 func printSqlLog(ctx context.Context, hasError bool, msg string, args ...any) {
 	if _logger == nil { // coverage-ignore
 		return

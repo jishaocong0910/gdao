@@ -27,6 +27,5 @@ func ExportDao[T any](dao *Dao[T]) DaoExport {
 var LastInsertIdConvertors = lastInsertIdConvertors
 
 var PrintSql = printSql
-var PrintSqlCanceled = printSqlCanceled
 var PrintWarn = printWarn
 var PrintError = printError

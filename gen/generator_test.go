@@ -30,7 +30,7 @@ func TestMySql(t *testing.T) {
 		mysql.WithDatabase("test"),
 		mysql.WithUsername("root"),
 		mysql.WithPassword("12345678"),
-		mysql.WithScripts("testdata/mysql/init_script.sql"),
+		mysql.WithScripts("testdata/internal/mysql/init_script.sql"),
 	)
 	r.NoError(err)
 
@@ -45,7 +45,7 @@ func TestMySql(t *testing.T) {
 	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_MYSQL,
 		Dsn:     dsn,
-		OutPath: "testdata/mysql",
+		OutPath: "testdata/internal/mysql",
 		Package: "dao",
 		Tables: gen.Tables{"mysql": gen.FieldTypes{
 			"other":  "[]string",
@@ -57,13 +57,13 @@ func TestMySql(t *testing.T) {
 		GenDao: true,
 	}).Gen()
 
-	defer os.Remove("testdata/mysql/mysql.go")
-	defer os.Remove("testdata/mysql/mysql_dao.go")
-	defer os.Remove("testdata/mysql/base_dao.go")
+	defer os.Remove("testdata/internal/mysql/mysql.go")
+	defer os.Remove("testdata/internal/mysql/mysql_dao.go")
+	defer os.Remove("testdata/internal/mysql/base_dao.go")
 
-	compareFile(r, "testdata/mysql/entity.golden", "testdata/mysql/mysql.go")
-	compareFile(r, "testdata/mysql/dao.golden", "testdata/mysql/mysql_dao.go")
-	compareFile(r, "testdata/mysql/mysql_base_dao.go", "testdata/mysql/base_dao.go")
+	compareFile(r, "testdata/internal/mysql/entity.golden", "testdata/internal/mysql/mysql.go")
+	compareFile(r, "testdata/internal/mysql/dao.golden", "testdata/internal/mysql/mysql_dao.go")
+	compareFile(r, "testdata/internal/mysql/mysql_base_dao.go", "testdata/internal/mysql/base_dao.go")
 }
 
 func TestOracle(t *testing.T) {
@@ -94,7 +94,7 @@ func TestOracle(t *testing.T) {
 	db, err := sql.Open("oracle", dsn)
 	r.NoError(err)
 
-	script, err := os.ReadFile("testdata/oracle/init_script.sql")
+	script, err := os.ReadFile("testdata/internal/oracle/init_script.sql")
 	r.NoError(err)
 	sqls := strings.Split(string(script), ";")
 	for _, s := range sqls {
@@ -109,19 +109,19 @@ func TestOracle(t *testing.T) {
 	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_ORACLE,
 		Dsn:     dsn,
-		OutPath: "testdata/oracle",
+		OutPath: "testdata/internal/oracle",
 		Package: "dao",
 		Tables:  gen.Tables{"ORACLE": nil},
 		GenDao:  true,
 	}).Gen()
 
-	defer os.Remove("testdata/oracle/oracle.go")
-	defer os.Remove("testdata/oracle/oracle_dao.go")
-	defer os.Remove("testdata/oracle/base_dao.go")
+	defer os.Remove("testdata/internal/oracle/oracle.go")
+	defer os.Remove("testdata/internal/oracle/oracle_dao.go")
+	defer os.Remove("testdata/internal/oracle/base_dao.go")
 
-	compareFile(r, "testdata/oracle/entity.golden", "testdata/oracle/oracle.go")
-	compareFile(r, "testdata/oracle/dao.golden", "testdata/oracle/oracle_dao.go")
-	compareFile(r, "testdata/oracle/oracle_base_dao.go", "testdata/oracle/base_dao.go")
+	compareFile(r, "testdata/internal/oracle/entity.golden", "testdata/internal/oracle/oracle.go")
+	compareFile(r, "testdata/internal/oracle/dao.golden", "testdata/internal/oracle/oracle_dao.go")
+	compareFile(r, "testdata/internal/oracle/oracle_base_dao.go", "testdata/internal/oracle/base_dao.go")
 }
 
 func TestPostgres(t *testing.T) {
@@ -133,7 +133,7 @@ func TestPostgres(t *testing.T) {
 		postgres.WithDatabase("postgres"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("12345678"),
-		postgres.WithInitScripts("testdata/postgres/init_script.sql"),
+		postgres.WithInitScripts("testdata/internal/postgres/init_script.sql"),
 		testcontainers.WithWaitStrategyAndDeadline(time.Minute*5, wait.ForLog("database system is ready to accept connections").WithStartupTimeout(time.Minute*5)),
 	)
 	r.NoError(err)
@@ -152,19 +152,19 @@ func TestPostgres(t *testing.T) {
 	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_POSTGRES,
 		Dsn:     dsn,
-		OutPath: "testdata/postgres",
+		OutPath: "testdata/internal/postgres",
 		Package: "dao",
 		Tables:  gen.Tables{"postgres": nil},
 		GenDao:  true,
 	}).Gen()
 
-	defer os.Remove("testdata/postgres/postgres.go")
-	defer os.Remove("testdata/postgres/postgres_dao.go")
-	defer os.Remove("testdata/postgres/base_dao.go")
+	defer os.Remove("testdata/internal/postgres/postgres.go")
+	defer os.Remove("testdata/internal/postgres/postgres_dao.go")
+	defer os.Remove("testdata/internal/postgres/base_dao.go")
 
-	compareFile(r, "testdata/postgres/entity.golden", "testdata/postgres/postgres.go")
-	compareFile(r, "testdata/postgres/dao.golden", "testdata/postgres/postgres_dao.go")
-	compareFile(r, "testdata/postgres/postgres_base_dao.go", "testdata/postgres/base_dao.go")
+	compareFile(r, "testdata/internal/postgres/entity.golden", "testdata/internal/postgres/postgres.go")
+	compareFile(r, "testdata/internal/postgres/dao.golden", "testdata/internal/postgres/postgres_dao.go")
+	compareFile(r, "testdata/internal/postgres/postgres_base_dao.go", "testdata/internal/postgres/base_dao.go")
 }
 
 // 由于容器镜像只支持Intel芯片，此用例只能在Intel芯片执行
@@ -190,7 +190,7 @@ func TestSqlServer(t *testing.T) {
 	db, err := sql.Open("mssql", dsn)
 	r.NoError(err)
 
-	script, err := os.ReadFile("testdata/sqlserver/init_script.sql")
+	script, err := os.ReadFile("testdata/internal/sqlserver/init_script.sql")
 	r.NoError(err)
 	sqls := strings.Split(string(script), ";")
 	for _, s := range sqls {
@@ -205,39 +205,39 @@ func TestSqlServer(t *testing.T) {
 	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_SQLSERVER,
 		Dsn:     dsn,
-		OutPath: "testdata/sqlserver",
+		OutPath: "testdata/internal/sqlserver",
 		Package: "dao",
 		Tables:  gen.Tables{"sqlserver": nil},
 		GenDao:  true,
 	}).Gen()
 
-	defer os.Remove("testdata/sqlserver/sqlserver.go")
-	defer os.Remove("testdata/sqlserver/sqlserver_dao.go")
-	defer os.Remove("testdata/sqlserver/base_dao.go")
+	defer os.Remove("testdata/internal/sqlserver/sqlserver.go")
+	defer os.Remove("testdata/internal/sqlserver/sqlserver_dao.go")
+	defer os.Remove("testdata/internal/sqlserver/base_dao.go")
 
-	compareFile(r, "testdata/sqlserver/entity.golden", "testdata/sqlserver/sqlserver.go")
-	compareFile(r, "testdata/sqlserver/dao.golden", "testdata/sqlserver/sqlserver_dao.go")
-	compareFile(r, "testdata/sqlserver/sqlserver_base_dao.go", "testdata/sqlserver/base_dao.go")
+	compareFile(r, "testdata/internal/sqlserver/entity.golden", "testdata/internal/sqlserver/sqlserver.go")
+	compareFile(r, "testdata/internal/sqlserver/dao.golden", "testdata/internal/sqlserver/sqlserver_dao.go")
+	compareFile(r, "testdata/internal/sqlserver/sqlserver_base_dao.go", "testdata/internal/sqlserver/base_dao.go")
 }
 
 func TestSqlite(t *testing.T) {
 	r := require.New(t)
 	gen.GetGenerator(gen.Cfg{
 		DbType:  gen.DB_SQLITE,
-		Dsn:     "testdata/sqlite/sqlite.db",
-		OutPath: "testdata/sqlite",
+		Dsn:     "testdata/internal/sqlite/sqlite.db",
+		OutPath: "testdata/internal/sqlite",
 		Package: "dao",
 		Tables:  gen.Tables{"sqlite": nil},
 		GenDao:  true,
 	}).Gen()
 
-	defer os.Remove("testdata/sqlite/sqlite.go")
-	defer os.Remove("testdata/sqlite/sqlite_dao.go")
-	defer os.Remove("testdata/sqlite/base_dao.go")
+	defer os.Remove("testdata/internal/sqlite/sqlite.go")
+	defer os.Remove("testdata/internal/sqlite/sqlite_dao.go")
+	defer os.Remove("testdata/internal/sqlite/base_dao.go")
 
-	compareFile(r, "testdata/sqlite/entity.golden", "testdata/sqlite/sqlite.go")
-	compareFile(r, "testdata/sqlite/dao.golden", "testdata/sqlite/sqlite_dao.go")
-	compareFile(r, "testdata/sqlite/sqlite_base_dao.go", "testdata/sqlite/base_dao.go")
+	compareFile(r, "testdata/internal/sqlite/entity.golden", "testdata/internal/sqlite/sqlite.go")
+	compareFile(r, "testdata/internal/sqlite/dao.golden", "testdata/internal/sqlite/sqlite_dao.go")
+	compareFile(r, "testdata/internal/sqlite/sqlite_base_dao.go", "testdata/internal/sqlite/base_dao.go")
 }
 
 func compareFile(r *require.Assertions, golden, gen string) {

@@ -5,12 +5,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	pkgErrors "github.com/pkg/errors"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
-var DEFAULT_DB *sql.DB
+var (
+	DEFAULT_DB *sql.DB
+
+	ctx_key_tx = Ptr("")
+)
 
 type lastInsertIdAs int
 
@@ -34,8 +39,6 @@ type NewDaoReq struct {
 
 type QueryReq[T any] struct {
 	Ctx      context.Context
-	DB       *sql.DB
-	Tx       *sql.Tx
 	RowAs    rowAs
 	Entities []*T
 	BuildSql func(b *Builder[T])
@@ -43,8 +46,6 @@ type QueryReq[T any] struct {
 
 type ExecReq[T any] struct {
 	Ctx            context.Context
-	DB             *sql.DB
-	Tx             *sql.Tx
 	LastInsertIdAs lastInsertIdAs
 	Entities       []*T
 	BuildSql       func(b *Builder[T])
@@ -61,13 +62,6 @@ func (d baseDao) DB() *sql.DB {
 	return d.db
 }
 
-func (d *baseDao) determineDB(db *sql.DB) *sql.DB {
-	if db == nil {
-		db = d.DB()
-	}
-	return db
-}
-
 type Dao[T any] struct {
 	baseDao
 	commaColumns           string
@@ -82,11 +76,14 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	list = make([]*T, 0)
 	b := newBuilder(d, req.Entities)
 	req.BuildSql(b)
+	err = b.Error()
+	if err != nil { // coverage-ignore
+		return nil, list, err
+	}
 	if !b.Ok() { // coverage-ignore
-		printSqlCanceled(req.Ctx, b.Sql())
 		return
 	}
-	rows, columns, closeFunc, err := query(req.Ctx, d.determineDB(req.DB), req.Tx, b.Sql(), b.args)
+	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		return nil, nil, err
 	}
@@ -153,11 +150,14 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 	b := newBuilder(d, req.Entities)
 	req.BuildSql(b)
+	err = b.Error()
+	if err != nil { // coverage-ignore
+		return 0, err
+	}
 	if !b.Ok() { // coverage-ignore
-		printSqlCanceled(req.Ctx, b.Sql())
 		return 0, nil
 	}
-	result, affected, err := exec(req.Ctx, d.determineDB(req.DB), req.Tx, b.Sql(), b.args)
+	result, affected, err := exec(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		return
 	}
@@ -197,11 +197,11 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 	return
 }
 
-func query(ctx context.Context, db *sql.DB, tx *sql.Tx, sql string, args []any) (rows *sql.Rows, columns []string, closeFunc func(), err error) {
+func query(ctx context.Context, db *sql.DB, sql string, args []any) (rows *sql.Rows, columns []string, closeFunc func(), err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	prepare, err := createPrepare(ctx, db, tx, sql)
+	prepare, err := createPrepare(ctx, db, sql)
 	if err != nil { // coverage-ignore
 		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
@@ -226,12 +226,12 @@ func query(ctx context.Context, db *sql.DB, tx *sql.Tx, sql string, args []any) 
 	return rows, columns, closeFunc, nil
 }
 
-func exec(ctx context.Context, db *sql.DB, tx *sql.Tx, sql string, args []any) (result sql.Result, affected int64, err error) {
+func exec(ctx context.Context, db *sql.DB, sql string, args []any) (result sql.Result, affected int64, err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	affected = int64(-1)
-	prepare, err := createPrepare(ctx, db, tx, sql)
+	prepare, err := createPrepare(ctx, db, sql)
 	if err != nil { // coverage-ignore
 		printSql(ctx, sql, args, affected, err)
 		return nil, 0, err
@@ -249,24 +249,15 @@ func exec(ctx context.Context, db *sql.DB, tx *sql.Tx, sql string, args []any) (
 	return
 }
 
-func createPrepare(ctx context.Context, db *sql.DB, tx *sql.Tx, _sql string) (*sql.Stmt, error) {
-	var prepare *sql.Stmt
-	var err error
-	if tx == nil {
-		if db == nil { // coverage-ignore
-			return nil, errors.New("there is no available *sql.DB or *sql.Tx")
-		}
-		prepare, err = db.PrepareContext(ctx, _sql)
-		if err != nil { // coverage-ignore
-			return nil, err
-		}
+func createPrepare(ctx context.Context, db *sql.DB, _sql string) (*sql.Stmt, error) {
+	if tx, ok := ctx.Value(ctx_key_tx).(*sql.Tx); ok {
+		return tx.PrepareContext(ctx, _sql)
 	} else {
-		prepare, err = tx.PrepareContext(ctx, _sql)
-		if err != nil { // coverage-ignore
-			return nil, err
+		if db == nil { // coverage-ignore
+			return nil, errors.New("no available sql.DB")
 		}
+		return db.PrepareContext(ctx, _sql)
 	}
-	return prepare, nil
 }
 
 func (d *Dao[T]) mappingFields(entity *T, columns []string) []any {
@@ -285,36 +276,50 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
-func Tx(ctx context.Context, tx *sql.Tx, opts *sql.TxOptions, do func(ctx context.Context, tx *sql.Tx) error) (err error) {
+func WithTx(ctx context.Context, tx *sql.Tx) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	} else if ctx.Value(ctx_key_tx) != nil {
+		return ctx
+	}
+	if tx != nil {
+		ctx = context.WithValue(ctx, ctx_key_tx, tx)
+	}
+	return ctx
+}
+
+func Tx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, do func(ctx context.Context) error) (err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if tx == nil {
-		if DEFAULT_DB == nil { // coverage-ignore
-			return errors.New("tx and gdao.DEFAULT_DB must not be both nil.")
+
+	var tx *sql.Tx
+	var ok bool
+	if tx, ok = ctx.Value(ctx_key_tx).(*sql.Tx); !ok {
+		if db == nil {
+			if DEFAULT_DB == nil { // coverage-ignore
+				return errors.New(`cannot begin a transaction, parameter "db" and gdao.DEFAULT_DB are nil `)
+			}
+			db = DEFAULT_DB
 		}
 		tx, err = DEFAULT_DB.BeginTx(ctx, opts)
 		if err != nil { // coverage-ignore
-			return err
+			return
 		}
+		context.WithValue(ctx, ctx_key_tx, tx)
 	}
+
 	defer func() {
 		if err != nil {
 			tx.Rollback()
 		} else if r := recover(); r != nil {
 			tx.Rollback()
-			if e, ok := r.(error); ok {
-				err = e
-			} else if s, ok := r.(string); ok {
-				err = errors.New(s)
-			} else {
-				err = fmt.Errorf("%+v", r)
-			}
+			err = pkgErrors.WithStack(fmt.Errorf("%v", r))
 		} else {
 			tx.Commit()
 		}
 	}()
-	err = do(ctx, tx)
+	err = do(ctx)
 	return err
 }
 

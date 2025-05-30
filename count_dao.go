@@ -127,10 +127,9 @@ func (d *CountDao) Count(req CountReq) (*Count, error) {
 	b := newCountBuilder()
 	req.BuildSql(b)
 	if !b.Ok() { // coverage-ignore
-		printSqlCanceled(req.Ctx, b.Sql())
 		return nil, nil
 	}
-	rows, columns, closeFunc, err := query(req.Ctx, d.determineDB(req.DB), req.Tx, b.Sql(), b.args)
+	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		return nil, err
 	}

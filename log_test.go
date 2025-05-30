@@ -64,15 +64,6 @@ FROM
 	}
 }
 
-func TestPrintSqlCanceled(t *testing.T) {
-	r := require.New(t)
-	log := &MockLogger{}
-	gdao.LogCfg(log, "info", false)
-	gdao.PrintSqlCanceled(nil, "SELECT * FROM user")
-	r.Equal("SQL canceled: %s", log.msg)
-	r.Equal("SELECT * FROM user", log.args[0])
-}
-
 func TestPrintWarn(t *testing.T) {
 	r := require.New(t)
 	log := &MockLogger{}
