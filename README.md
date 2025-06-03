@@ -625,7 +625,7 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
 
 # 事务
 
-`Query`和`Exec`方法传入`*sql.Tx`参数即可开启事务。
+`Query`和`Exec`方法的`ctx`参数附带`*sql.Tx`变量，将会自动使用该`*sql.Tx`变量执行SQL。
 
 *Example*
 
@@ -664,7 +664,7 @@ func foo(ctx context.Context) error {
 
 ## Tx函数
 
-可使用`gdao.Tx`开启事务。
+`gdao.Tx`函数用于便捷化开启事务。它的`do`函数参数中的`ctx`参数会自动设置`*sql.Tx`变量，从而保证SQL的执行处于事务中。`*sql.Tx`的创建逻辑是：优先使用`ctx`参数已有的`*sql.Tx`变量，若没有则使用`db`参数创建，若`db`参数为nil则使用`gdao.DEFAULT_DB`创建，如若创建失败会返回错误。
 
 *参数*
 
@@ -673,9 +673,7 @@ func foo(ctx context.Context) error {
 | `ctx context.Context`                            | Context         |
 | `db *sql.DB`                                     | 指定`*sql.DB`开启事务 |
 | `opts *sql.TxOptions`                            | 事务选项            |
-| `do func(ctx context.Context, tx *sql.Tx) error` | 事务内容            |
-
-优先从`ctx`获取`*sql.Tx`执行，若获取不到则使用`db`创建`*sql.Tx`，若`db`为nil则使用`gdao.DEFAULT_DB`创建。
+| `do func(ctx context.Context, tx *sql.Tx) error` | 事务执行内容          |
 
 *Example*
 
@@ -720,11 +718,11 @@ func foo(ctx context.Context) {
         </tr>
         <tr>
             <td><code>printSqlLevel string</code></td>
-            <td>打印SQL的日志级别，可选值："develop"、"info"</td>
+            <td>打印SQL的日志级别，可选值："develop"、"info"。SQL执行失败会打印error级别日志，不受此配置影响。</td>
         </tr>
         <tr>
             <td><code>singleLineSql bool</code></td>
-            <td>是否去掉SQL中的换行符。</td>
+            <td>是否去掉SQL中的换行符，即转换为单行SQL。</td>
         </tr>
     </tbody>
 </table>
@@ -823,7 +821,7 @@ func (d _UserDao) QueryByStatus(ctx context.Context, tx *sql.Tx, status ...int) 
 
 ## 基础DAO
 
-实体DAO内嵌了基础DAO结构体`baseDao`,提供了常用的单表操作能力。
+实体DAO内嵌了基础DAO结构体`baseDao`，提供了常用的单表操作能力。
 
 *Example*
 
@@ -837,7 +835,7 @@ import (
 
 func main() {
     // 将执行SQL如下（为了方便说明SQL已格式化并填充参数）
-    // UPDATE user SET email='foo',status=2 WHERE id=1
+    // UPDATE user SET email='some@email.com',status=2 WHERE id=1
     demo.UserDao.Update(demo.UpdateReq[demo.User]{
         Entity: &demo.User{
             Id:     gdao.Ptr[int32](1),
