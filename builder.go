@@ -40,7 +40,7 @@ func (b *baseBuilder[T]) Args() []any {
 }
 
 func (b *baseBuilder[T]) SetError(err error) {
-	if b.err == nil && err != nil {
+	if err != nil {
 		b.err = err
 		b.ok = false
 	}

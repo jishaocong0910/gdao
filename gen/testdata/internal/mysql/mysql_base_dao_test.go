@@ -36,7 +36,7 @@ func TestBaseDao_List(t *testing.T) {
 		mock.ExpectPrepare(`SELECT id,name FROM user WHERE status=\? ORDER BY name ASC,address DESC LIMIT 20,10 FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy").AddRow(2, "nick"))
-		list, err := d.List(dao.dao{
+		list, err := d.List(dao.ListReq{
 			SelectColumns: []string{"id", "name"},
 			Condition:     dao.And().Eq("status", 4),
 			OrderBy:       dao.OrderBy().Asc("name").Desc("address"),

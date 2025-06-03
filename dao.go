@@ -250,11 +250,11 @@ func exec(ctx context.Context, db *sql.DB, sql string, args []any) (result sql.R
 }
 
 func createPrepare(ctx context.Context, db *sql.DB, _sql string) (*sql.Stmt, error) {
-	if tx, ok := ctx.Value(ctx_key_tx).(*sql.Tx); ok {
+	if tx := getTx(ctx); tx != nil {
 		return tx.PrepareContext(ctx, _sql)
 	} else {
 		if db == nil { // coverage-ignore
-			return nil, errors.New("no available sql.DB")
+			return nil, errors.New("no available *sql.DB variable")
 		}
 		return db.PrepareContext(ctx, _sql)
 	}
@@ -279,12 +279,8 @@ func Ptr[T any](t T) *T {
 func WithTx(ctx context.Context, tx *sql.Tx) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
-	} else if ctx.Value(ctx_key_tx) != nil {
-		return ctx
 	}
-	if tx != nil {
-		ctx = context.WithValue(ctx, ctx_key_tx, tx)
-	}
+	ctx = context.WithValue(ctx, ctx_key_tx, tx)
 	return ctx
 }
 
@@ -293,20 +289,19 @@ func Tx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, do func(ctx contex
 		ctx = context.Background()
 	}
 
-	var tx *sql.Tx
-	var ok bool
-	if tx, ok = ctx.Value(ctx_key_tx).(*sql.Tx); !ok {
-		if db == nil {
-			if DEFAULT_DB == nil { // coverage-ignore
-				return errors.New(`cannot begin a transaction, parameter "db" and gdao.DEFAULT_DB are nil `)
-			}
+	tx := getTx(ctx)
+	if tx == nil {
+		if db == nil { // coverage-ignore
 			db = DEFAULT_DB
+		}
+		if db == nil { // coverage-ignore
+			return errors.New(`cannot begin a transaction, parameter "db" and gdao.DEFAULT_DB are nil `)
 		}
 		tx, err = DEFAULT_DB.BeginTx(ctx, opts)
 		if err != nil { // coverage-ignore
 			return
 		}
-		context.WithValue(ctx, ctx_key_tx, tx)
+		WithTx(ctx, tx)
 	}
 
 	defer func() {
@@ -321,6 +316,15 @@ func Tx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, do func(ctx contex
 	}()
 	err = do(ctx)
 	return err
+}
+
+func getTx(ctx context.Context) *sql.Tx {
+	if ctx != nil {
+		if tx, ok := ctx.Value(ctx_key_tx).(*sql.Tx); ok {
+			return tx
+		}
+	}
+	return nil
 }
 
 func NewDao[T any](req NewDaoReq) *Dao[T] {
