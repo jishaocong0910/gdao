@@ -60,10 +60,12 @@ func TestMySql(t *testing.T) {
 	defer os.Remove("testdata/internal/mysql/mysql.go")
 	defer os.Remove("testdata/internal/mysql/mysql_dao.go")
 	defer os.Remove("testdata/internal/mysql/base_dao.go")
+	defer os.Remove("testdata/internal/sqlite/count_dao.go")
 
 	compareFile(r, "testdata/internal/mysql/entity.golden", "testdata/internal/mysql/mysql.go")
 	compareFile(r, "testdata/internal/mysql/dao.golden", "testdata/internal/mysql/mysql_dao.go")
 	compareFile(r, "testdata/internal/mysql/mysql_base_dao.go", "testdata/internal/mysql/base_dao.go")
+	compareFile(r, "testdata/internal/mysql/count_dao.golden", "testdata/internal/mysql/count_dao.go")
 }
 
 func TestOracle(t *testing.T) {
@@ -118,6 +120,7 @@ func TestOracle(t *testing.T) {
 	defer os.Remove("testdata/internal/oracle/oracle.go")
 	defer os.Remove("testdata/internal/oracle/oracle_dao.go")
 	defer os.Remove("testdata/internal/oracle/base_dao.go")
+	defer os.Remove("testdata/internal/sqlite/count_dao.go")
 
 	compareFile(r, "testdata/internal/oracle/entity.golden", "testdata/internal/oracle/oracle.go")
 	compareFile(r, "testdata/internal/oracle/dao.golden", "testdata/internal/oracle/oracle_dao.go")
@@ -161,6 +164,7 @@ func TestPostgres(t *testing.T) {
 	defer os.Remove("testdata/internal/postgres/postgres.go")
 	defer os.Remove("testdata/internal/postgres/postgres_dao.go")
 	defer os.Remove("testdata/internal/postgres/base_dao.go")
+	defer os.Remove("testdata/internal/sqlite/count_dao.go")
 
 	compareFile(r, "testdata/internal/postgres/entity.golden", "testdata/internal/postgres/postgres.go")
 	compareFile(r, "testdata/internal/postgres/dao.golden", "testdata/internal/postgres/postgres_dao.go")
@@ -214,6 +218,7 @@ func TestSqlServer(t *testing.T) {
 	defer os.Remove("testdata/internal/sqlserver/sqlserver.go")
 	defer os.Remove("testdata/internal/sqlserver/sqlserver_dao.go")
 	defer os.Remove("testdata/internal/sqlserver/base_dao.go")
+	defer os.Remove("testdata/internal/sqlite/count_dao.go")
 
 	compareFile(r, "testdata/internal/sqlserver/entity.golden", "testdata/internal/sqlserver/sqlserver.go")
 	compareFile(r, "testdata/internal/sqlserver/dao.golden", "testdata/internal/sqlserver/sqlserver_dao.go")
@@ -231,6 +236,7 @@ func TestSqlite(t *testing.T) {
 		GenDao:  true,
 	}).Gen()
 
+	defer os.Remove("testdata/internal/sqlite/count_dao.go")
 	defer os.Remove("testdata/internal/sqlite/sqlite.go")
 	defer os.Remove("testdata/internal/sqlite/sqlite_dao.go")
 	defer os.Remove("testdata/internal/sqlite/base_dao.go")

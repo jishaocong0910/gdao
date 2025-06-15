@@ -38,7 +38,11 @@ func (g Generator) Gen() {
 	log.Println("start generating...")
 	log.Printf("full output path: %s", g.c.OutPath)
 	var entities []entity
+	var tableNamedCount string
 	for table, fieldTypes := range g.c.Tables {
+		if strings.EqualFold(table, "count") {
+			tableNamedCount = table
+		}
 		exists, fields, comment := g.d.getTableInfo(table)
 		if !exists {
 			log.Printf("table \"%s\" is not exists", table)
@@ -94,20 +98,30 @@ func (g Generator) Gen() {
 		} else {
 			log.Println("create base dao success")
 		}
+		if tableNamedCount != "" {
+			log.Printf("create count dao fail because exists table named \"%s\"", tableNamedCount)
+		} else {
+			err = g.createFile("count_dao.go", false, tplCountDao, b)
+			if err != nil {
+				log.Printf("create count dao fail: %+v\n", err)
+			} else {
+				log.Println("create count dao success")
+			}
+		}
 	}
 	for _, e := range entities {
 		err := g.createFile(e.EntityFileName, true, tplEntity, e)
 		if err != nil {
 			log.Printf("create entity of table \"%s\" is fail, error: %+v\n", e.Table, err)
 		} else {
-			log.Printf("create entity of table \"%s\" is success.\n", e.Table)
+			log.Printf("create entity of table \"%s\" is success\n", e.Table)
 		}
 		if g.c.GenDao {
 			err := g.createFile(e.DaoFileName, false, tplDao, e)
 			if err != nil {
 				log.Printf("create dao of table \"%s\" is fail, error: %+v\n", e.Table, err)
 			} else {
-				log.Printf("create dao of table \"%s\" is success.\n", e.Table)
+				log.Printf("create dao of table \"%s\" is success\n", e.Table)
 			}
 		}
 	}
@@ -240,12 +254,17 @@ var entityTpl string
 //go:embed dao.tpl
 var daoTpl string
 
+//go:embed count_dao.tpl
+var countDaoTpl string
+
 var tplEntity *template.Template
 var tplDao *template.Template
+var tplCountDao *template.Template
 
 func init() {
 	tplEntity = mustReturn(template.New("").Parse(entityTpl))
 	tplDao = mustReturn(template.New("").Parse(daoTpl))
+	tplCountDao = mustReturn(template.New("").Parse(countDaoTpl))
 }
 
 func mustNoError(err error) {

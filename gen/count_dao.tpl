@@ -4,9 +4,8 @@ package {{.Package}}
 
 import "github.com/jishaocong0910/gdao"
 
-var {{.DaoName}} = _{{.DaoName}}{newBaseDao[{{.EntityName}}](gdao.NewDaoReq{}, "{{.Table}}")}
+var CountDao = _CountDao{gdao.NewCountDao(gdao.NewCountDaoReq{})}
 
-type _{{.DaoName}} struct {
-	*baseDao[{{.EntityName}}]
+type _CountDao struct {
+	*gdao.CountDao
 }
-

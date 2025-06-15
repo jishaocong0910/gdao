@@ -110,8 +110,6 @@ func newCountBuilder() *CountBuilder {
 
 type CountReq struct {
 	Ctx      context.Context
-	DB       *sql.DB
-	Tx       *sql.Tx
 	BuildSql func(b *CountBuilder)
 }
 
