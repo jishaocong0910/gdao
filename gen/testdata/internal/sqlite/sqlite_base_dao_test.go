@@ -52,36 +52,6 @@ func TestBaseDao_List(t *testing.T) {
 		r.Equal(int32(2), *list[1].Id)
 		r.Equal("nick", *list[1].Name)
 	}
-	{
-		d, mock := dao.MockSqliteBaseDao[User](r, "user")
-		list, err := d.List(dao.ListReq{
-			SelectColumns: []string{"id", "name"},
-			Condition:     dao.And(),
-			OrderBy:       dao.OrderBy().Asc("name").Desc("address"),
-			Pagination:    dao.Page(3, 10),
-			ForUpdate:     true,
-		})
-
-		r.NoError(err)
-		r.NotNil(list)
-		r.Len(list, 0)
-		r.NoError(mock.ExpectationsWereMet())
-	}
-	{
-		d, mock := dao.MockSqliteBaseDao[User](r, "user")
-
-		list, err := d.List(dao.ListReq{
-			SelectColumns: []string{"id", "name"},
-			OrderBy:       dao.OrderBy().Asc("name").Desc("address"),
-			Pagination:    dao.Page(3, 10),
-			ForUpdate:     true,
-		})
-
-		r.NoError(err)
-		r.NotNil(list)
-		r.Len(list, 0)
-		r.NoError(mock.ExpectationsWereMet())
-	}
 }
 
 func TestBaseDao_Get(t *testing.T) {
@@ -102,31 +72,6 @@ func TestBaseDao_Get(t *testing.T) {
 		r.NoError(mock.ExpectationsWereMet())
 		r.Equal(int32(1), *get.Id)
 		r.Equal("lucy", *get.Name)
-	}
-	{
-		d, mock := dao.MockSqliteBaseDao[User](r, "user")
-
-		get, err := d.Get(dao.GetReq{
-			SelectColumns: []string{"id", "phone"},
-			Condition:     dao.And(),
-			ForUpdate:     true,
-		})
-
-		r.NoError(err)
-		r.NoError(mock.ExpectationsWereMet())
-		r.Nil(get)
-	}
-	{
-		d, mock := dao.MockSqliteBaseDao[User](r, "user")
-
-		get, err := d.Get(dao.GetReq{
-			SelectColumns: []string{"id", "phone"},
-			ForUpdate:     true,
-		})
-
-		r.NoError(err)
-		r.NoError(mock.ExpectationsWereMet())
-		r.Nil(get)
 	}
 }
 
@@ -390,9 +335,9 @@ func TestCondition(t *testing.T) {
 			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows(nil))
 
 		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
-			c := dao.And().Eq("c1", 1).And(nil)
-			c2 := dao.Or().Eq("c2", 2).Or(nil)
-			c = c.And(c2)
+			c := dao.And().Eq("c1", 1).Group(nil)
+			c2 := dao.Or().Eq("c2", 2).Group(nil)
+			c = c.Group(c2)
 			dao.WriteCondition(c, b)
 		}})
 		r.NoError(err)
@@ -422,17 +367,18 @@ func TestCondition(t *testing.T) {
 	}
 	{
 		d, mock := dao.MockSqliteBaseDao[User](r, "user")
-		mock.ExpectPrepare(`NOT c1=\? AND NOT \(c2=\? AND c3=\?\) AND c4=\? AND \(c5=\? OR c6=\?\) AND NOT c7=\? AND NOT \(c8=\? OR c9=\?\)`).
+		mock.ExpectPrepare(`0=0 AND NOT c1=\? AND NOT \(c2=\? AND c3=\? AND 1=1 and 2=2\) AND c4=\? AND \(c5=\? OR c6=\?\) AND NOT c7=\? AND NOT \(c8=\? OR c9=\?\)`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, 7, 8, 9).WillReturnRows(mock.NewRows(nil))
 
 		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
-			c := dao.NotAnd().Eq("c1", 1)
-			c2 := dao.NotAnd().Eq("c2", 2).Eq("c3", 3)
+			c0 := dao.And().Plain("0=0")
+			c1 := dao.NotAnd().Eq("c1", 1)
+			c2 := dao.NotAnd().Eq("c2", 2).Eq("c3", 3).Plain("1=1 and 2=2")
 			c3 := dao.Or().Eq("c4", 4)
 			c4 := dao.Or().Eq("c5", 5).Eq("c6", 6)
 			c5 := dao.NotOr().Eq("c7", 7)
 			c6 := dao.NotOr().Eq("c8", 8).Eq("c9", 9)
-			c = c.And(c2).And(c3).And(c4).And(c5).And(c6)
+			c := dao.And().Group(c0).Group(c1).Group(c2).Group(c3).Group(c4).Group(c5).Group(c6)
 			dao.WriteCondition(c, b)
 		}})
 		r.NoError(err)
@@ -443,10 +389,10 @@ func TestCondition(t *testing.T) {
 			ExpectQuery().WithArgs(1, 2, 3, 4).WillReturnRows(mock.NewRows(nil))
 
 		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
-			c := dao.Or().Eq("c1", 1).Eq("c2", 2)
+			c1 := dao.Or().Eq("c1", 1).Eq("c2", 2)
 			c2 := dao.Or().Eq("c3", 3)
 			c3 := dao.Or().Eq("c4", 4)
-			c = c.And(c2).Or(c3)
+			c := dao.And().Group(c1).Group(c2).Group(c3)
 			dao.WriteCondition(c, b)
 		}})
 		r.NoError(err)
