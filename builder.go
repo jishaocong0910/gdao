@@ -127,7 +127,10 @@ func (b *Builder[T]) WriteColumns(columns ...string) *Builder[T] {
 	return b
 }
 
-func (b *Builder[T]) Columns() []string {
+func (b *Builder[T]) Columns(columns ...string) []string {
+	if len(columns) == 0 {
+		return b.dao.columns
+	}
 	return b.dao.columns
 }
 

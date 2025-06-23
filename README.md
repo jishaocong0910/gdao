@@ -602,7 +602,7 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
 | `Write`            | 拼接字符串并设置参数。                                                                     |
 | `WriteColumns`     | 拼接列名称，使用逗号分隔，如果参数为空则拼接表的所有列名称。                                                  |
 | `Arg`              | 设置参数。                                                                           |
-| `Columns`          | 返回所有列名称。                                                                        |
+| `Columns`          | 返回列名称，若参数为空则返回所有列名称。                                                            |
 | `AutoColumns`      | 返回标签值有`gdao="auto"`的字段。                                                         |
 | `EntityAt`         | 返回`Entities`中指定索引的实体。                                                           |
 | `Entity`           | 相当于`EntityAt(0)`                                                                |
