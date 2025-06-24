@@ -344,7 +344,7 @@ func NewDao[T any](req NewDaoReq) *Dao[T] {
 			if req.AllowInvalidField {
 				continue
 			} else {
-				panic("field \"" + tf.Name + "\" is invalid")
+				panic("field \"" + tf.Name + "\" is invalid, the entity's field must be a pointer and exported")
 			}
 		}
 		if !tf.Anonymous {
@@ -356,7 +356,7 @@ func NewDao[T any](req NewDaoReq) *Dao[T] {
 				if req.AllowInvalidField {
 					continue
 				} else {
-					panic("field \"" + tf.Name + "\" is invalid")
+					panic("field \"" + tf.Name + "\" is invalid, the entity's field must be a pointer and exported")
 				}
 			}
 		}

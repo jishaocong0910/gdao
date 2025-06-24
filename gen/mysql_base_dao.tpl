@@ -272,6 +272,8 @@ type InsertReq[T any] struct {
 	InsertAll bool
 	// specify the columns which save a null value, it will not work when UpdateAll is true
 	SetNullColumns []string
+	// INSERT IGNORE ...
+	InsertIgnore bool
 }
 
 type InsertBatchReq[T any] struct {
@@ -282,6 +284,8 @@ type InsertBatchReq[T any] struct {
 	InsertColumns []string
 	// specify the columns which be ignored from the insert column list.
 	IgnoredColumns []string
+	// INSERT IGNORE ...
+	InsertIgnore bool
 }
 
 type UpdateReq[T any] struct {
@@ -400,7 +404,11 @@ func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID, Entities: []*T{req.Entity},
 		BuildSql: func(b *gdao.Builder[T]) {
 			var entityFieldNum, setNullColumnNum int
-			b.Write("INSERT INTO ").Write(d.table).Write("(")
+			b.Write("INSERT")
+			if req.InsertIgnore {
+				b.Write(" IGNORE")
+			}
+			b.Write(" INTO ").Write(d.table).Write("(")
 			var cvs []gdao.ColumnValue
 			if req.InsertAll {
 				cvs = b.ColumnValues(false)
@@ -441,7 +449,11 @@ func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 			var allIgnoredColumns []string
 			allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
 			allIgnoredColumns = append(allIgnoredColumns, b.AutoColumns()...)
-			b.Write("INSERT INTO ").Write(d.table)
+			b.Write("INSERT")
+			if req.InsertIgnore {
+				b.Write(" IGNORE")
+			}
+			b.Write(" INTO ").Write(d.table)
 			b.EachColumnName(b.Columns(req.InsertColumns...), b.SepFix("(", ",", ")", false), func(_, _ int, column string) {
 				b.Write(column)
 			}, allIgnoredColumns...)
