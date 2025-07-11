@@ -272,6 +272,8 @@ type InsertReq[T any] struct {
 	InsertAll bool
 	// specify the columns which save a null value, it will not work when UpdateAll is true
 	SetNullColumns []string
+	// INSERT IGNORE ...
+	InsertIgnore bool
 }
 
 type InsertBatchReq[T any] struct {
@@ -282,6 +284,8 @@ type InsertBatchReq[T any] struct {
 	InsertColumns []string
 	// specify the columns which be ignored from the insert column list.
 	IgnoredColumns []string
+	// INSERT IGNORE ...
+	InsertIgnore bool
 }
 
 type UpdateReq[T any] struct {
@@ -343,7 +347,7 @@ type orderByItem struct {
 }
 
 type pagination struct {
-	page, pageSize int
+	offset, pageSize int
 }
 
 type baseDao[T any] struct {
@@ -365,14 +369,10 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 			})
 		}
 		if req.Pagination != nil {
-			page := req.Pagination.page
-			pageSize := req.Pagination.pageSize
-			if page > 0 && pageSize > 0 {
-				b.Write(" LIMIT ")
-				b.Write(strconv.FormatInt(int64((page-1)*pageSize), 10))
-				b.Write(",")
-				b.Write(strconv.FormatInt(int64(pageSize), 10))
-			}
+			b.Write(" LIMIT ")
+			b.Write(strconv.FormatInt(int64(req.Pagination.offset), 10))
+			b.Write(",")
+			b.Write(strconv.FormatInt(int64(req.Pagination.pageSize), 10))
 		}
 		if req.ForUpdate {
 			b.Write(" FOR UPDATE")
@@ -400,7 +400,11 @@ func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID, Entities: []*T{req.Entity},
 		BuildSql: func(b *gdao.Builder[T]) {
 			var entityFieldNum, setNullColumnNum int
-			b.Write("INSERT INTO ").Write(d.table).Write("(")
+			b.Write("INSERT")
+			if req.InsertIgnore {
+				b.Write(" IGNORE")
+			}
+			b.Write(" INTO ").Write(d.table).Write("(")
 			var cvs []gdao.ColumnValue
 			if req.InsertAll {
 				cvs = b.ColumnValues(false)
@@ -441,7 +445,11 @@ func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 			var allIgnoredColumns []string
 			allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
 			allIgnoredColumns = append(allIgnoredColumns, b.AutoColumns()...)
-			b.Write("INSERT INTO ").Write(d.table)
+			b.Write("INSERT")
+			if req.InsertIgnore {
+				b.Write(" IGNORE")
+			}
+			b.Write(" INTO ").Write(d.table)
 			b.EachColumnName(b.Columns(req.InsertColumns...), b.SepFix("(", ",", ")", false), func(_, _ int, column string) {
 				b.Write(column)
 			}, allIgnoredColumns...)
@@ -563,8 +571,8 @@ func OrderBy() *orderBy {
 	return &orderBy{}
 }
 
-func Page(page, pageSize int) *pagination {
-	return &pagination{page: page, pageSize: pageSize}
+func Page(offset, pageSize int) *pagination {
+	return &pagination{offset: offset, pageSize: pageSize}
 }
 
 func And() *conditionGroup {

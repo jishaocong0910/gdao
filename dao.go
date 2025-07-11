@@ -276,6 +276,14 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
+func PtrToValue[T any](t *T) T {
+	var v T
+	if t != nil {
+		v = *t
+	}
+	return v
+}
+
 func WithTx(ctx context.Context, tx *sql.Tx) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
@@ -344,7 +352,7 @@ func NewDao[T any](req NewDaoReq) *Dao[T] {
 			if req.AllowInvalidField {
 				continue
 			} else {
-				panic("field \"" + tf.Name + "\" is invalid")
+				panic("field \"" + tf.Name + "\" is invalid, the entity's field must be a pointer and exported")
 			}
 		}
 		if !tf.Anonymous {
@@ -356,7 +364,7 @@ func NewDao[T any](req NewDaoReq) *Dao[T] {
 				if req.AllowInvalidField {
 					continue
 				} else {
-					panic("field \"" + tf.Name + "\" is invalid")
+					panic("field \"" + tf.Name + "\" is invalid, the entity's field must be a pointer and exported")
 				}
 			}
 		}

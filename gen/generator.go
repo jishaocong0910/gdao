@@ -92,7 +92,7 @@ func (g Generator) Gen() {
 			DbType:  g.c.DbType,
 			Package: g.c.Package,
 		}
-		err := g.createFile("base_dao.go", false, g.d.getBaseDaoTemplate(), b)
+		err := g.createFile("base_dao.go", g.c.CoverBaseDao, g.d.getBaseDaoTemplate(), b)
 		if err != nil {
 			log.Printf("create base dao fail: %+v\n", err)
 		} else {
@@ -198,6 +198,8 @@ type Cfg struct {
 	Tables Tables
 	// 是否生成DAO
 	GenDao bool
+	// 覆盖BaseDao
+	CoverBaseDao bool
 }
 
 type Tables map[string]FieldTypes

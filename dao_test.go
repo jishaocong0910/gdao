@@ -98,7 +98,7 @@ func TestDao_Query(t *testing.T) {
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
 		r.Equal(user, users[0])
-		r.Equal(int32(1), *user.Id)
+		r.Equal(int32(1), gdao.PtrToValue(user.Id))
 		r.Equal("foo", *user.Name)
 		r.Equal(int8(2), *user.Status)
 		r.Equal(int32(1), *user.Age)
@@ -370,7 +370,7 @@ func TestNewDaoPanic(t *testing.T) {
 		})
 	}
 	{
-		r.PanicsWithValue(`field "field" is invalid`, func() {
+		r.PanicsWithValue(`field "field" is invalid, the entity's field must be a pointer and exported`, func() {
 			gdao.NewDao[InvalidField](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {
@@ -378,7 +378,7 @@ func TestNewDaoPanic(t *testing.T) {
 		})
 	}
 	{
-		r.PanicsWithValue(`field "Field" is invalid`, func() {
+		r.PanicsWithValue(`field "Field" is invalid, the entity's field must be a pointer and exported`, func() {
 			gdao.NewDao[InvalidField2](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {

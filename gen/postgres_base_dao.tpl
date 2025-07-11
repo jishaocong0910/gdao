@@ -347,7 +347,7 @@ type orderByItem struct {
 }
 
 type pagination struct {
-	page, pageSize int
+	offset, pageSize int
 }
 
 type baseDao[T any] struct {
@@ -373,14 +373,10 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 			})
 		}
 		if req.Pagination != nil {
-			page := req.Pagination.page
-			pageSize := req.Pagination.pageSize
-			if page > 0 && pageSize > 0 {
-				b.Write(" LIMIT ")
-				b.Write(strconv.FormatInt(int64(pageSize), 10))
-				b.Write(" OFFSET ")
-				b.Write(strconv.FormatInt(int64((page-1)*pageSize), 10))
-			}
+			b.Write(" LIMIT ")
+			b.Write(strconv.FormatInt(int64(req.Pagination.pageSize), 10))
+			b.Write(" OFFSET ")
+			b.Write(strconv.FormatInt(int64(req.Pagination.offset), 10))
 		}
 		if req.ForUpdate {
 			b.Write(" FOR UPDATE")
@@ -589,8 +585,8 @@ func OrderBy() *orderBy {
 	return &orderBy{}
 }
 
-func Page(page, pageSize int) *pagination {
-	return &pagination{page: page, pageSize: pageSize}
+func Page(offset, pageSize int) *pagination {
+	return &pagination{offset: offset, pageSize: pageSize}
 }
 
 func And() *conditionGroup {
