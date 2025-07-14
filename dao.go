@@ -267,6 +267,9 @@ func (d *Dao[T]) mappingFields(entity *T, columns []string) []any {
 		if value, ok := d.columnToFieldIndexMap[c]; ok {
 			field := v.Field(value)
 			fields = append(fields, field.Addr().Interface())
+		} else {
+			var a any
+			fields = append(fields, &a)
 		}
 	}
 	return fields
