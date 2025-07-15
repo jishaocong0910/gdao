@@ -182,10 +182,10 @@ func TestBuilder_WriteColumns(t *testing.T) {
 	dao, _ := mockAccountDao(r)
 	dao.Query(gdao.QueryReq[Account]{BuildSql: func(b *gdao.Builder[Account]) {
 		b.WriteColumns("id", "", "user_id")
-		r.Equal("id,user_id", b.Sql())
+		r.Equal("id, user_id", b.Sql())
 
 		b.WriteColumns()
-		r.Equal("id,user_idid,other_id,user_id,status,balance", b.Sql())
+		r.Equal("id, user_idid, other_id, user_id, status, balance", b.Sql())
 	}})
 }
 

@@ -119,7 +119,7 @@ func (b *Builder[T]) WriteColumns(columns ...string) *Builder[T] {
 				continue
 			}
 			if i != 0 {
-				b.Write(",")
+				b.Write(", ")
 			}
 			b.Write(c)
 		}
