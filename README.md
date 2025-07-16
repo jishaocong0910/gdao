@@ -823,7 +823,7 @@ func (d _UserDao) QueryByStatus(ctx context.Context, tx *sql.Tx, status ...int) 
 
 ## 基础DAO
 
-实体DAO内嵌了基础DAO结构体`baseDao`，提供了常用的单表操作能力。
+实体DAO内嵌了基础DAO结构体`baseDao`，提供了常用的单表操作能力，不建议二次编辑。
 
 *Example*
 

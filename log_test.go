@@ -39,8 +39,8 @@ func TestPrintSql(t *testing.T) {
 	{
 		log := &MockLogger{}
 		gdao.LogCfg(log, "debug", false)
-		gdao.PrintSql(nil, "UPDATE user SET status=?,phone=?,email=? WHERE level=?)", []any{2, nil, (*int)(nil), gdao.Ptr(1)}, 15, errors.New("error"))
-		r.Equal(`SQL: %s, args: %v, affected: %d, error: %+v`, log.msg)
+		gdao.PrintSql(nil, "UPDATE user SET status=?,phone=?,email=? WHERE level=?)", []any{2, nil, (*int)(nil), gdao.Ptr("abc")}, 15, -1, errors.New("error"))
+		r.Equal(`SQL: %s; args: %v, affected: %d, error: %+v`, log.msg)
 		r.Len(log.args, 4)
 		r.Equal("UPDATE user SET status=?,phone=?,email=? WHERE level=?)", log.args[0])
 		args := log.args[1].([]any)
@@ -48,7 +48,7 @@ func TestPrintSql(t *testing.T) {
 		r.Equal(2, args[0])
 		r.Equal(nil, args[1])
 		r.Equal(nil, args[2])
-		r.Equal(1, args[3])
+		r.Equal(`"abc"`, args[3])
 		r.Equal(int64(15), log.args[2])
 		r.EqualError(log.args[3].(error), "error")
 	}
@@ -57,10 +57,10 @@ func TestPrintSql(t *testing.T) {
 		gdao.LogCfg(log, "debug", true)
 		gdao.PrintSql(nil, `  
 SELECT *
-FROM
- user`, nil, -1, nil)
-		r.Equal("SQL: %s", log.msg)
-		r.Equal("  SELECT * FROM user", log.args[0])
+  FROM
+ user`, nil, -1, 10, nil)
+		r.Equal("SQL: %s; row counts: %d", log.msg)
+		r.Equal("SELECT * FROM user", log.args[0])
 	}
 }
 
