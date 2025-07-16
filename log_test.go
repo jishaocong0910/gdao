@@ -57,7 +57,7 @@ func TestPrintSql(t *testing.T) {
 		gdao.LogCfg(log, "debug", true)
 		gdao.PrintSql(nil, `  
 SELECT *
-FROM
+  FROM
  user`, nil, -1, 10, nil)
 		r.Equal("SQL: %s; row counts: %d", log.msg)
 		r.Equal("SELECT * FROM user", log.args[0])
