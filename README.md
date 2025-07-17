@@ -521,7 +521,7 @@ func foo() {
 
 # CountDao
 
-`gdao.CountDao`专门用于聚合函数`count`的查询，它会将查询结果映射到`gdao.Count`结构体并且零值可用，要求SELECT语句只能查询聚合函数单个列。
+`gdao.CountDao`专门用于聚合函数`count`的查询，它会将查询结果映射到`gdao.Count`结构体并且零值可用。SELECT语句字段列表只有一个字段时会自动映射，如果有多个字段则映射名称为“count”的字段。
 
 *Example（MySQL驱动）*
 
@@ -533,7 +533,7 @@ type _CountDao struct {
 }
 
 func (d _CountDao) ExistUser(id string) (bool, error) {
-    count, err := d.Count(gdao.CountReq{BuildSql: func(b *gdao.CountBuilder) {
+    count, _, err := d.Count(gdao.CountReq{BuildSql: func(b *gdao.CountBuilder) {
         b.Write("SELECT count(*) FROM user WHERE id=?", id)
     }})
     return count.Bool(), err
