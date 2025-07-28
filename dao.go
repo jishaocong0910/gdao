@@ -289,7 +289,7 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
-func PtrToValue[T any](t *T) T {
+func PtrToVal[T any](t *T) T {
 	var v T
 	if t != nil {
 		v = *t
