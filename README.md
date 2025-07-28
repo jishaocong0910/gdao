@@ -182,7 +182,7 @@ type Account struct {
         </tr>
         <tr>
             <td><code>AllowInvalidField bool</code></td>
-            <td>是否允许非法字段，如字段未暴露、未使用指针等，默认为false，检测到非法字段将panic。</td>
+            <td>是否允许非法字段，如字段未导出、未使用指针等，默认为false，检测到非法字段将panic。</td>
         </tr>
         <tr>
             <td><code>ColumnMapper *NameMapper</code></td>
@@ -561,7 +561,7 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
         Entities: entities,
         LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
         BuildSql: func(b *gdao.Builder[User]) {
-            // 如果请求参数是空的，则返回false表示不执行
+            // 如果请求参数是空的，则通过b.SetOk(false)设置为无SQL可执行，然后return
             if len(entities) == 0 {
                 b.SetOk(false)
                 return
@@ -572,7 +572,7 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
             b.EachEntity(b.Sep(","), func(_, _ int, entity *User) {
                 // 获取实体的“列名称-字段值“键值对列表
                 cvs := b.ColumnValues(false)
-                // 遍历这些键值对
+                // 遍历这些键值对，指定开始、分隔和结束符号
                 b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(columnName string, value any) {
                     // 拼接参数占位符并设置参数
                     b.Write("?").Arg(value)
@@ -620,8 +620,8 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
 | `Args`             | 返回所有设置的参数。                                                                      |
 | `SetError`         | 设置error，SQL将不执行，error将从执行方法（`Query`、`Exec`）的返回值返回。                              |
 | `Error`            | 返回已设置的error。                                                                    |
-| `SetOk`            | 设置SQL是否合法，不设置默认为true，设置为false表示不执行SQL，若已设置error此方法无效。                           |
-| `Ok`               | 返回SQL是否合法，若已设置error此方法返回false。                                                  |
+| `SetOk`            | 设置SQL是否可执行，不设置默认为true，若已设置error此方法无效。                                           |
+| `Ok`               | 返回SQL是否可执行，若已设置error此方法返回false。                                                 |
 
 # 事务
 
@@ -823,7 +823,7 @@ func (d _UserDao) QueryByStatus(ctx context.Context, tx *sql.Tx, status ...int) 
 
 ## 基础DAO
 
-实体DAO内嵌了基础DAO结构体`baseDao`，提供了常用的单表操作能力，不建议二次编辑。
+实体DAO内嵌了基础DAO结构体`baseDao`，提供了常用的单表操作能力，基础DAO不建议二次编辑。
 
 *Example*
 
@@ -836,8 +836,8 @@ import (
 )
 
 func main() {
-    // 将执行SQL如下（为了方便说明SQL已格式化并填充参数）
-    // UPDATE user SET email='some@email.com',status=2 WHERE id=1
+    // 将执行SQL如下：
+    // UPDATE user SET email = 'some@email.com', status = 2 WHERE id = 1
     demo.UserDao.Update(demo.UpdateReq[demo.User]{
         Entity: &demo.User{
             Id:     gdao.Ptr[int32](1),

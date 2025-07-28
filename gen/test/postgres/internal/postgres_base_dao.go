@@ -364,8 +364,10 @@ type baseDao[T any] struct {
 func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, BuildSql: func(b *gdao.Builder[T]) {
 		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
-		cb := getConditionBuilder(b)
-		req.Condition.write(cb)
+		if req.Condition != nil {
+			cb := getConditionBuilder(b)
+			req.Condition.write(cb)
+		}
 		if req.OrderBy != nil {
 			b.Repeat(len(req.OrderBy.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(n, i int) {
 				item := req.OrderBy.items[i]
@@ -390,8 +392,10 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 func (d baseDao[T]) Get(req GetReq) (*T, error) {
 	first, _, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, BuildSql: func(b *gdao.Builder[T]) {
 		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
-		cb := getConditionBuilder(b)
-		req.Condition.write(cb)
+		if req.Condition != nil {
+			cb := getConditionBuilder(b)
+			req.Condition.write(cb)
+		}
 		b.Write(" LIMIT 1")
 		if req.ForUpdate {
 			b.Write(" FOR UPDATE")
@@ -550,8 +554,10 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
 	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, BuildSql: func(b *gdao.Builder[T]) {
 		b.Write("DELETE FROM ").Write(d.table).Write(" WHERE ")
-		cb := getConditionBuilder(b)
-		req.Condition.write(cb)
+		if req.Condition != nil {
+			cb := getConditionBuilder(b)
+			req.Condition.write(cb)
+		}
 	}})
 }
 

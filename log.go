@@ -16,7 +16,7 @@ type Logger interface {
 
 func LogCfg(log Logger, printSqlLevel string, singleLineSql bool) {
 	_logger = log
-	_printSqlLevel = printSqlLevel
+	_printSqlLevel = strings.ToLower(printSqlLevel)
 	_singleLineSql = singleLineSql
 }
 
@@ -114,7 +114,7 @@ func printSqlLog(ctx context.Context, hasError bool, msg string, args ...any) {
 	if hasError {
 		_logger.Errorf(ctx, msg, args...)
 	} else {
-		switch strings.ToLower(_printSqlLevel) {
+		switch _printSqlLevel {
 		case "info":
 			_logger.Infof(ctx, msg, args...)
 		default:
