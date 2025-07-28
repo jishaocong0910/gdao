@@ -32,11 +32,17 @@ type conditionBuilder struct {
 
 type condition interface {
 	write(b conditionBuilder)
+	addTo(cg *conditionGroup)
+	empty() bool
 }
 
 type baseCondition struct {
 	not           bool
 	parenthesized bool
+}
+
+func (bc baseCondition) empty() bool {
+	return false
 }
 
 func (bc baseCondition) doWrite(b conditionBuilder, write func()) {
@@ -56,6 +62,14 @@ type conditionGroup struct {
 	baseCondition
 	or bool
 	cs []condition
+}
+
+func (cg *conditionGroup) empty() bool {
+	return len(cg.cs) == 0
+}
+
+func (cg *conditionGroup) addTo(other *conditionGroup) {
+	other.addCondition(cg)
 }
 
 func (cg *conditionGroup) write(b conditionBuilder) {
@@ -169,6 +183,10 @@ type conditionPlain struct {
 	args []any
 }
 
+func (c *conditionPlain) addTo(cg *conditionGroup) {
+	cg.addCondition(c)
+}
+
 func (c *conditionPlain) write(b conditionBuilder) {
 	c.doWrite(b, func() {
 		b.write(c.sql, c.args...)
@@ -180,6 +198,10 @@ type conditionBinOp struct {
 	column string
 	op     string
 	arg    any
+}
+
+func (c *conditionBinOp) addTo(cg *conditionGroup) {
+	cg.addCondition(c)
 }
 
 func (c *conditionBinOp) write(b conditionBuilder) {
@@ -196,6 +218,10 @@ type conditionIn struct {
 	baseCondition
 	column string
 	args   []any
+}
+
+func (c *conditionIn) addTo(cg *conditionGroup) {
+	cg.addCondition(c)
 }
 
 func (c *conditionIn) write(b conditionBuilder) {
@@ -218,6 +244,10 @@ type conditionBetween struct {
 	min, max any
 }
 
+func (c *conditionBetween) addTo(cg *conditionGroup) {
+	cg.addCondition(c)
+}
+
 func (c *conditionBetween) write(b conditionBuilder) {
 	c.doWrite(b, func() {
 		b.write(c.column)
@@ -229,6 +259,10 @@ type conditionIsNull struct {
 	baseCondition
 	notNull bool
 	column  string
+}
+
+func (c *conditionIsNull) addTo(cg *conditionGroup) {
+	cg.addCondition(c)
 }
 
 func (c *conditionIsNull) write(b conditionBuilder) {
@@ -247,7 +281,7 @@ type ListReq struct {
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition *conditionGroup
+	Condition condition
 	// ORDER BY clause，create by function OrderBy.
 	OrderBy *orderBy
 	// paging query，create by function Page.
@@ -261,7 +295,7 @@ type GetReq struct {
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition *conditionGroup
+	Condition condition
 	// FOR UPDATE clause
 	ForUpdate bool
 }
@@ -297,7 +331,7 @@ type UpdateReq[T any] struct {
 	// specify the non-nil fields in the entity used as conditions.
 	WhereColumns []string
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr..
-	Condition *conditionGroup
+	Condition condition
 }
 
 type UpdateBatchReq[T any] struct {
@@ -315,7 +349,7 @@ type UpdateBatchReq[T any] struct {
 type DeleteReq struct {
 	Ctx context.Context
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition *conditionGroup
+	Condition condition
 }
 
 type orderBy struct {
@@ -357,7 +391,7 @@ type baseDao[T any] struct {
 func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, BuildSql: func(b *gdao.Builder[T]) {
 		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
-		if req.Condition != nil {
+		if req.Condition != nil && !req.Condition.empty() {
 			cb := getConditionBuilder(b)
 			req.Condition.write(cb)
 		}
@@ -385,7 +419,7 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 func (d baseDao[T]) Get(req GetReq) (*T, error) {
 	first, _, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, BuildSql: func(b *gdao.Builder[T]) {
 		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table).Write(" WHERE ")
-		if req.Condition != nil {
+		if req.Condition != nil && !req.Condition.empty() {
 			cb := getConditionBuilder(b)
 			req.Condition.write(cb)
 		}
@@ -480,7 +514,6 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 					b.Write(column).Write(" = NULL")
 				})
 			}
-			b.Write(" WHERE ")
 			var whereCond condition
 			if len(req.WhereColumns) > 0 {
 				a := And()
@@ -493,13 +526,14 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 					}
 				}
 				if req.Condition != nil {
-					a = a.Group(req.Condition)
+					req.Condition.addTo(a)
 				}
 				whereCond = a
 			} else if req.Condition != nil {
 				whereCond = req.Condition
 			}
-			if whereCond != nil {
+			if whereCond != nil && !whereCond.empty() {
+				b.Write(" WHERE ")
 				cb := getConditionBuilder(b)
 				whereCond.write(cb)
 			}
@@ -534,7 +568,7 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
 	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, BuildSql: func(b *gdao.Builder[T]) {
 		b.Write("DELETE FROM ").Write(d.table).Write(" WHERE ")
-		if req.Condition != nil {
+		if req.Condition != nil && !req.Condition.empty() {
 			cb := getConditionBuilder(b)
 			req.Condition.write(cb)
 		}
