@@ -26,6 +26,13 @@ func parenthesizeGroup(c condition) {
 	}
 }
 
+func Anys[T any](source []T) (target []any) {
+	for _, s := range source {
+		target = append(target, s)
+	}
+	return
+}
+
 type conditionBuilder struct {
 	write func(str string, args ...any)
 }
@@ -161,6 +168,7 @@ func (cg *conditionGroup) LikeRight(column string, arg string) *conditionGroup {
 	return cg.addCondition(&conditionBinOp{column: column, op: "LIKE", arg: "%" + arg})
 }
 
+// remember to pass a slice as variadic parameter，you use Anys to convert non-any type slice to an any type slice.
 func (cg *conditionGroup) In(column string, args ...any) *conditionGroup {
 	return cg.addCondition(&conditionIn{column: column, args: args})
 }
@@ -477,15 +485,18 @@ func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 			} else {
 				cvs = b.ColumnValues(true)
 			}
+			var hasSet bool
 			b.EachColumnValues(cvs, b.Sep(", "), func(column string, value any) {
+				hasSet = true
 				entityFieldNum++
 				b.Write(column, value)
 			})
 			if !req.InsertAll {
 				b.EachColumnName(req.SetNullColumns, nil, func(_, _ int, column string) {
-					if b.Ok() {
+					if hasSet {
 						b.Write(", ")
 					}
+					hasSet = true
 					setNullColumnNum++
 					b.Write(column)
 				})
@@ -566,14 +577,17 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 				allIgnoredColumns = append(allIgnoredColumns, req.WhereColumns...)
 				setCvs = b.ColumnValues(true, allIgnoredColumns...)
 			}
+			var hasSet bool
 			b.EachColumnValues(setCvs, b.Sep(", "), func(column string, value any) {
+				hasSet = true
 				b.Write(column).Write(" = ").Write("?").Arg(value)
 			})
 			if !req.UpdateAll {
 				b.EachColumnName(req.SetNullColumns, nil, func(_, _ int, column string) {
-					if b.Ok() {
+					if hasSet {
 						b.Write(", ")
 					}
+					hasSet = true
 					b.Write(column).Write(" = NULL")
 				})
 			}

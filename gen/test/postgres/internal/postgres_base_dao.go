@@ -29,6 +29,13 @@ func parenthesizeGroup(c condition) {
 	}
 }
 
+func Anys[T any](source []T) (target []any) {
+	for _, s := range source {
+		target = append(target, s)
+	}
+	return
+}
+
 type conditionBuilder struct {
 	write func(str string, args ...any)
 	pp    func() string
@@ -165,6 +172,7 @@ func (cg *conditionGroup) LikeRight(column string, arg string) *conditionGroup {
 	return cg.addCondition(&conditionBinOp{column: column, op: "LIKE", arg: "%" + arg})
 }
 
+// remember to pass a slice as variadic parameter，you use Anys to convert non-any type slice to an any type slice.
 func (cg *conditionGroup) In(column string, args ...any) *conditionGroup {
 	return cg.addCondition(&conditionIn{column: column, args: args})
 }
@@ -450,15 +458,18 @@ func (d baseDao[T]) Insert(req InsertReq[T]) error {
 			} else {
 				cvs = b.ColumnValues(true)
 			}
+			var hasSet bool
 			b.EachColumnValues(cvs, b.Sep(", "), func(column string, value any) {
+				hasSet = true
 				entityFieldNum++
 				b.Write(column, value)
 			})
 			if !req.InsertAll {
 				b.EachColumnName(req.SetNullColumns, nil, func(_, _ int, column string) {
-					if b.Ok() {
+					if hasSet {
 						b.Write(", ")
 					}
+					hasSet = true
 					setNullColumnNum++
 					b.Write(column)
 				})
