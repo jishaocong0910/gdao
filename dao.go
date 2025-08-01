@@ -85,12 +85,14 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	}
 	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
+		printSql(req.Ctx, b.Sql(), b.args, -1, -1, err)
 		return nil, nil, err
 	}
 	defer closeFunc()
 
 	switch req.RowAs {
 	case ROW_AS_RETURNING:
+		var affected int64
 		for i := 0; rows.Next() && i < len(req.Entities); i++ {
 			entity := req.Entities[i]
 			if entity == nil { // coverage-ignore
@@ -107,8 +109,11 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 			if len(fields) > 0 {
 				printError(req.Ctx, rows.Scan(fields...))
 			}
+			affected++
 		}
+		printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
 	case ROW_AS_LAST_ID:
+		var affected int64
 		var id *int64
 		if rows.Next() && len(columns) == 1 && len(d.autoIncrementColumns) == 1 {
 			err = rows.Scan(&id)
@@ -128,9 +133,19 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 				v := reflect.ValueOf(entity).Elem()
 				field := v.Field(fieldIndex)
 				field.Set(d.autoIncrementConvertor(*id - int64(entityLength-1-i)*d.autoIncrementStep))
+				affected++
+			}
+		} else {
+			for i := 0; i < len(req.Entities); i++ {
+				entity := req.Entities[i]
+				if entity != nil { // coverage-ignore
+					affected++
+				}
 			}
 		}
+		printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
 	default:
+		var rowCounts int64
 		for rows.Next() {
 			entity := new(T)
 			fields := d.mappingFields(entity, columns)
@@ -139,10 +154,12 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 				return
 			}
 			list = append(list, entity)
+			rowCounts++
 		}
 		if len(list) > 0 {
 			first = list[0]
 		}
+		printSql(req.Ctx, b.Sql(), b.args, -1, rowCounts, err)
 	}
 	return
 }
@@ -158,6 +175,7 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 		return 0, nil
 	}
 	result, affected, err := exec(req.Ctx, d.DB(), b.Sql(), b.args)
+	printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
 	if err != nil { // coverage-ignore
 		return
 	}
@@ -203,13 +221,11 @@ func query(ctx context.Context, db *sql.DB, sql string, args []any) (rows *sql.R
 	}
 	prepare, err := createPrepare(ctx, db, sql)
 	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
 	}
 	rows, err = prepare.QueryContext(ctx, args...)
 	if err != nil { // coverage-ignore
 		printWarn(ctx, prepare.Close())
-		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
 	}
 	closeFunc = func() {
@@ -219,10 +235,8 @@ func query(ctx context.Context, db *sql.DB, sql string, args []any) (rows *sql.R
 	columns, err = rows.Columns()
 	if err != nil { // coverage-ignore
 		closeFunc()
-		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
 	}
-	printSql(ctx, sql, args, -1, err)
 	return rows, columns, closeFunc, nil
 }
 
@@ -233,7 +247,6 @@ func exec(ctx context.Context, db *sql.DB, sql string, args []any) (result sql.R
 	affected = int64(-1)
 	prepare, err := createPrepare(ctx, db, sql)
 	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, affected, err)
 		return nil, 0, err
 	}
 	defer func() {
@@ -241,11 +254,9 @@ func exec(ctx context.Context, db *sql.DB, sql string, args []any) (result sql.R
 	}()
 	result, err = prepare.ExecContext(ctx, args...)
 	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, affected, err)
 		return nil, 0, err
 	}
 	affected, err = result.RowsAffected()
-	printSql(ctx, sql, args, affected, err)
 	return
 }
 
@@ -267,6 +278,8 @@ func (d *Dao[T]) mappingFields(entity *T, columns []string) []any {
 		if value, ok := d.columnToFieldIndexMap[c]; ok {
 			field := v.Field(value)
 			fields = append(fields, field.Addr().Interface())
+		} else {
+			fields = append(fields, new(any))
 		}
 	}
 	return fields
@@ -276,7 +289,7 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
-func PtrToValue[T any](t *T) T {
+func PtrToVal[T any](t *T) T {
 	var v T
 	if t != nil {
 		v = *t
@@ -412,7 +425,7 @@ func registerField[T any](d *Dao[T], tf reflect.StructField, columnMapper *NameM
 	}
 	d.columns = append(d.columns, column)
 	if d.commaColumns != "" {
-		d.commaColumns += ","
+		d.commaColumns += ", "
 	}
 	d.commaColumns += column
 	d.columnToFieldIndexMap[column] = tf.Index[0]

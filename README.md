@@ -182,7 +182,7 @@ type Account struct {
         </tr>
         <tr>
             <td><code>AllowInvalidField bool</code></td>
-            <td>是否允许非法字段，如字段未暴露、未使用指针等，默认为false，检测到非法字段将panic。</td>
+            <td>是否允许非法字段，如字段未导出、未使用指针等，默认为false，检测到非法字段将panic。</td>
         </tr>
         <tr>
             <td><code>ColumnMapper *NameMapper</code></td>
@@ -521,7 +521,7 @@ func foo() {
 
 # CountDao
 
-`gdao.CountDao`专门用于聚合函数`count`的查询，它会将查询结果映射到`gdao.Count`结构体并且零值可用，要求SELECT语句只能查询聚合函数单个列。
+`gdao.CountDao`专门用于聚合函数`count`的查询，它会将查询结果映射到`gdao.Count`结构体并且零值可用。SELECT语句字段列表只有一个字段时会自动映射，如果有多个字段则映射名称为“count”的字段。
 
 *Example（MySQL驱动）*
 
@@ -533,7 +533,7 @@ type _CountDao struct {
 }
 
 func (d _CountDao) ExistUser(id string) (bool, error) {
-    count, err := d.Count(gdao.CountReq{BuildSql: func(b *gdao.CountBuilder) {
+    count, _, err := d.Count(gdao.CountReq{BuildSql: func(b *gdao.CountBuilder) {
         b.Write("SELECT count(*) FROM user WHERE id=?", id)
     }})
     return count.Bool(), err
@@ -561,7 +561,7 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
         Entities: entities,
         LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
         BuildSql: func(b *gdao.Builder[User]) {
-            // 如果请求参数是空的，则返回false表示不执行
+            // 如果请求参数是空的，则通过b.SetOk(false)设置为无SQL可执行，然后return
             if len(entities) == 0 {
                 b.SetOk(false)
                 return
@@ -572,7 +572,7 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
             b.EachEntity(b.Sep(","), func(_, _ int, entity *User) {
                 // 获取实体的“列名称-字段值“键值对列表
                 cvs := b.ColumnValues(false)
-                // 遍历这些键值对
+                // 遍历这些键值对，指定开始、分隔和结束符号
                 b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(columnName string, value any) {
                     // 拼接参数占位符并设置参数
                     b.Write("?").Arg(value)
@@ -597,31 +597,28 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
 
 ## Builder的方法
 
-| 方法                 | 说明                                                                              |
-|--------------------|---------------------------------------------------------------------------------|
-| `Write`            | 拼接字符串并设置参数。                                                                     |
-| `WriteColumns`     | 拼接列名称，使用逗号分隔，如果参数为空则拼接表的所有列名称。                                                  |
-| `Arg`              | 设置参数。                                                                           |
-| `Columns`          | 返回列名称，若参数为空则返回所有列名称。                                                            |
-| `AutoColumns`      | 返回标签值有`gdao="auto"`的字段。                                                         |
-| `EntityAt`         | 返回`Entities`中指定索引的实体。                                                           |
-| `Entity`           | 相当于`EntityAt(0)`                                                                |
-| `ColumnValuesAt`   | 将实体转化为“列名称-字段值“键值对，`onlyAssigned`参数指定是否过滤掉值为nil的字段。                             |
-| `ColumnValues`     | 相当于`ColumnValuesAt(Entity())`                                                   |
-| `ColumnValue`      | 返回首个实体中指定列名称对应字段的值。                                                             |
-| `EachColumnName`   | 遍历指定列名称，自动过滤空字符串，`filterColumns`参数指定过滤的列名称，`handle`函数参数`n`为调用次数，从1开始，`i`为列名称索引。 |
-| `EachEntity`       | 遍历`Entities`，自动过滤nil元素，`handle`函数参数`n`为调用次数，从1开始，`i`为实体索引。                      |
-| `EachColumnValues` | 遍历“列名称-字段值”键值对列表。                                                               |
-| `Repeat`           | 循环指定次数，`handle`函数参数`n`为调用次数，从1开始，`i`为循环次数。                                      |
-| `Sep`              | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定分隔符号                                             |
-| `SepFix`           | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定开始、分隔和结束符号，可指定无元素时是否拼接开始、结束符号。                   |
-| `Pp`               | 返回带编号的占位符，编号从1开始，每次调用后递增1，适用于PostgreSQL、Oracle等驱动。                              |
-| `Sql`              | 返回拼接的字符串。                                                                       |
-| `Args`             | 返回所有设置的参数。                                                                      |
-| `SetError`         | 设置error，SQL将不执行，error将从执行方法（`Query`、`Exec`）的返回值返回。                              |
-| `Error`            | 返回已设置的error。                                                                    |
-| `SetOk`            | 设置SQL是否合法，不设置默认为true，设置为false表示不执行SQL，若已设置error此方法无效。                           |
-| `Ok`               | 返回SQL是否合法，若已设置error此方法返回false。                                                  |
+| 方法             | 说明                                                                |
+|----------------|-------------------------------------------------------------------|
+| `Write`        | 拼接字符串并设置参数。                                                       |
+| `WriteColumns` | 拼接列名称，使用逗号分隔，如果参数为空则拼接表的所有列名称。                                    |
+| `SetArgs`      | 设置参数。                                                             |
+| `Columns`      | 返回所有列名称，`onlyAssigned`参数指定是否过滤掉值为nil的字段，`ignoredColumns`参数指定忽略字段。 |
+| `AutoColumns`  | 返回标签值有`gdao="auto"`的字段。                                           |
+| `EntityAt`     | 返回`Entities`中指定索引的实体。                                             |
+| `Entity`       | 相当于`EntityAt(0)`                                                  |
+| `ColumnValue`  | 返回首个实体中指定列名称对应字段的值。                                               |
+| `EachEntity`   | 遍历`Entities`，自动过滤nil元素，`handle`函数参数`n`为调用次数，从1开始。                 |
+| `EachColumn`   | 遍历指定实体的“列名称-字段值”列表，`handle`函数参数`n`为调用次数。。                         |
+| `Repeat`       | 循环指定次数，`handle`函数参数`n`为调用次数，从1开始，`i`为循环次数。                        |
+| `Sep`          | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定分隔符号                               |
+| `SepFix`       | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定开始、分隔和结束符号，可指定无元素时是否拼接开始、结束符号。     |
+| `Pp`           | 返回带编号的占位符，编号从1开始，每次调用后递增1，适用于PostgreSQL、Oracle等驱动。                |
+| `Sql`          | 返回拼接的字符串。                                                         |
+| `Args`         | 返回所有设置的参数。                                                        |
+| `SetError`     | 设置error，SQL将不执行，error将从执行方法（`Query`、`Exec`）的返回值返回。                |
+| `Error`        | 返回已设置的error。                                                      |
+| `SetOk`        | 设置SQL是否可执行，不设置默认为true，若已设置error此方法无效。                             |
+| `Ok`           | 返回SQL是否可执行，若已设置error此方法返回false。                                   |
 
 # 事务
 
@@ -823,7 +820,7 @@ func (d _UserDao) QueryByStatus(ctx context.Context, tx *sql.Tx, status ...int) 
 
 ## 基础DAO
 
-实体DAO内嵌了基础DAO结构体`baseDao`，提供了常用的单表操作能力。
+实体DAO内嵌了基础DAO结构体`baseDao`，提供了常用的单表操作能力，基础DAO不建议二次编辑。
 
 *Example*
 
@@ -836,8 +833,8 @@ import (
 )
 
 func main() {
-    // 将执行SQL如下（为了方便说明SQL已格式化并填充参数）
-    // UPDATE user SET email='some@email.com',status=2 WHERE id=1
+    // 将执行SQL如下：
+    // UPDATE user SET email = 'some@email.com', status = 2 WHERE id = 1
     demo.UserDao.Update(demo.UpdateReq[demo.User]{
         Entity: &demo.User{
             Id:     gdao.Ptr[int32](1),

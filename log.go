@@ -16,7 +16,7 @@ type Logger interface {
 
 func LogCfg(log Logger, printSqlLevel string, singleLineSql bool) {
 	_logger = log
-	_printSqlLevel = printSqlLevel
+	_printSqlLevel = strings.ToLower(printSqlLevel)
 	_singleLineSql = singleLineSql
 }
 
@@ -31,10 +31,18 @@ func formatSql(sql string) string {
 		var prevC rune
 		for i, c := range chars {
 			if c == '\n' {
+				if prevC == 0 {
+					continue
+				}
 				if prevC != ' ' && i < len(chars)-1 && chars[i+1] != ' ' {
 					line.WriteRune(' ')
 				}
 				continue
+			}
+			if c == ' ' {
+				if prevC == 0 || prevC == ' ' {
+					continue
+				}
 			}
 			line.WriteRune(c)
 			prevC = c
@@ -44,14 +52,16 @@ func formatSql(sql string) string {
 	return sql
 }
 
-func printSql(ctx context.Context, sql string, args []any, affected int64, err error) {
+func printSql(ctx context.Context, sql string, args []any, affected, rowCounts int64, err error) {
 	var msg strings.Builder
-	msg.WriteString("SQL: %s")
+	msg.WriteString("SQL: %s;")
 	msgArgs := make([]any, 0, 3)
 	msgArgs = append(msgArgs, formatSql(sql))
 
+	sep := " "
 	if len(args) > 0 {
-		msg.WriteString(", args: %v")
+		sep = ", "
+		msg.WriteString(" args: %v")
 		var values = make([]any, 0, len(args))
 		for _, a := range args {
 			if a == nil {
@@ -60,25 +70,37 @@ func printSql(ctx context.Context, sql string, args []any, affected int64, err e
 				v := reflect.ValueOf(a)
 				if v.Kind() == reflect.Pointer {
 					if v.IsNil() {
-						values = append(values, nil)
+						a = nil
 					} else {
-						values = append(values, v.Elem().Interface())
+						a = v.Elem().Interface()
 					}
-				} else {
-					values = append(values, a)
 				}
+				if s, ok := a.(string); ok {
+					a = "\"" + s + "\""
+				}
+				values = append(values, a)
 			}
 		}
 		msgArgs = append(msgArgs, values)
 	}
 
 	if affected != -1 {
-		msg.WriteString(", affected: %d")
+		msg.WriteString(sep)
+		sep = ", "
+		msg.WriteString("affected: %d")
 		msgArgs = append(msgArgs, affected)
 	}
 
+	if rowCounts != -1 {
+		msg.WriteString(sep)
+		sep = ", "
+		msg.WriteString("row counts: %d")
+		msgArgs = append(msgArgs, rowCounts)
+	}
+
 	if err != nil {
-		msg.WriteString(", error: %+v")
+		msg.WriteString(sep)
+		msg.WriteString("error: %+v")
 		msgArgs = append(msgArgs, err)
 	}
 
@@ -92,7 +114,7 @@ func printSqlLog(ctx context.Context, hasError bool, msg string, args ...any) {
 	if hasError {
 		_logger.Errorf(ctx, msg, args...)
 	} else {
-		switch strings.ToLower(_printSqlLevel) {
+		switch _printSqlLevel {
 		case "info":
 			_logger.Infof(ctx, msg, args...)
 		default:

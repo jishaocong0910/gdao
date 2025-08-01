@@ -12,23 +12,23 @@ import (
 type Logger struct {
 }
 
-func (d Logger) Debugf(ctx context.Context, msg string, args ...interface{}) {
+func (d Logger) Debugf(ctx context.Context, msg string, args ...interface{}) { // coverage-ignore
 	log.Printf(msg, args...)
 }
 
-func (d Logger) Infof(ctx context.Context, msg string, args ...interface{}) {
+func (d Logger) Infof(ctx context.Context, msg string, args ...interface{}) { // coverage-ignore
 	log.Printf(msg, args...)
 }
 
-func (d Logger) Warnf(ctx context.Context, msg string, args ...interface{}) {
+func (d Logger) Warnf(ctx context.Context, msg string, args ...interface{}) { // coverage-ignore
 	log.Printf(msg, args...)
 }
 
-func (d Logger) Errorf(ctx context.Context, msg string, args ...interface{}) {
+func (d Logger) Errorf(ctx context.Context, msg string, args ...interface{}) { // coverage-ignore
 	log.Printf(msg, args...)
 }
 
-func MockPostgresBaseDao[T any](r *require.Assertions, table string) (*baseDao[T], sqlmock.Sqlmock) {
+func MockBaseDao[T any](r *require.Assertions, table string) (*baseDao[T], sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
 	dao := newBaseDao[T](gdao.NewDaoReq{DB: db}, table)
