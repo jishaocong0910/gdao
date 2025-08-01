@@ -67,7 +67,7 @@ func TestSqlServer(t *testing.T) {
 
 	compareFile(r, "testdata/entity.golden", "testdata/sqlserver.go")
 	compareFile(r, "testdata/dao.golden", "testdata/sqlserver_dao.go")
-	compareFile(r, "internal/sqlserver_base_dao.go", "testdata/base_dao.go")
+	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 }
 
 func compareFile(r *require.Assertions, golden, gen string) {

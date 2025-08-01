@@ -25,7 +25,7 @@ func TestSqlite(t *testing.T) {
 
 	compareFile(r, "testdata/entity.golden", "testdata/sqlite.go")
 	compareFile(r, "testdata/dao.golden", "testdata/sqlite_dao.go")
-	compareFile(r, "internal/sqlite_base_dao.go", "testdata/base_dao.go")
+	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 }
 
 func compareFile(r *require.Assertions, golden, gen string) {

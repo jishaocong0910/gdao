@@ -71,7 +71,7 @@ func TestOracle(t *testing.T) {
 
 	compareFile(r, "testdata/entity.golden", "testdata/oracle.go")
 	compareFile(r, "testdata/dao.golden", "testdata/oracle_dao.go")
-	compareFile(r, "internal/oracle_base_dao.go", "testdata/base_dao.go")
+	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 }
 
 func compareFile(r *require.Assertions, golden, gen string) {

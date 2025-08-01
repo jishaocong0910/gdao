@@ -14,11 +14,11 @@ func TestBuilder_Arg(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockUserDao(r)
 	dao.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
-		b.Arg("a")
+		b.SetArgs("a")
 		r.Equal(1, len(b.Args()))
 		r.Contains(b.Args(), "a")
 
-		b.Arg("B")
+		b.SetArgs("B")
 		r.Equal(2, len(b.Args()))
 		r.Contains(b.Args(), "a", "B")
 	}})
@@ -60,9 +60,20 @@ func TestBuilder_SetError(t *testing.T) {
 func TestBuilder_Columns(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockUserDao(r)
-	dao.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
+	dao.Query(gdao.QueryReq[User]{Entities: []*User{{
+		Status:  gdao.Ptr[int8](3),
+		Level:   gdao.Ptr[int32](10),
+		Address: gdao.Ptr("address"),
+		Phone:   gdao.Ptr("56789"),
+	}}, BuildSql: func(b *gdao.Builder[User]) {
 		exportDao := gdao.ExportDao(dao)
-		r.Equal(exportDao.Columns, b.Columns())
+		r.Equal(exportDao.Columns, b.Columns(false))
+		r.Equal([]string{"id", "name", "age", "email", "status", "level", "create_at"}, b.Columns(false, []string{"address", "phone"}...))
+		r.Equal([]string{"address", "phone", "status", "level"}, b.Columns(true))
+		r.Equal([]string{"status", "level"}, b.Columns(true, []string{"address", "phone"}...))
+	}})
+	dao.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
+		r.Empty(b.Columns(true))
 	}})
 }
 
@@ -95,6 +106,30 @@ func TestBuilder_Entity(t *testing.T) {
 	}})
 }
 
+func TestBuilder_EachColumn(t *testing.T) {
+	r := require.New(t)
+	dao, _ := mockUserDao(r)
+	dao.Query(gdao.QueryReq[User]{Entities: []*User{{
+		Status:  gdao.Ptr[int8](3),
+		Level:   gdao.Ptr[int32](10),
+		Address: gdao.Ptr("address"),
+		Phone:   gdao.Ptr("56789"),
+	}}, BuildSql: func(b *gdao.Builder[User]) {
+		b.EachColumn(b.Entity(), nil, func(column string, value any) bool {
+			return column != "phone"
+		}, func(n int, column string, value any) {
+			switch n {
+			case 1:
+				r.Equal("address", reflect.ValueOf(value).Elem().Interface())
+			case 2:
+				r.Equal(int8(3), reflect.ValueOf(value).Elem().Interface())
+			case 3:
+				r.Equal(int32(10), reflect.ValueOf(value).Elem().Interface())
+			}
+		}, b.Columns(true)...)
+	}})
+}
+
 func TestBuilder_ColumnValue(t *testing.T) {
 	r := require.New(t)
 	u := &User{
@@ -108,54 +143,8 @@ func TestBuilder_ColumnValue(t *testing.T) {
 		r.Nil(b.ColumnValue(nil, ""))
 		r.Nil(b.ColumnValue(b.Entity(), ""))
 		r.Nil(b.ColumnValue(b.Entity(), "name"))
-		cvs := b.ColumnValuesAt(nil, false)
-		r.Nil(cvs)
 		r.Equal(int8(3), reflect.ValueOf(b.ColumnValue(b.Entity(), "status")).Elem().Interface())
 		r.Equal("address", reflect.ValueOf(b.ColumnValue(b.Entity(), "address")).Elem().Interface())
-	}})
-}
-
-func TestBuilder_ColumnValues(t *testing.T) {
-	r := require.New(t)
-	a := &Account{
-		UserId:  gdao.Ptr[int32](1),
-		Status:  gdao.Ptr[int8](1),
-		Balance: gdao.Ptr[int64](100),
-	}
-	dao, _ := mockAccountDao(r)
-	dao.Query(gdao.QueryReq[Account]{Entities: []*Account{a}, BuildSql: func(b *gdao.Builder[Account]) {
-		cvs := b.ColumnValues(false)
-		for i, cv := range cvs {
-			switch i {
-			case 0:
-				r.Equal("id", cv.Column)
-				r.Equal(nil, cv.Value)
-			case 1:
-				r.Equal("other_id", cv.Column)
-				r.Equal(nil, cv.Value)
-			case 2:
-				r.Equal("user_id", cv.Column)
-				r.Equal(int32(1), reflect.ValueOf(cv.Value).Elem().Interface())
-			case 3:
-				r.Equal("status", cv.Column)
-				r.Equal(int8(1), reflect.ValueOf(cv.Value).Elem().Interface())
-			case 4:
-				r.Equal("balance", cv.Column)
-				r.Equal(int64(100), reflect.ValueOf(cv.Value).Elem().Interface())
-			}
-		}
-
-		cvs2 := b.ColumnValues(true, "user_id")
-		for i, cv := range cvs2 {
-			switch i {
-			case 0:
-				r.Equal("status", cv.Column)
-				r.Equal(int8(1), reflect.ValueOf(cv.Value).Elem().Interface())
-			case 1:
-				r.Equal("balance", cv.Column)
-				r.Equal(int64(100), reflect.ValueOf(cv.Value).Elem().Interface())
-			}
-		}
 	}})
 }
 
@@ -189,34 +178,6 @@ func TestBuilder_WriteColumns(t *testing.T) {
 	}})
 }
 
-func TestBuilder_EachColumnName(t *testing.T) {
-	r := require.New(t)
-	dao, _ := mockAccountDao(r)
-	dao.Query(gdao.QueryReq[Account]{BuildSql: func(b *gdao.Builder[Account]) {
-		b.EachColumnName([]string{"id", "", "user_id", "status", "balance"}, b.Sep(","), func(n, i int, column string) {
-			b.Write(strconv.Itoa(n)).Write("-").Write(strconv.Itoa(i)).Write("-").Write(column)
-		}, "user_id", "balance")
-		r.Equal("1-0-id,2-3-status", b.Sql())
-	}})
-}
-
-func TestBuilder_EachColumnValues(t *testing.T) {
-	r := require.New(t)
-	a := &Account{
-		UserId:  gdao.Ptr[int32](1),
-		Status:  gdao.Ptr[int8](1),
-		Balance: gdao.Ptr[int64](100),
-	}
-	dao, _ := mockAccountDao(r)
-	dao.Query(gdao.QueryReq[Account]{Entities: []*Account{a}, BuildSql: func(b *gdao.Builder[Account]) {
-		cvs := b.ColumnValues(false)
-		b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
-			b.Write(column)
-		})
-		r.Equal("(id,other_id,user_id,status,balance)", b.Sql())
-	}})
-}
-
 func TestBuilder_EachEntity(t *testing.T) {
 	r := require.New(t)
 	a := &Account{
@@ -231,11 +192,13 @@ func TestBuilder_EachEntity(t *testing.T) {
 	}
 	dao, _ := mockAccountDao(r)
 	dao.Query(gdao.QueryReq[Account]{Entities: []*Account{a, nil, a2}, BuildSql: func(b *gdao.Builder[Account]) {
-		b.EachEntity(b.Sep(","), func(n, i int, entity *Account) {
-			switch i {
-			case 0:
-				r.Equal(a, entity)
+		b.EachEntity(b.Sep(","), func(entity *Account) bool {
+			return entity != nil
+		}, func(n int, entity *Account) {
+			switch n {
 			case 1:
+				r.Equal(a, entity)
+			case 2:
 				r.Equal(a2, entity)
 			}
 		})

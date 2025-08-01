@@ -28,7 +28,7 @@ func (d Logger) Errorf(ctx context.Context, msg string, args ...interface{}) { /
 	log.Printf(msg, args...)
 }
 
-func MockMysqlBaseDao[T any](r *require.Assertions, table string) (*baseDao[T], sqlmock.Sqlmock) {
+func MockBaseDao[T any](r *require.Assertions, table string) (*baseDao[T], sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
 	dao := newBaseDao[T](gdao.NewDaoReq{DB: db}, table)

@@ -186,7 +186,7 @@ func TestDao_Query_RowAsReturning(t *testing.T) {
 		RowAs:    gdao.ROW_AS_RETURNING,
 		BuildSql: func(b *gdao.Builder[Account]) {
 			b.Write("INSERT account").Write("(user_id,status,balance) VALUES")
-			b.EachEntity(b.Sep(","), func(n, i int, entity *Account) {
+			b.EachEntity(b.Sep(","), nil, func(n int, entity *Account) {
 				b.Write("(?,?,?)", entity.UserId, entity.Status, entity.Balance)
 			})
 			b.Write(" RETURNING id")
@@ -223,7 +223,7 @@ func TestDao_Query_RowAsLastId(t *testing.T) {
 		RowAs:    gdao.ROW_AS_LAST_ID,
 		BuildSql: func(b *gdao.Builder[Account]) {
 			b.Write("INSERT account").Write("(user_id,status,balance) VALUES")
-			b.EachEntity(b.Sep(","), func(n, i int, entity *Account) {
+			b.EachEntity(b.Sep(","), nil, func(n int, entity *Account) {
 				b.Write("(?,?,?)", entity.UserId, entity.Status, entity.Balance)
 			})
 			b.Write("; SELECT ID=convert(bigint, SCOPE_IDENTITY())")
@@ -252,10 +252,10 @@ func TestDao_Exec(t *testing.T) {
 			Entities: []*User{user},
 			BuildSql: func(b *gdao.Builder[User]) {
 				b.Write("UPDATE user SET ")
-				cvs := b.ColumnValues(true)
-				b.EachColumnValues(cvs, b.Sep(","), func(column string, value any) {
+				columns := b.Columns(true)
+				b.EachColumn(b.Entity(), b.Sep(","), nil, func(_ int, column string, value any) {
 					b.Write(column).Write("=?", value)
-				})
+				}, columns...)
 				b.Write(" WHERE id=?", 1001)
 			},
 		})
@@ -273,7 +273,7 @@ func TestDao_Exec(t *testing.T) {
 			Address: gdao.Ptr("address"),
 			Phone:   gdao.Ptr("56789"),
 		}
-		mock.ExpectPrepare(`INSERT user\(name,address,phone,status,level\) VALUES\(\?,\?,\?,\?,\?\)`).
+		mock.ExpectPrepare(`INSERT user\(name, address, phone, status, level\) VALUES\(\?,\?,\?,\?,\?\)`).
 			ExpectExec().
 			WithArgs(user.Name, user.Address, user.Phone, user.Status, user.Level).
 			WillReturnResult(sqlmock.NewResult(1, 1))
@@ -281,13 +281,13 @@ func TestDao_Exec(t *testing.T) {
 			Entities: []*User{user},
 			BuildSql: func(b *gdao.Builder[User]) {
 				b.Write("INSERT user")
-				cvs := b.ColumnValues(true)
-				b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
-					b.Write(column)
-				})
-				b.EachColumnValues(cvs, b.SepFix(" VALUES(", ",", ")", false), func(column string, value any) {
+				columns := b.Columns(true)
+				b.Write("(")
+				b.WriteColumns(columns...)
+				b.Write(")")
+				b.EachColumn(b.Entity(), b.SepFix(" VALUES(", ",", ")", true), nil, func(n int, column string, value any) {
 					b.Write("?", value)
-				})
+				}, columns...)
 			},
 		})
 
@@ -326,11 +326,10 @@ func TestDao_Exec_LastInsertIdAsFirstId(t *testing.T) {
 		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
 		BuildSql: func(b *gdao.Builder[User]) {
 			b.Write("INSERT user").Write("(").WriteColumns().Write(") VALUES")
-			b.EachEntity(b.Sep(","), func(n, i int, entity *User) {
-				cvs := b.ColumnValuesAt(entity, false)
-				b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
+			b.EachEntity(b.Sep(","), nil, func(n int, entity *User) {
+				b.EachColumn(entity, b.SepFix("(", ",", ")", false), nil, func(n int, column string, value any) {
 					b.Write("?", value)
-				})
+				}, b.Columns(false)...)
 			})
 		},
 	})
@@ -370,11 +369,10 @@ func TestDao_Exec_LastInsertIdAsLastId(t *testing.T) {
 		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID,
 		BuildSql: func(b *gdao.Builder[User]) {
 			b.Write("INSERT user").Write("(").WriteColumns().Write(") VALUES")
-			b.EachEntity(b.Sep(","), func(n, i int, entity *User) {
-				cvs := b.ColumnValuesAt(entity, false)
-				b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, value any) {
+			b.EachEntity(b.Sep(","), nil, func(n int, entity *User) {
+				b.EachColumn(entity, b.SepFix("(", ",", ")", false), nil, func(n int, column string, value any) {
 					b.Write("?", value)
-				})
+				}, b.Columns(false)...)
 			})
 		},
 	})

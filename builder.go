@@ -17,11 +17,11 @@ type baseBuilder[T any] struct {
 
 func (b *baseBuilder[T]) Write(str string, args ...any) *T {
 	b.sql.WriteString(str)
-	b.Arg(args...)
+	b.SetArgs(args...)
 	return b.subBuilder
 }
 
-func (b *baseBuilder[T]) Arg(args ...any) *T {
+func (b *baseBuilder[T]) SetArgs(args ...any) *T {
 	b.args = append(b.args, args...)
 	return b.subBuilder
 }
@@ -60,6 +60,14 @@ func (b *baseBuilder[T]) Ok() bool {
 	return b.ok
 }
 
+func (b *baseBuilder[T]) Sep(separator string) *separate {
+	return &separate{separator: separator}
+}
+
+func (b *baseBuilder[T]) SepFix(prefix, separator, suffix string, writeFixIfEmpty bool) *separate {
+	return &separate{prefix: prefix, separator: separator, suffix: suffix, writeFixIfEmpty: writeFixIfEmpty}
+}
+
 func (b *baseBuilder[T]) Repeat(num int, sep *separate, filter func(i int) bool, handle func(n, i int)) *T {
 	var n int
 	b.writePrefix(sep, n)
@@ -74,14 +82,6 @@ func (b *baseBuilder[T]) Repeat(num int, sep *separate, filter func(i int) bool,
 	}
 	b.writeSuffix(sep, n)
 	return b.subBuilder
-}
-
-func (b *baseBuilder[T]) Sep(separator string) *separate {
-	return &separate{separator: separator}
-}
-
-func (b *baseBuilder[T]) SepFix(prefix, separator, suffix string, writeFixIfEmpty bool) *separate {
-	return &separate{prefix: prefix, separator: separator, suffix: suffix, writeFixIfEmpty: writeFixIfEmpty}
 }
 
 func (b *baseBuilder[T]) writePrefix(s *separate, n int) {
@@ -127,11 +127,38 @@ func (b *Builder[T]) WriteColumns(columns ...string) *Builder[T] {
 	return b
 }
 
-func (b *Builder[T]) Columns(columns ...string) []string {
-	if len(columns) == 0 {
-		return b.dao.columns
+func (b *Builder[T]) Columns(onlyAssigned bool, ignoredColumns ...string) (columns []string) {
+	if !onlyAssigned {
+		if len(ignoredColumns) == 0 {
+			return b.dao.columns
+		}
+		ignoredColumnMap := b.toMap(ignoredColumns)
+		for _, column := range b.dao.columns {
+			if _, ok := ignoredColumnMap[column]; !ok {
+				columns = append(columns, column)
+			}
+		}
+		return
+	} else {
+		entity := b.Entity()
+		if entity != nil {
+			v := reflect.ValueOf(entity).Elem()
+			ignoredColumnMap := b.toMap(ignoredColumns)
+			for _, column := range b.dao.columns {
+				fieldIndex := b.dao.columnToFieldIndexMap[column]
+				field := v.Field(fieldIndex)
+				if field.IsNil() {
+					continue
+				}
+				if _, ok := ignoredColumnMap[column]; ok {
+					continue
+				}
+				columns = append(columns, column)
+			}
+			return
+		}
+		return
 	}
-	return b.dao.columns
 }
 
 func (b *Builder[T]) AutoColumns() []string {
@@ -150,43 +177,6 @@ func (b *Builder[T]) Entity() *T {
 	return b.EntityAt(0)
 }
 
-func (b *Builder[T]) ColumnValuesAt(entity *T, onlyAssigned bool, filterColumns ...string) []ColumnValue {
-	if entity == nil { // coverage-ignore
-		return nil
-	}
-	v := reflect.ValueOf(entity).Elem()
-
-	filterColumnMap := make(map[string]struct{}, len(filterColumns))
-	if len(filterColumns) > 0 {
-		for _, column := range filterColumns {
-			filterColumnMap[column] = struct{}{}
-		}
-	}
-
-	var cvs []ColumnValue
-	for _, column := range b.dao.columns {
-		fieldIndex := b.dao.columnToFieldIndexMap[column]
-		field := v.Field(fieldIndex)
-		var value any
-		if !field.IsNil() {
-			value = field.Interface()
-		}
-		if onlyAssigned && value == nil {
-			continue
-		}
-		_, c := filterColumnMap[column]
-		if c {
-			continue
-		}
-		cvs = append(cvs, ColumnValue{Column: column, Value: value})
-	}
-	return cvs
-}
-
-func (b *Builder[T]) ColumnValues(onlyAssigned bool, filterColumns ...string) []ColumnValue {
-	return b.ColumnValuesAt(b.Entity(), onlyAssigned, filterColumns...)
-}
-
 func (b *Builder[T]) ColumnValue(entity *T, column string) any {
 	if entity == nil {
 		return nil
@@ -203,66 +193,55 @@ func (b *Builder[T]) ColumnValue(entity *T, column string) any {
 	return vf.Interface()
 }
 
-func (b *Builder[T]) EachColumnName(columnNames []string, sep *separate, handle func(n, i int, column string), filterColumns ...string) {
-	filterColumnMap := make(map[string]struct{}, len(filterColumns))
-	if len(filterColumns) > 0 {
-		for _, column := range filterColumns {
+func (b *Builder[T]) EachEntity(sep *separate, filter func(entity *T) bool, handle func(n int, entity *T)) *Builder[T] {
+	var n int
+	b.writePrefix(sep, n)
+	for _, entity := range b.entities {
+		if filter != nil && !filter(entity) {
+			continue
+		}
+		n++
+		b.writePrefix(sep, n)
+		b.writeSep(sep, n)
+		handle(n, entity)
+	}
+	b.writeSuffix(sep, n)
+	return b
+}
+
+func (b *Builder[T]) EachColumn(entity *T, sep *separate, filter func(column string, value any) bool, handle func(n int, column string, value any), columns ...string) {
+	v := reflect.ValueOf(entity).Elem()
+	var n int
+	b.writePrefix(sep, n)
+	for _, column := range columns {
+		fieldIndex := b.dao.columnToFieldIndexMap[column]
+		field := v.Field(fieldIndex)
+		var value any
+		if !field.IsNil() {
+			value = field.Interface()
+		}
+		if filter != nil && !filter(column, value) {
+			continue
+		}
+		n++
+		b.writePrefix(sep, n)
+		b.writeSep(sep, n)
+
+		handle(n, column, value)
+	}
+	b.writeSuffix(sep, n)
+	return
+}
+
+func (b *Builder[T]) toMap(s []string) map[string]struct{} {
+	m := make(map[string]struct{}, len(s))
+	if len(s) > 0 {
+		for _, column := range s {
 			column = strings.TrimSpace(column)
-			filterColumnMap[column] = struct{}{}
+			m[column] = struct{}{}
 		}
 	}
-	var n int
-	b.writePrefix(sep, n)
-	for i, column := range columnNames {
-		column = strings.TrimSpace(column)
-		if column == "" {
-			continue
-		}
-		_, c := filterColumnMap[column]
-		if c || column == "" {
-			continue
-		}
-		n++
-		b.writePrefix(sep, n)
-		b.writeSep(sep, n)
-		handle(n, i, column)
-	}
-	b.writeSuffix(sep, n)
-}
-
-func (b *Builder[T]) EachEntity(sep *separate, handle func(n, i int, entity *T)) *Builder[T] {
-	var n int
-	b.writePrefix(sep, n)
-	for i := range b.entities {
-		entity := b.EntityAt(i)
-		if entity == nil {
-			continue
-		}
-		n++
-		b.writePrefix(sep, n)
-		b.writeSep(sep, n)
-		handle(n, i, entity)
-	}
-	b.writeSuffix(sep, n)
-	return b
-}
-
-func (b *Builder[T]) EachColumnValues(cvs []ColumnValue, sep *separate, handle columnValueHandle) *Builder[T] {
-	var n int
-	b.writePrefix(sep, n)
-	for _, cv := range cvs {
-		n++
-		b.writePrefix(sep, n)
-		b.writeSep(sep, n)
-		handle(cv.Column, cv.Value)
-	}
-	b.writeSuffix(sep, n)
-	return b
-}
-
-type ColumnValue struct {
-	Column string
-	Value  any
+	return m
 }
 
 type separate struct {

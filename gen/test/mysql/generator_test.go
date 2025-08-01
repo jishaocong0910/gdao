@@ -58,7 +58,7 @@ func TestMySql(t *testing.T) {
 
 	compareFile(r, "testdata/entity.golden", "testdata/mysql.go")
 	compareFile(r, "testdata/dao.golden", "testdata/mysql_dao.go")
-	compareFile(r, "internal/mysql_base_dao.go", "testdata/base_dao.go")
+	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 	compareFile(r, "testdata/count_dao.golden", "testdata/count_dao.go")
 }
 

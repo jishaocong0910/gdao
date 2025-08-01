@@ -55,7 +55,7 @@ func TestPostgres(t *testing.T) {
 
 	compareFile(r, "testdata/entity.golden", "testdata/postgres.go")
 	compareFile(r, "testdata/dao.golden", "testdata/postgres_dao.go")
-	compareFile(r, "internal/postgres_base_dao.go", "testdata/base_dao.go")
+	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 }
 
 func compareFile(r *require.Assertions, golden, gen string) {

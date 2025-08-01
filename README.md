@@ -597,31 +597,28 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
 
 ## Builder的方法
 
-| 方法                 | 说明                                                                              |
-|--------------------|---------------------------------------------------------------------------------|
-| `Write`            | 拼接字符串并设置参数。                                                                     |
-| `WriteColumns`     | 拼接列名称，使用逗号分隔，如果参数为空则拼接表的所有列名称。                                                  |
-| `Arg`              | 设置参数。                                                                           |
-| `Columns`          | 返回列名称，若参数为空则返回所有列名称。                                                            |
-| `AutoColumns`      | 返回标签值有`gdao="auto"`的字段。                                                         |
-| `EntityAt`         | 返回`Entities`中指定索引的实体。                                                           |
-| `Entity`           | 相当于`EntityAt(0)`                                                                |
-| `ColumnValuesAt`   | 将实体转化为“列名称-字段值“键值对，`onlyAssigned`参数指定是否过滤掉值为nil的字段。                             |
-| `ColumnValues`     | 相当于`ColumnValuesAt(Entity())`                                                   |
-| `ColumnValue`      | 返回首个实体中指定列名称对应字段的值。                                                             |
-| `EachColumnName`   | 遍历指定列名称，自动过滤空字符串，`filterColumns`参数指定过滤的列名称，`handle`函数参数`n`为调用次数，从1开始，`i`为列名称索引。 |
-| `EachEntity`       | 遍历`Entities`，自动过滤nil元素，`handle`函数参数`n`为调用次数，从1开始，`i`为实体索引。                      |
-| `EachColumnValues` | 遍历“列名称-字段值”键值对列表。                                                               |
-| `Repeat`           | 循环指定次数，`handle`函数参数`n`为调用次数，从1开始，`i`为循环次数。                                      |
-| `Sep`              | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定分隔符号                                             |
-| `SepFix`           | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定开始、分隔和结束符号，可指定无元素时是否拼接开始、结束符号。                   |
-| `Pp`               | 返回带编号的占位符，编号从1开始，每次调用后递增1，适用于PostgreSQL、Oracle等驱动。                              |
-| `Sql`              | 返回拼接的字符串。                                                                       |
-| `Args`             | 返回所有设置的参数。                                                                      |
-| `SetError`         | 设置error，SQL将不执行，error将从执行方法（`Query`、`Exec`）的返回值返回。                              |
-| `Error`            | 返回已设置的error。                                                                    |
-| `SetOk`            | 设置SQL是否可执行，不设置默认为true，若已设置error此方法无效。                                           |
-| `Ok`               | 返回SQL是否可执行，若已设置error此方法返回false。                                                 |
+| 方法             | 说明                                                                |
+|----------------|-------------------------------------------------------------------|
+| `Write`        | 拼接字符串并设置参数。                                                       |
+| `WriteColumns` | 拼接列名称，使用逗号分隔，如果参数为空则拼接表的所有列名称。                                    |
+| `SetArgs`      | 设置参数。                                                             |
+| `Columns`      | 返回所有列名称，`onlyAssigned`参数指定是否过滤掉值为nil的字段，`ignoredColumns`参数指定忽略字段。 |
+| `AutoColumns`  | 返回标签值有`gdao="auto"`的字段。                                           |
+| `EntityAt`     | 返回`Entities`中指定索引的实体。                                             |
+| `Entity`       | 相当于`EntityAt(0)`                                                  |
+| `ColumnValue`  | 返回首个实体中指定列名称对应字段的值。                                               |
+| `EachEntity`   | 遍历`Entities`，自动过滤nil元素，`handle`函数参数`n`为调用次数，从1开始。                 |
+| `EachColumn`   | 遍历指定实体的“列名称-字段值”列表，`handle`函数参数`n`为调用次数。。                         |
+| `Repeat`       | 循环指定次数，`handle`函数参数`n`为调用次数，从1开始，`i`为循环次数。                        |
+| `Sep`          | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定分隔符号                               |
+| `SepFix`       | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定开始、分隔和结束符号，可指定无元素时是否拼接开始、结束符号。     |
+| `Pp`           | 返回带编号的占位符，编号从1开始，每次调用后递增1，适用于PostgreSQL、Oracle等驱动。                |
+| `Sql`          | 返回拼接的字符串。                                                         |
+| `Args`         | 返回所有设置的参数。                                                        |
+| `SetError`     | 设置error，SQL将不执行，error将从执行方法（`Query`、`Exec`）的返回值返回。                |
+| `Error`        | 返回已设置的error。                                                      |
+| `SetOk`        | 设置SQL是否可执行，不设置默认为true，若已设置error此方法无效。                             |
+| `Ok`           | 返回SQL是否可执行，若已设置error此方法返回false。                                   |
 
 # 事务
 
