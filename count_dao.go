@@ -128,8 +128,8 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 		return nil, nil, b.err
 	}
 	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
-	printSql(req.Ctx, b.Sql(), b.args, -1, -1, err)
 	if err != nil { // coverage-ignore
+		printSql(req.Ctx, b.Sql(), b.args, -1, -1, err)
 		return nil, nil, err
 	}
 	defer closeFunc()
