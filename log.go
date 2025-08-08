@@ -14,35 +14,31 @@ type Logger interface {
 	Errorf(ctx context.Context, msg string, args ...any)
 }
 
-func LogCfg(log Logger, printSqlLevel string, singleLineSql bool) {
+func LogCfg(log Logger, printSqlLevel string, compressSql bool) {
 	_logger = log
 	_printSqlLevel = strings.ToLower(printSqlLevel)
-	_singleLineSql = singleLineSql
+	_compressSql = compressSql
 }
 
 var _logger Logger
 var _printSqlLevel string
-var _singleLineSql bool
+var _compressSql bool
 
 func formatSql(sql string) string {
-	if _singleLineSql {
+	if _compressSql {
+		sql = strings.TrimSpace(sql)
 		var line strings.Builder
 		chars := []rune(sql)
 		var prevC rune
 		for i, c := range chars {
 			if c == '\n' {
-				if prevC == 0 {
-					continue
-				}
-				if prevC != ' ' && i < len(chars)-1 && chars[i+1] != ' ' {
+				if prevC != ' ' && i != len(chars)-1 && chars[i+1] != ' ' {
 					line.WriteRune(' ')
 				}
 				continue
 			}
-			if c == ' ' {
-				if prevC == 0 || prevC == ' ' {
-					continue
-				}
+			if c == ' ' && prevC == ' ' {
+				continue
 			}
 			line.WriteRune(c)
 			prevC = c

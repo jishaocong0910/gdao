@@ -98,7 +98,7 @@ func TestDao_Query(t *testing.T) {
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
 		r.Equal(user, users[0])
-		r.Equal(int32(1), gdao.PtrToVal(user.Id))
+		r.Equal(int32(1), gdao.Val(user.Id))
 		r.Equal("foo", *user.Name)
 		r.Equal(int8(2), *user.Status)
 		r.Equal(int32(1), *user.Age)
@@ -150,7 +150,7 @@ func TestDao_Query(t *testing.T) {
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
 		r.Equal(user, users[0])
-		r.Equal(int32(1), gdao.PtrToVal(user.Id))
+		r.Equal(int32(1), gdao.Val(user.Id))
 		r.Equal("foo", *user.Name)
 		r.Equal(int8(2), *user.Status)
 		r.Equal(int32(1), *user.Age)
@@ -421,7 +421,7 @@ func TestTx(t *testing.T) {
 		mock.ExpectCommit()
 		tx, err := userDao.DB().Begin()
 		r.NoError(err)
-		affected, err := userDao.Exec(gdao.ExecReq[User]{Ctx: gdao.WithTx(nil, tx), BuildSql: func(b *gdao.Builder[User]) {
+		affected, err := userDao.Exec(gdao.ExecReq[User]{Ctx: gdao.SetTx(nil, tx), BuildSql: func(b *gdao.Builder[User]) {
 			b.Write("UPDATE user set status=1 WHERE id=?", 1)
 		}})
 		tx.Commit()
@@ -435,7 +435,7 @@ func TestTx(t *testing.T) {
 		mock.ExpectBegin()
 		mock.ExpectPrepare(`UPDATE user set status=1 WHERE id=\?`).ExpectExec().WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectCommit()
-		err := gdao.Tx(nil, nil, nil, func(ctx context.Context) error {
+		err := gdao.Tx(nil, func(ctx context.Context) error {
 			_, err := userDao.Exec(gdao.ExecReq[User]{
 				Ctx: ctx,
 				BuildSql: func(b *gdao.Builder[User]) {
@@ -452,7 +452,7 @@ func TestTx(t *testing.T) {
 		gdao.DEFAULT_DB = userDao.DB()
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		err := gdao.Tx(nil, nil, nil, func(ctx context.Context) error {
+		err := gdao.Tx(nil, func(ctx context.Context) error {
 			return errors.New("error")
 		})
 		r.EqualError(err, "error")
@@ -463,7 +463,7 @@ func TestTx(t *testing.T) {
 		gdao.DEFAULT_DB = userDao.DB()
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		err := gdao.Tx(nil, nil, nil, func(ctx context.Context) error {
+		err := gdao.Tx(nil, func(ctx context.Context) error {
 			panic(errors.New("panic error"))
 		})
 		r.EqualError(err, "panic error")
@@ -474,7 +474,7 @@ func TestTx(t *testing.T) {
 		gdao.DEFAULT_DB = userDao.DB()
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		err := gdao.Tx(nil, nil, nil, func(ctx context.Context) error {
+		err := gdao.Tx(nil, func(ctx context.Context) error {
 			panic(1)
 		})
 		r.EqualError(err, "1")
