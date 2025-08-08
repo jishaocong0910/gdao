@@ -673,17 +673,11 @@ func foo(ctx context.Context) error {
 | `do func(ctx context.Context, tx *sql.Tx) error` | 事务执行内容  |
 | `opts gdao.TxOption`                             | 选项      |
 
-### 选项
-
-#### WithDefaultTx
-
-指定默认的`*sql.DB`或`*sql.TxOptions`开启事务，若不指定`*sql.DB`默认使用`gao.DEFAULT_DB`开启事务。
-
 *Example*
 
 ```go
 func foo(ctx context.Context) {
-    gdao.Tx(ctx, nil, nil, func(ctx context.Context) error {
+    gdao.Tx(ctx, func(ctx context.Context) error {
         _, err := UserDao.Exec(gdao.ExecReq[User]{
             Ctx: ctx,
             BuildSql: func(b *gdao.Builder[User]) {
@@ -705,6 +699,12 @@ func foo(ctx context.Context) {
     })
 }
 ```
+
+### 选项
+
+#### WithDefaultTx
+
+指定默认的`*sql.DB`或`*sql.TxOptions`开启事务，若不指定`*sql.DB`默认使用`gao.DEFAULT_DB`开启事务。
 
 # 日志
 
