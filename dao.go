@@ -289,7 +289,7 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
-func PtrToVal[T any](t *T) T {
+func Val[T any](t *T) T {
 	var v T
 	if t != nil {
 		v = *t
@@ -297,32 +297,37 @@ func PtrToVal[T any](t *T) T {
 	return v
 }
 
-func WithTx(ctx context.Context, tx *sql.Tx) context.Context {
+type TxOption func(*txOption)
+
+type txOption struct {
+	db   *sql.DB
+	opts *sql.TxOptions
+}
+
+func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOption) (err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	ctx = context.WithValue(ctx, ctx_key_tx, tx)
-	return ctx
-}
 
-func Tx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, do func(ctx context.Context) error) (err error) {
-	if ctx == nil {
-		ctx = context.Background()
+	o := &txOption{}
+	for _, opt := range opts {
+		opt(o)
 	}
 
 	tx := getTx(ctx)
 	if tx == nil {
-		if db == nil { // coverage-ignore
+		var db *sql.DB
+		if o.db == nil { // coverage-ignore
 			db = DEFAULT_DB
 		}
 		if db == nil { // coverage-ignore
-			return errors.New(`cannot begin a transaction, parameter "db" and gdao.DEFAULT_DB are nil `)
+			return errors.New(`cannot begin a transaction, no available *sql.DB`)
 		}
-		tx, err = DEFAULT_DB.BeginTx(ctx, opts)
+		tx, err = db.BeginTx(ctx, o.opts)
 		if err != nil { // coverage-ignore
-			return
+			return err
 		}
-		WithTx(ctx, tx)
+		SetTx(ctx, tx)
 	}
 
 	defer func() {
@@ -337,6 +342,21 @@ func Tx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, do func(ctx contex
 	}()
 	err = do(ctx)
 	return err
+}
+
+func SetTx(ctx context.Context, tx *sql.Tx) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx = context.WithValue(ctx, ctx_key_tx, tx)
+	return ctx
+}
+
+func WithDefaultTx(db *sql.DB, opts *sql.TxOptions) TxOption {
+	return func(o *txOption) {
+		o.db = db
+		o.opts = opts
+	}
 }
 
 func getTx(ctx context.Context) *sql.Tx {

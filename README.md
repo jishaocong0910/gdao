@@ -622,9 +622,9 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
 
 # 事务
 
-## WithTx函数
+## SetTx函数
 
-`gdao.WithTx`函数可将`*sql.Tx`变量附加到`context.Context`变量中，调用`Query`和`Exec`方法时将`context.Context`变量作为`Ctx`参数，将会自动使用该`*sql.Tx`变量执行SQL。
+`gdao.SetTx`函数可将`*sql.Tx`变量附加到`context.Context`变量中，调用`Query`和`Exec`方法时将`context.Context`变量作为`Ctx`参数，将会自动使用该`*sql.Tx`变量执行SQL。
 
 *Example*
 
@@ -635,7 +635,7 @@ func foo(ctx context.Context) error {
         return err
     }
     
-    ctx = gdao.WithTx(ctx, tx)
+    ctx = gdao.SetTx(ctx, tx)
 
     _, err = UserDao.Exec(gdao.ExecReq[User]{
         Ctx: ctx,
@@ -667,12 +667,17 @@ func foo(ctx context.Context) error {
 
 *参数*
 
-| 字段                                               | 说明              |
-|--------------------------------------------------|-----------------|
-| `ctx context.Context`                            | Context         |
-| `db *sql.DB`                                     | 指定`*sql.DB`开启事务 |
-| `opts *sql.TxOptions`                            | 事务选项            |
-| `do func(ctx context.Context, tx *sql.Tx) error` | 事务执行内容          |
+| 字段                                               | 说明      |
+|--------------------------------------------------|---------|
+| `ctx context.Context`                            | Context |
+| `do func(ctx context.Context, tx *sql.Tx) error` | 事务执行内容  |
+| `opts gdao.TxOption`                             | 选项      |
+
+### 选项
+
+#### WithDefaultTx
+
+指定默认的`*sql.DB`或`*sql.TxOptions`开启事务，若不指定`*sql.DB`默认使用`gao.DEFAULT_DB`开启事务。
 
 *Example*
 
@@ -720,8 +725,8 @@ func foo(ctx context.Context) {
             <td>打印SQL的日志级别，可选值："develop"、"info"。SQL执行失败会打印error级别日志，不受此配置影响。</td>
         </tr>
         <tr>
-            <td><code>singleLineSql bool</code></td>
-            <td>是否去掉SQL中的换行符，即转换为单行SQL。</td>
+            <td><code>compressSql bool</code></td>
+            <td>是否压缩SQL。</td>
         </tr>
     </tbody>
 </table>
