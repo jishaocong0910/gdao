@@ -4,18 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	pkgErrors "github.com/pkg/errors"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
-var (
-	DEFAULT_DB *sql.DB
-
-	ctx_key_tx = Ptr("")
-)
+var DEFAULT_DB *sql.DB
 
 type lastInsertIdAs int
 
@@ -295,77 +289,6 @@ func Val[T any](t *T) T {
 		v = *t
 	}
 	return v
-}
-
-type TxOption func(*txOption)
-
-type txOption struct {
-	db   *sql.DB
-	opts *sql.TxOptions
-}
-
-func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOption) (err error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	o := &txOption{}
-	for _, opt := range opts {
-		opt(o)
-	}
-
-	tx := getTx(ctx)
-	if tx == nil {
-		var db *sql.DB
-		if o.db == nil { // coverage-ignore
-			db = DEFAULT_DB
-		}
-		if db == nil { // coverage-ignore
-			return errors.New(`cannot begin a transaction, no available *sql.DB`)
-		}
-		tx, err = db.BeginTx(ctx, o.opts)
-		if err != nil { // coverage-ignore
-			return err
-		}
-		SetTx(ctx, tx)
-	}
-
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else if r := recover(); r != nil {
-			tx.Rollback()
-			err = pkgErrors.WithStack(fmt.Errorf("%v", r))
-		} else {
-			tx.Commit()
-		}
-	}()
-	err = do(ctx)
-	return err
-}
-
-func SetTx(ctx context.Context, tx *sql.Tx) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	ctx = context.WithValue(ctx, ctx_key_tx, tx)
-	return ctx
-}
-
-func WithDefaultTx(db *sql.DB, opts *sql.TxOptions) TxOption {
-	return func(o *txOption) {
-		o.db = db
-		o.opts = opts
-	}
-}
-
-func getTx(ctx context.Context) *sql.Tx {
-	if ctx != nil {
-		if tx, ok := ctx.Value(ctx_key_tx).(*sql.Tx); ok {
-			return tx
-		}
-	}
-	return nil
 }
 
 func NewDao[T any](req NewDaoReq) *Dao[T] {
