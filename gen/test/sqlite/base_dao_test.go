@@ -293,8 +293,8 @@ func TestCondition(t *testing.T) {
 				NotEq("c2", 2).
 				Gt("c3", 3).
 				Lt("c4", 4).
-				GtEq("c5", 5).
-				LtEq("c6", 6).
+				Ge("c5", 5).
+				Le("c6", 6).
 				Like("c7", "abc").
 				LikeLeft("c8", "abc").
 				LikeRight("c9", "abc").

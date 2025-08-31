@@ -676,8 +676,8 @@ func foo(ctx context.Context) error {
 *Example*
 
 ```go
-func foo(ctx context.Context) {
-    gdao.Tx(ctx, func(ctx context.Context) error {
+func foo(c context.Context) {
+    gdao.Tx(c, func(ctx context.Context) error {
         _, err := UserDao.Exec(gdao.ExecReq[User]{
             Ctx: ctx,
             BuildSql: func(b *gdao.Builder[User]) {

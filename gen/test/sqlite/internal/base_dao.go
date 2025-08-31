@@ -135,11 +135,11 @@ func (cg *conditionGroup) Lt(column string, arg any) *conditionGroup {
 	return cg.addCondition(&conditionBinOp{column: column, op: "<", arg: arg})
 }
 
-func (cg *conditionGroup) GtEq(column string, arg any) *conditionGroup {
+func (cg *conditionGroup) Ge(column string, arg any) *conditionGroup {
 	return cg.addCondition(&conditionBinOp{column: column, op: ">=", arg: arg})
 }
 
-func (cg *conditionGroup) LtEq(column string, arg any) *conditionGroup {
+func (cg *conditionGroup) Le(column string, arg any) *conditionGroup {
 	return cg.addCondition(&conditionBinOp{column: column, op: "<=", arg: arg})
 }
 

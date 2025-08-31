@@ -37,9 +37,6 @@ func formatSql(sql string) string {
 				}
 				continue
 			}
-			if c == ' ' && prevC == ' ' {
-				continue
-			}
 			line.WriteRune(c)
 			prevC = c
 		}

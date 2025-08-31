@@ -57,7 +57,7 @@ func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
 		columnType = strings.ToLower(columnType)
 		switch dataType {
 		case "bit":
-			f.FieldType = "[]uint8"
+			f.FieldType = "bool"
 		case "tinyint":
 			if strings.Contains(columnType, "unsigned") {
 				f.FieldType = "*uint8"
