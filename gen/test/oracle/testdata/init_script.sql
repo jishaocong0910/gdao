@@ -1,4 +1,4 @@
-CREATE TABLE oracle
+CREATE TABLE test_table
 (
     "char"                           CHAR(10),
     "char_2"                         CHAR(1 BYTE),
@@ -30,30 +30,30 @@ CREATE TABLE oracle
     "urowid"                         UROWID
 );
 
-COMMENT ON TABLE oracle IS 'oracle';
-COMMENT ON COLUMN oracle."char_2" IS 'char_2 ';
-COMMENT ON COLUMN oracle."char_3" IS 'char_3 ';
-COMMENT ON COLUMN oracle."varchar2" IS 'varchar2 ';
-COMMENT ON COLUMN oracle."varchar2_2" IS 'varchar2_2 ';
-COMMENT ON COLUMN oracle."varchar2_3" IS 'varchar2_3 ';
-COMMENT ON COLUMN oracle."varchar1" IS 'varchar1 ';
-COMMENT ON COLUMN oracle."varchar1_2" IS 'varchar1_2 ';
-COMMENT ON COLUMN oracle."varchar1_3" IS 'varchar1_3 ';
-COMMENT ON COLUMN oracle."clob" IS 'clob ';
-COMMENT ON COLUMN oracle."nclob" IS 'nclob ';
-COMMENT ON COLUMN oracle."nchar" IS 'nchar ';
-COMMENT ON COLUMN oracle."nvarchar2" IS 'nvarchar2 ';
-COMMENT ON COLUMN oracle."number" IS 'number ';
-COMMENT ON COLUMN oracle."number_2" IS 'number_2 ';
-COMMENT ON COLUMN oracle."number_3" IS 'number_3 ';
-COMMENT ON COLUMN oracle."float" IS 'float ';
-COMMENT ON COLUMN oracle."binary_float" IS 'binary_float ';
-COMMENT ON COLUMN oracle."binary_double" IS 'binary_double ';
-COMMENT ON COLUMN oracle."date" IS 'date ';
-COMMENT ON COLUMN oracle."timestamp" IS 'timestamp ';
-COMMENT ON COLUMN oracle."timestamp_with_time_zone" IS 'timestamp_with_time_zone ';
-COMMENT ON COLUMN oracle."timestamp_with_local_time_zone" IS 'timestamp_with_local_time_zone ';
-COMMENT ON COLUMN oracle."blob" IS 'blob ';
-COMMENT ON COLUMN oracle."raw" IS 'raw ';
-COMMENT ON COLUMN oracle."long_raw" IS 'long_raw ';
-COMMENT ON COLUMN oracle."rowid" IS 'rowid ';
+COMMENT ON TABLE test_table IS 'oracle';
+COMMENT ON COLUMN test_table."char_2" IS 'char_2 ';
+COMMENT ON COLUMN test_table."char_3" IS 'char_3 ';
+COMMENT ON COLUMN test_table."varchar2" IS 'varchar2 ';
+COMMENT ON COLUMN test_table."varchar2_2" IS 'varchar2_2 ';
+COMMENT ON COLUMN test_table."varchar2_3" IS 'varchar2_3 ';
+COMMENT ON COLUMN test_table."varchar1" IS 'varchar1 ';
+COMMENT ON COLUMN test_table."varchar1_2" IS 'varchar1_2 ';
+COMMENT ON COLUMN test_table."varchar1_3" IS 'varchar1_3 ';
+COMMENT ON COLUMN test_table."clob" IS 'clob ';
+COMMENT ON COLUMN test_table."nclob" IS 'nclob ';
+COMMENT ON COLUMN test_table."nchar" IS 'nchar ';
+COMMENT ON COLUMN test_table."nvarchar2" IS 'nvarchar2 ';
+COMMENT ON COLUMN test_table."number" IS 'number ';
+COMMENT ON COLUMN test_table."number_2" IS 'number_2 ';
+COMMENT ON COLUMN test_table."number_3" IS 'number_3 ';
+COMMENT ON COLUMN test_table."float" IS 'float ';
+COMMENT ON COLUMN test_table."binary_float" IS 'binary_float ';
+COMMENT ON COLUMN test_table."binary_double" IS 'binary_double ';
+COMMENT ON COLUMN test_table."date" IS 'date ';
+COMMENT ON COLUMN test_table."timestamp" IS 'timestamp ';
+COMMENT ON COLUMN test_table."timestamp_with_time_zone" IS 'timestamp_with_time_zone ';
+COMMENT ON COLUMN test_table."timestamp_with_local_time_zone" IS 'timestamp_with_local_time_zone ';
+COMMENT ON COLUMN test_table."blob" IS 'blob ';
+COMMENT ON COLUMN test_table."raw" IS 'raw ';
+COMMENT ON COLUMN test_table."long_raw" IS 'long_raw ';
+COMMENT ON COLUMN test_table."rowid" IS 'rowid ';

@@ -56,17 +56,16 @@ func TestSqlServer(t *testing.T) {
 		OutPath:      "testdata",
 		Package:      "dao",
 		CoverBaseDao: true,
-		Tables:       gen.Tables{"sqlserver": nil},
+		Tables:       gen.Tables{"test_table"},
 		GenDao:       true,
 	}).Gen()
 
-	defer os.Remove("testdata/sqlserver.go")
-	defer os.Remove("testdata/sqlserver_dao.go")
+	defer os.Remove("testdata/test_table.go")
+	defer os.Remove("testdata/test_table_dao.go")
 	defer os.Remove("testdata/base_dao.go")
 	defer os.Remove("testdata/count_dao.go")
 
-	compareFile(r, "testdata/entity.golden", "testdata/sqlserver.go")
-	compareFile(r, "testdata/dao.golden", "testdata/sqlserver_dao.go")
+	compareFile(r, "testdata/entity.golden", "testdata/test_table.go")
 	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 }
 

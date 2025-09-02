@@ -4,9 +4,9 @@ package dao
 
 import "time"
 
-// Sqlserver sqlserver
-// table: sqlserver
-type Sqlserver struct {
+// TestTable sqlserver
+// table: test_table
+type TestTable struct {
 	// Tinyint
 	Tinyint *uint `gdao:"column=tinyint"`
 	// Smallint smallint

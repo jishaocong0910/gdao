@@ -41,23 +41,31 @@ func TestMySql(t *testing.T) {
 		OutPath:      "testdata",
 		Package:      "dao",
 		CoverBaseDao: true,
-		Tables: gen.Tables{"mysql": gen.FieldTypes{
-			"other":  "[]string",
-			"other2": "[]rune",
-			"other3": "*string",
-			"other4": "string",
-			"other5": "rune",
-		}},
-		GenDao: true,
+		Tables:       gen.Tables{"test_table"},
+		MappingTypes: gen.MappingTypes{
+			"test_table": gen.Mapper{
+				"other":  "any",
+				"other2": "*rune",
+				"other3": "string",
+				"other4": "[]string",
+			},
+		},
+		IgnoreColumns: gen.IgnoreColumns{
+			"test_table": gen.Columns{
+				"other5",
+			},
+		},
+		GenDao:            true,
+		AllowInvalidField: true,
 	}).Gen()
 
-	defer os.Remove("testdata/mysql.go")
-	defer os.Remove("testdata/mysql_dao.go")
+	defer os.Remove("testdata/test_table.go")
+	defer os.Remove("testdata/test_table_dao.go")
 	defer os.Remove("testdata/base_dao.go")
 	defer os.Remove("testdata/count_dao.go")
 
-	compareFile(r, "testdata/entity.golden", "testdata/mysql.go")
-	compareFile(r, "testdata/dao.golden", "testdata/mysql_dao.go")
+	compareFile(r, "testdata/entity.golden", "testdata/test_table.go")
+	compareFile(r, "testdata/dao.golden", "testdata/test_table_dao.go")
 	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 	compareFile(r, "testdata/count_dao.golden", "testdata/count_dao.go")
 }

@@ -4,7 +4,7 @@ package {{.Package}}
 
 import "github.com/jishaocong0910/gdao"
 
-var {{.DaoName}} = _{{.DaoName}}{newBaseDao[{{.EntityName}}](gdao.NewDaoReq{}, "{{.Table}}")}
+var {{.DaoName}} = _{{.DaoName}}{newBaseDao[{{.EntityName}}](gdao.NewDaoReq{ {{- if .AllowInvalidField}}AllowInvalidField: true{{end}}}, "{{.Table}}")}
 
 type _{{.DaoName}} struct {
 	*baseDao[{{.EntityName}}]

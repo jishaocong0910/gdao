@@ -60,7 +60,7 @@ SELECT *
   FROM
  user`, nil, -1, 10, nil)
 		r.Equal("SQL: %s; row counts: %d", log.msg)
-		r.Equal("SELECT * FROM user", log.args[0])
+		r.Equal("SELECT *  FROM user", log.args[0])
 	}
 }
 

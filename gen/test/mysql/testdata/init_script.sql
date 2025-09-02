@@ -1,4 +1,4 @@
-CREATE TABLE mysql
+CREATE TABLE test_table
 (
     `auto_increment`     bigint PRIMARY KEY AUTO_INCREMENT COMMENT 'bigint auto_increment',
     `bit`                bit,

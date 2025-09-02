@@ -4,9 +4,9 @@ package dao
 
 import "time"
 
-// Sqlite table comment
-// table: sqlite
-type Sqlite struct {
+// TestTable table comment
+// table: test_table
+type TestTable struct {
 	// AutoIncrement auto_increment
 	AutoIncrement *int64 `gdao:"column=auto_increment;auto"`
 	// Int

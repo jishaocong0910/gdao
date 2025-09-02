@@ -4,9 +4,9 @@ package dao
 
 import "time"
 
-// Postgres postgres
-// table: postgres
-type Postgres struct {
+// TestTable postgres
+// table: test_table
+type TestTable struct {
 	// Smallserial smallserial
 	Smallserial *int16 `gdao:"column=smallserial;auto"`
 	// Serial serial

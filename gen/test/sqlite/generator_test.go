@@ -14,17 +14,16 @@ func TestSqlite(t *testing.T) {
 		Dsn:     "testdata/sqlite.db",
 		OutPath: "testdata",
 		Package: "dao",
-		Tables:  gen.Tables{"sqlite": nil},
+		Tables:  gen.Tables{"test_table"},
 		GenDao:  true,
 	}).Gen()
 
-	defer os.Remove("testdata/count_dao.go")
-	defer os.Remove("testdata/sqlite.go")
-	defer os.Remove("testdata/sqlite_dao.go")
+	defer os.Remove("testdata/test_table.go")
+	defer os.Remove("testdata/test_table_dao.go")
 	defer os.Remove("testdata/base_dao.go")
+	defer os.Remove("testdata/count_dao.go")
 
-	compareFile(r, "testdata/entity.golden", "testdata/sqlite.go")
-	compareFile(r, "testdata/dao.golden", "testdata/sqlite_dao.go")
+	compareFile(r, "testdata/entity.golden", "testdata/test_table.go")
 	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 }
 

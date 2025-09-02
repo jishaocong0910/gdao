@@ -1,4 +1,4 @@
-CREATE TABLE postgres
+CREATE TABLE test_table
 (
     "smallserial"              smallserial,
     "serial"                   serial,
@@ -45,46 +45,46 @@ CREATE TABLE postgres
     "xml"                      xml
 );
 
-COMMENT ON TABLE postgres IS 'postgres';
-COMMENT ON COLUMN postgres.bigserial IS 'bigserial';
-COMMENT ON COLUMN postgres.bit IS 'bit';
-COMMENT ON COLUMN postgres.bit_arying IS 'bit arying';
-COMMENT ON COLUMN postgres.boolean IS 'boolean';
-COMMENT ON COLUMN postgres.box IS 'box';
-COMMENT ON COLUMN postgres.bytea IS 'bytea';
-COMMENT ON COLUMN postgres.character IS 'character';
-COMMENT ON COLUMN postgres.character_varying IS 'character varying';
-COMMENT ON COLUMN postgres.cidr IS 'cidr';
-COMMENT ON COLUMN postgres.circle IS 'circle';
-COMMENT ON COLUMN postgres.date IS 'date';
-COMMENT ON COLUMN postgres.double_precision IS 'double precision';
-COMMENT ON COLUMN postgres.inet IS 'inet';
-COMMENT ON COLUMN postgres.integer IS 'integer';
-COMMENT ON COLUMN postgres.interval IS 'interval';
-COMMENT ON COLUMN postgres.json IS 'json';
-COMMENT ON COLUMN postgres.jsonb IS 'jsonb';
-COMMENT ON COLUMN postgres.line IS 'line';
-COMMENT ON COLUMN postgres.lseg IS 'lseg';
-COMMENT ON COLUMN postgres.macaddr IS 'macaddr';
-COMMENT ON COLUMN postgres.macaddr8 IS 'macaddr8';
-COMMENT ON COLUMN postgres.money IS 'money';
-COMMENT ON COLUMN postgres.numeric IS 'numeric';
-COMMENT ON COLUMN postgres.path IS 'path';
-COMMENT ON COLUMN postgres.pg_lsn IS 'pg_lsn';
-COMMENT ON COLUMN postgres.pg_snapshot IS 'pg_snapshot';
-COMMENT ON COLUMN postgres.point IS 'point';
-COMMENT ON COLUMN postgres.polygon IS 'polygon';
-COMMENT ON COLUMN postgres.real IS 'real';
-COMMENT ON COLUMN postgres.smallint IS 'smallint';
-COMMENT ON COLUMN postgres.smallserial IS 'smallserial';
-COMMENT ON COLUMN postgres.serial IS 'serial';
-COMMENT ON COLUMN postgres.text IS 'text';
-COMMENT ON COLUMN postgres.time IS 'time';
-COMMENT ON COLUMN postgres.time_with_time_zone IS 'time with time zone';
-COMMENT ON COLUMN postgres.timestamp IS 'timestamp';
-COMMENT ON COLUMN postgres.timestamp_with_time_zone IS 'timestamp with time zone';
-COMMENT ON COLUMN postgres.tsquery IS 'tsquery';
-COMMENT ON COLUMN postgres.tsvector IS 'tsvector';
-COMMENT ON COLUMN postgres.txid_snapshot IS 'txid_snapshot';
-COMMENT ON COLUMN postgres.uuid IS 'uuid';
-COMMENT ON COLUMN postgres.xml IS 'xml';
+COMMENT ON TABLE test_table IS 'postgres';
+COMMENT ON COLUMN test_table.bigserial IS 'bigserial';
+COMMENT ON COLUMN test_table.bit IS 'bit';
+COMMENT ON COLUMN test_table.bit_arying IS 'bit arying';
+COMMENT ON COLUMN test_table.boolean IS 'boolean';
+COMMENT ON COLUMN test_table.box IS 'box';
+COMMENT ON COLUMN test_table.bytea IS 'bytea';
+COMMENT ON COLUMN test_table.character IS 'character';
+COMMENT ON COLUMN test_table.character_varying IS 'character varying';
+COMMENT ON COLUMN test_table.cidr IS 'cidr';
+COMMENT ON COLUMN test_table.circle IS 'circle';
+COMMENT ON COLUMN test_table.date IS 'date';
+COMMENT ON COLUMN test_table.double_precision IS 'double precision';
+COMMENT ON COLUMN test_table.inet IS 'inet';
+COMMENT ON COLUMN test_table.integer IS 'integer';
+COMMENT ON COLUMN test_table.interval IS 'interval';
+COMMENT ON COLUMN test_table.json IS 'json';
+COMMENT ON COLUMN test_table.jsonb IS 'jsonb';
+COMMENT ON COLUMN test_table.line IS 'line';
+COMMENT ON COLUMN test_table.lseg IS 'lseg';
+COMMENT ON COLUMN test_table.macaddr IS 'macaddr';
+COMMENT ON COLUMN test_table.macaddr8 IS 'macaddr8';
+COMMENT ON COLUMN test_table.money IS 'money';
+COMMENT ON COLUMN test_table.numeric IS 'numeric';
+COMMENT ON COLUMN test_table.path IS 'path';
+COMMENT ON COLUMN test_table.pg_lsn IS 'pg_lsn';
+COMMENT ON COLUMN test_table.pg_snapshot IS 'pg_snapshot';
+COMMENT ON COLUMN test_table.point IS 'point';
+COMMENT ON COLUMN test_table.polygon IS 'polygon';
+COMMENT ON COLUMN test_table.real IS 'real';
+COMMENT ON COLUMN test_table.smallint IS 'smallint';
+COMMENT ON COLUMN test_table.smallserial IS 'smallserial';
+COMMENT ON COLUMN test_table.serial IS 'serial';
+COMMENT ON COLUMN test_table.text IS 'text';
+COMMENT ON COLUMN test_table.time IS 'time';
+COMMENT ON COLUMN test_table.time_with_time_zone IS 'time with time zone';
+COMMENT ON COLUMN test_table.timestamp IS 'timestamp';
+COMMENT ON COLUMN test_table.timestamp_with_time_zone IS 'timestamp with time zone';
+COMMENT ON COLUMN test_table.tsquery IS 'tsquery';
+COMMENT ON COLUMN test_table.tsvector IS 'tsvector';
+COMMENT ON COLUMN test_table.txid_snapshot IS 'txid_snapshot';
+COMMENT ON COLUMN test_table.uuid IS 'uuid';
+COMMENT ON COLUMN test_table.xml IS 'xml';

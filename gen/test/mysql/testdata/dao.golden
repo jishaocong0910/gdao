@@ -4,8 +4,8 @@ package dao
 
 import "github.com/jishaocong0910/gdao"
 
-var MysqlDao = _MysqlDao{newBaseDao[Mysql](gdao.NewDaoReq{}, "mysql")}
+var TestTableDao = _TestTableDao{newBaseDao[TestTable](gdao.NewDaoReq{AllowInvalidField: true}, "test_table")}
 
-type _MysqlDao struct {
-	*baseDao[Mysql]
+type _TestTableDao struct {
+	*baseDao[TestTable]
 }

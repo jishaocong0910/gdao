@@ -4,9 +4,9 @@ package dao
 
 import "time"
 
-// Oracle oracle
-// table: ORACLE
-type Oracle struct {
+// TestTable oracle
+// table: TEST_TABLE
+type TestTable struct {
 	// Char
 	Char *string `gdao:"column=char"`
 	// Char2 char_2

@@ -4,9 +4,9 @@ package dao
 
 import "time"
 
-// Mysql mysql
-// table: mysql
-type Mysql struct {
+// TestTable mysql
+// table: test_table
+type TestTable struct {
 	// AutoIncrement bigint auto_increment
 	AutoIncrement *int64 `gdao:"column=auto_increment;auto"`
 	// Bit
@@ -90,15 +90,14 @@ type Mysql struct {
 	// Time
 	Time *time.Time `gdao:"column=time"`
 	// Other
-	Other []string `gdao:"column=other"`
+	// gdao cannot solve this type!
+	Other any `gdao:"column=other"`
 	// Other2
 	// gdao cannot solve this type!
-	Other2 []rune `gdao:"column=other2"`
+	Other2 *rune `gdao:"column=other2"`
 	// Other3
-	Other3 *string `gdao:"column=other3"`
-	// Other4
-	Other4 *string `gdao:"column=other4"`
-	// Other5
 	// gdao cannot solve this type!
-	Other5 *rune `gdao:"column=other5"`
+	Other3 string `gdao:"column=other3"`
+	// Other4
+	Other4 []string `gdao:"column=other4"`
 }

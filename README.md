@@ -759,11 +759,7 @@ func main() {
         DbType:  gen.DB_MYSQL,
         Dsn:     "(dsn)",
         OutPath: "demo", // 生成文件相对路径，绝对路径为"os.Getwd()/OutPath"。
-        Tables: gen.Tables{ 
-            // key为表名，value为强制映射字段类型，填写非GDAO支持类型的不会报错，但GDAO不会识别。
-            "user":    nil,
-            "account": nil,
-        },
+        Tables: gen.Tables{"user", "account"},
         GenDao: true, // 是否生成DAO，false只生成实体。
     }).Gen()
 }

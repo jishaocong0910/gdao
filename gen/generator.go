@@ -39,45 +39,65 @@ func (g Generator) Gen() {
 	log.Printf("full output path: %s", g.c.OutPath)
 	var entities []entity
 	var tableNamedCount string
-	for table, fieldTypes := range g.c.Tables {
+	for _, table := range g.c.Tables {
+		// 表名为count时会和生成CountDao冲突
 		if strings.EqualFold(table, "count") {
 			tableNamedCount = table
 		}
+		// 获取表信息
 		exists, fields, comment := g.d.getTableInfo(table)
 		if !exists {
 			log.Printf("table \"%s\" is not exists", table)
 			continue
 		}
-		e := entity{
-			DbType:         g.c.DbType,
-			Table:          table,
-			EntityFileName: entityFileNameMapper.Convert(table),
-			Package:        g.c.Package,
-			EntityName:     entityNameMapper.Convert(table),
-			Fields:         fields,
-			Comment:        comment,
-			GenDao:         g.c.GenDao,
-			DaoFileName:    daoFileNameMapper.Convert(table),
-			DaoName:        daoNameMapper.Convert(table),
+		// 过滤字段
+		if columns, ok := g.c.IgnoreColumns[table]; ok {
+			var filtered []*field
+			for _, f := range fields {
+				isIgnored := false
+				for _, column := range columns {
+					if column == f.Column {
+						isIgnored = true
+					}
+				}
+				if !isIgnored {
+					filtered = append(filtered, f)
+				}
+			}
+			fields = filtered
 		}
-		for column, fieldType := range fieldTypes {
-			for _, f := range e.Fields {
-				if f.Column == column {
-					f.FieldType = fieldType
-					if strings.HasPrefix(f.FieldType, "[]") {
-						if _, ok := supportedFieldTypes[strings.TrimLeft(f.FieldType, "[]")]; !ok {
-							f.Valid = false
-						}
-					} else {
-						if !strings.HasPrefix(f.FieldType, "*") {
-							f.FieldType = "*" + f.FieldType
-						}
-						if _, ok := supportedFieldTypes[f.FieldType[1:]]; !ok {
-							f.Valid = false
+		// 强制指定表字段映射类型
+		if mappingTypes, ok := g.c.MappingTypes[table]; ok {
+			for column, fieldType := range mappingTypes {
+				for _, f := range fields {
+					if f.Column == column {
+						f.FieldType = fieldType
+						if strings.HasPrefix(f.FieldType, "[]") {
+							if _, ok := supportedFieldTypes[strings.TrimLeft(f.FieldType, "[]")]; !ok {
+								f.Valid = false
+							}
+						} else {
+							if _, ok := supportedFieldTypes[f.FieldType[1:]]; !ok {
+								f.Valid = false
+							}
 						}
 					}
 				}
 			}
+		}
+		// 创建实体模板参数
+		e := entity{
+			DbType:            g.c.DbType,
+			Table:             table,
+			EntityFileName:    entityFileNameMapper.Convert(table),
+			Package:           g.c.Package,
+			EntityName:        entityNameMapper.Convert(table),
+			Fields:            fields,
+			Comment:           comment,
+			GenDao:            g.c.GenDao,
+			DaoFileName:       daoFileNameMapper.Convert(table),
+			DaoName:           daoNameMapper.Convert(table),
+			AllowInvalidField: g.c.AllowInvalidField,
 		}
 		entities = append(entities, e)
 	}
@@ -162,16 +182,17 @@ type baseDao struct {
 }
 
 type entity struct {
-	DbType         dbType
-	Table          string
-	EntityFileName string
-	Package        string
-	EntityName     string
-	Fields         []*field
-	Comment        string
-	GenDao         bool
-	DaoFileName    string
-	DaoName        string
+	DbType            dbType
+	Table             string
+	EntityFileName    string
+	Package           string
+	EntityName        string
+	Fields            []*field
+	Comment           string
+	GenDao            bool
+	DaoFileName       string
+	DaoName           string
+	AllowInvalidField bool
 }
 
 type field struct {
@@ -194,17 +215,29 @@ type Cfg struct {
 	OutPath string
 	// 包名，默认为目录名
 	Package string
-	// 需要生成的表，key为表名称，value为强制指定字段类型
-	Tables Tables
+	// 需要生成的表
+	Tables []string
+	// 指定表字段映射实体字段类型，key为表名，value的key为表字段名，value为实体字段类型
+	MappingTypes MappingTypes
+	// 指定表忽略的字段，key为表名，value为列名
+	IgnoreColumns IgnoreColumns
 	// 是否生成DAO
 	GenDao bool
 	// 覆盖BaseDao
 	CoverBaseDao bool
+	// 是否允许非法字段，如字段未导出、未使用指针等。若为false，实体中有非法字段将会在程序初始化时panic
+	AllowInvalidField bool
 }
 
-type Tables map[string]FieldTypes
+type Tables []string
 
-type FieldTypes map[string]string
+type MappingTypes map[string]Mapper
+
+type Mapper map[string]string
+
+type IgnoreColumns map[string]Columns
+
+type Columns []string
 
 // GetGenerator 创建生成器
 func GetGenerator(c Cfg) Generator {
