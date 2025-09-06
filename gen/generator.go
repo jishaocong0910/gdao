@@ -39,7 +39,7 @@ func (g Generator) Gen() {
 	log.Printf("full output path: %s", g.c.OutPath)
 	var entities []entity
 	var tableNamedCount string
-	for _, table := range g.c.Tables {
+	for _, table := range g.c.TableCfg.Tables {
 		// 表名为count时会和生成CountDao冲突
 		if strings.EqualFold(table, "count") {
 			tableNamedCount = table
@@ -51,7 +51,7 @@ func (g Generator) Gen() {
 			continue
 		}
 		// 过滤字段
-		if columns, ok := g.c.IgnoreColumns[table]; ok {
+		if columns, ok := g.c.TableCfg.IgnoreColumns[table]; ok {
 			var filtered []*field
 			for _, f := range fields {
 				isIgnored := false
@@ -67,7 +67,7 @@ func (g Generator) Gen() {
 			fields = filtered
 		}
 		// 强制指定表字段映射类型
-		if mappingTypes, ok := g.c.MappingTypes[table]; ok {
+		if mappingTypes, ok := g.c.TableCfg.MappingTypes[table]; ok {
 			for column, fieldType := range mappingTypes {
 				for _, f := range fields {
 					if f.Column == column {
@@ -94,10 +94,10 @@ func (g Generator) Gen() {
 			EntityName:        entityNameMapper.Convert(table),
 			Fields:            fields,
 			Comment:           comment,
-			GenDao:            g.c.GenDao,
+			GenDao:            g.c.DaoCfg.GenDao,
 			DaoFileName:       daoFileNameMapper.Convert(table),
 			DaoName:           daoNameMapper.Convert(table),
-			AllowInvalidField: g.c.AllowInvalidField,
+			AllowInvalidField: g.c.DaoCfg.AllowInvalidField,
 		}
 		entities = append(entities, e)
 	}
@@ -107,12 +107,12 @@ func (g Generator) Gen() {
 	}
 
 	g.createOutPath()
-	if g.c.GenDao {
+	if g.c.DaoCfg.GenDao {
 		b := baseDao{
 			DbType:  g.c.DbType,
 			Package: g.c.Package,
 		}
-		err := g.createFile("base_dao.go", g.c.CoverBaseDao, g.d.getBaseDaoTemplate(), b)
+		err := g.createFile("base_dao.go", g.c.DaoCfg.CoverBaseDao, g.d.getBaseDaoTemplate(), b)
 		if err != nil {
 			log.Printf("create base dao fail: %+v\n", err)
 		} else {
@@ -136,7 +136,7 @@ func (g Generator) Gen() {
 		} else {
 			log.Printf("create entity of table \"%s\" is success\n", e.Table)
 		}
-		if g.c.GenDao {
+		if g.c.DaoCfg.GenDao {
 			err := g.createFile(e.DaoFileName, false, tplDao, e)
 			if err != nil {
 				log.Printf("create dao of table \"%s\" is fail, error: %+v\n", e.Table, err)
@@ -215,18 +215,28 @@ type Cfg struct {
 	OutPath string
 	// 包名，默认为目录名
 	Package string
-	// 需要生成的表
-	Tables []string
-	// 指定表字段映射实体字段类型，key为表名，value的key为表字段名，value为实体字段类型
-	MappingTypes MappingTypes
-	// 指定表忽略的字段，key为表名，value为列名
-	IgnoreColumns IgnoreColumns
+	// 表配置
+	TableCfg TableCfg
+	// DAO配置
+	DaoCfg DaoCfg
+}
+
+type DaoCfg struct {
 	// 是否生成DAO
 	GenDao bool
 	// 覆盖BaseDao
 	CoverBaseDao bool
 	// 是否允许非法字段，如字段未导出、未使用指针等。若为false，实体中有非法字段将会在程序初始化时panic
 	AllowInvalidField bool
+}
+
+type TableCfg struct {
+	// 需要生成的表
+	Tables Tables
+	// 指定表字段映射实体字段类型，key为表名，value的key为表字段名，value为实体字段类型
+	MappingTypes MappingTypes
+	// 指定表忽略的字段，key为表名，value为列名
+	IgnoreColumns IgnoreColumns
 }
 
 type Tables []string
