@@ -174,7 +174,7 @@ func TestBuilder_WriteColumns(t *testing.T) {
 		r.Equal("id, user_id", b.Sql())
 
 		b.WriteColumns()
-		r.Equal("id, user_idid, other_id, user_id, status, balance", b.Sql())
+		r.Equal("id, user_idid, other_id, user_id, status, balance, licence_file", b.Sql())
 	}})
 }
 

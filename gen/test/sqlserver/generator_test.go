@@ -51,13 +51,18 @@ func TestSqlServer(t *testing.T) {
 	db.Close()
 
 	gen.GetGenerator(gen.Cfg{
-		DbType:       gen.DB_SQLSERVER,
-		Dsn:          dsn,
-		OutPath:      "testdata",
-		Package:      "dao",
-		CoverBaseDao: true,
-		Tables:       gen.Tables{"test_table"},
-		GenDao:       true,
+		DbType:  gen.DB_SQLSERVER,
+		Dsn:     dsn,
+		OutPath: "testdata",
+		Package: "dao",
+		TableCfg: gen.TableCfg{
+			Tables: gen.Tables{"test_table"},
+		},
+		DaoCfg: gen.DaoCfg{
+			GenDao:            true,
+			CoverBaseDao:      true,
+			AllowInvalidField: true,
+		},
 	}).Gen()
 
 	defer os.Remove("testdata/test_table.go")

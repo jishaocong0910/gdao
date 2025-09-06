@@ -55,14 +55,18 @@ func TestOracle(t *testing.T) {
 	db.Close()
 
 	gen.GetGenerator(gen.Cfg{
-		DbType:            gen.DB_ORACLE,
-		Dsn:               dsn,
-		OutPath:           "testdata",
-		Package:           "dao",
-		CoverBaseDao:      true,
-		Tables:            gen.Tables{"TEST_TABLE"},
-		GenDao:            true,
-		AllowInvalidField: true,
+		DbType:  gen.DB_ORACLE,
+		Dsn:     dsn,
+		OutPath: "testdata",
+		Package: "dao",
+		TableCfg: gen.TableCfg{
+			Tables: gen.Tables{"TEST_TABLE"},
+		},
+		DaoCfg: gen.DaoCfg{
+			GenDao:            true,
+			CoverBaseDao:      true,
+			AllowInvalidField: true,
+		},
 	}).Gen()
 
 	defer os.Remove("testdata/test_table.go")

@@ -308,19 +308,36 @@ func NewDao[T any](req NewDaoReq) *Dao[T] {
 			if req.AllowInvalidField {
 				continue
 			} else {
-				panic("field \"" + t.String() + "#" + tf.Name + "\" is invalid, the entity's field must be a pointer and exported")
+				panic("field \"" + tf.Name + "\" of \"" + t.String() + "\" must be exported")
 			}
 		}
 		if !tf.Anonymous {
-			if ft := tf.Type; ft.Kind() == reflect.Pointer {
+			ft := tf.Type
+			if ft.Kind() == reflect.Pointer {
 				if _, ok := supportedFieldTypes[ft.Elem().String()]; ok {
 					registerField[T](dao, tf, req.ColumnMapper)
+				} else {
+					if req.AllowInvalidField {
+						continue
+					} else {
+						panic("field \"" + tf.Name + "\" of \"" + t.String() + "\" is not supported type")
+					}
+				}
+			} else if ft.Kind() == reflect.Slice {
+				if _, ok := supportedFieldTypes[ft.Elem().String()]; ok {
+					registerField[T](dao, tf, req.ColumnMapper)
+				} else {
+					if req.AllowInvalidField {
+						continue
+					} else {
+						panic("field \"" + tf.Name + "\" of \"" + t.String() + "\", its element type is not supported")
+					}
 				}
 			} else {
 				if req.AllowInvalidField {
 					continue
 				} else {
-					panic("field \"" + t.String() + "#" + tf.Name + "\" is invalid, the entity's field must be a pointer and exported")
+					panic("field \"" + tf.Name + "\" of \"" + t.String() + "\" must be a pointer")
 				}
 			}
 		}

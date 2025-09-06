@@ -10,7 +10,7 @@ type TestTable struct {
 	// AutoIncrement bigint auto_increment
 	AutoIncrement *int64 `gdao:"column=auto_increment;auto"`
 	// Bit
-	Bit bool `gdao:"column=bit"`
+	Bit []uint8 `gdao:"column=bit"`
 	// Tinyint tinyint
 	Tinyint *int8 `gdao:"column=tinyint"`
 	// TinyintUnsigned tinyint unsigned

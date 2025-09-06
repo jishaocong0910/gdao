@@ -23,11 +23,12 @@ type User struct {
 }
 
 type Account struct {
-	Id      *int32 `gdao:"auto=2"`
-	OtherId *int32
-	UserId  *int32
-	Status  *int8
-	Balance *int64
+	Id          *int32 `gdao:"auto=2"`
+	OtherId     *int32
+	UserId      *int32
+	Status      *int8
+	Balance     *int64
+	LicenceFile []uint8
 }
 
 type InvalidField struct {
@@ -36,6 +37,14 @@ type InvalidField struct {
 
 type InvalidField2 struct {
 	Field string `gdao:"column=field"`
+}
+
+type InvalidField3 struct {
+	Field *any `gdao:"column=field"`
+}
+
+type InvalidField4 struct {
+	Field []any `gdao:"column=field"`
 }
 
 func mockUserDao(r *require.Assertions) (*gdao.Dao[User], sqlmock.Sqlmock) {
@@ -68,10 +77,10 @@ func TestNewDao(t *testing.T) {
 	{
 		dao, _ := mockAccountDao(r)
 		export := gdao.ExportDao(dao)
-		r.Equal("id, other_id, user_id, status, balance", export.ColumnsWithComma)
-		r.Contains(export.Columns, "id", "other_id", "user_id", "status", "balance")
-		r.Equal(5, len(export.ColumnToFieldIndexMap))
-		r.Contains(export.ColumnToFieldIndexMap, "id", "other_id", "user_id", "status", "balance")
+		r.Equal("id, other_id, user_id, status, balance, licence_file", export.ColumnsWithComma)
+		r.Contains(export.Columns, "id", "other_id", "user_id", "status", "balance", "licence_file")
+		r.Equal(6, len(export.ColumnToFieldIndexMap))
+		r.Contains(export.ColumnToFieldIndexMap, "id", "other_id", "user_id", "status", "balance", "licence_file")
 		r.Contains(export.AutoIncrementColumns, "id")
 		r.Equal(int64(2), export.AutoIncrementStep)
 		r.NotNil(export.AutoIncrementConvertor)
@@ -393,7 +402,7 @@ func TestNewDaoPanic(t *testing.T) {
 		})
 	}
 	{
-		r.PanicsWithValue(`field "field" is invalid, the entity's field must be a pointer and exported`, func() {
+		r.PanicsWithValue(`field "field" of "gdao_test.InvalidField" must be exported`, func() {
 			gdao.NewDao[InvalidField](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {
@@ -401,11 +410,27 @@ func TestNewDaoPanic(t *testing.T) {
 		})
 	}
 	{
-		r.PanicsWithValue(`field "Field" is invalid, the entity's field must be a pointer and exported`, func() {
+		r.PanicsWithValue(`field "Field" of "gdao_test.InvalidField2" must be a pointer`, func() {
 			gdao.NewDao[InvalidField2](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {
 			gdao.NewDao[InvalidField2](gdao.NewDaoReq{DB: &sql.DB{}, AllowInvalidField: true})
+		})
+	}
+	{
+		r.PanicsWithValue(`field "Field" of "gdao_test.InvalidField3" is not supported type`, func() {
+			gdao.NewDao[InvalidField3](gdao.NewDaoReq{DB: &sql.DB{}})
+		})
+		r.NotPanics(func() {
+			gdao.NewDao[InvalidField3](gdao.NewDaoReq{DB: &sql.DB{}, AllowInvalidField: true})
+		})
+	}
+	{
+		r.PanicsWithValue(`field "Field" of "gdao_test.InvalidField4", its element type is not supported`, func() {
+			gdao.NewDao[InvalidField4](gdao.NewDaoReq{DB: &sql.DB{}})
+		})
+		r.NotPanics(func() {
+			gdao.NewDao[InvalidField4](gdao.NewDaoReq{DB: &sql.DB{}, AllowInvalidField: true})
 		})
 	}
 }

@@ -14,8 +14,14 @@ func TestSqlite(t *testing.T) {
 		Dsn:     "testdata/sqlite.db",
 		OutPath: "testdata",
 		Package: "dao",
-		Tables:  gen.Tables{"test_table"},
-		GenDao:  true,
+		TableCfg: gen.TableCfg{
+			Tables: gen.Tables{"test_table"},
+		},
+		DaoCfg: gen.DaoCfg{
+			GenDao:            true,
+			CoverBaseDao:      true,
+			AllowInvalidField: true,
+		},
 	}).Gen()
 
 	defer os.Remove("testdata/test_table.go")
