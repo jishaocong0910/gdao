@@ -4,18 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	pkgErrors "github.com/pkg/errors"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
-var (
-	DEFAULT_DB *sql.DB
-
-	ctx_key_tx = Ptr("")
-)
+var DEFAULT_DB *sql.DB
 
 type lastInsertIdAs int
 
@@ -85,12 +79,14 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	}
 	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
+		printSql(req.Ctx, b.Sql(), b.args, -1, -1, err)
 		return nil, nil, err
 	}
 	defer closeFunc()
 
 	switch req.RowAs {
 	case ROW_AS_RETURNING:
+		var affected int64
 		for i := 0; rows.Next() && i < len(req.Entities); i++ {
 			entity := req.Entities[i]
 			if entity == nil { // coverage-ignore
@@ -107,8 +103,11 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 			if len(fields) > 0 {
 				printError(req.Ctx, rows.Scan(fields...))
 			}
+			affected++
 		}
+		printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
 	case ROW_AS_LAST_ID:
+		var affected int64
 		var id *int64
 		if rows.Next() && len(columns) == 1 && len(d.autoIncrementColumns) == 1 {
 			err = rows.Scan(&id)
@@ -128,9 +127,19 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 				v := reflect.ValueOf(entity).Elem()
 				field := v.Field(fieldIndex)
 				field.Set(d.autoIncrementConvertor(*id - int64(entityLength-1-i)*d.autoIncrementStep))
+				affected++
+			}
+		} else {
+			for i := 0; i < len(req.Entities); i++ {
+				entity := req.Entities[i]
+				if entity != nil { // coverage-ignore
+					affected++
+				}
 			}
 		}
+		printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
 	default:
+		var rowCounts int64
 		for rows.Next() {
 			entity := new(T)
 			fields := d.mappingFields(entity, columns)
@@ -139,10 +148,12 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 				return
 			}
 			list = append(list, entity)
+			rowCounts++
 		}
 		if len(list) > 0 {
 			first = list[0]
 		}
+		printSql(req.Ctx, b.Sql(), b.args, -1, rowCounts, err)
 	}
 	return
 }
@@ -158,6 +169,7 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 		return 0, nil
 	}
 	result, affected, err := exec(req.Ctx, d.DB(), b.Sql(), b.args)
+	printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
 	if err != nil { // coverage-ignore
 		return
 	}
@@ -203,13 +215,11 @@ func query(ctx context.Context, db *sql.DB, sql string, args []any) (rows *sql.R
 	}
 	prepare, err := createPrepare(ctx, db, sql)
 	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
 	}
 	rows, err = prepare.QueryContext(ctx, args...)
 	if err != nil { // coverage-ignore
 		printWarn(ctx, prepare.Close())
-		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
 	}
 	closeFunc = func() {
@@ -219,10 +229,8 @@ func query(ctx context.Context, db *sql.DB, sql string, args []any) (rows *sql.R
 	columns, err = rows.Columns()
 	if err != nil { // coverage-ignore
 		closeFunc()
-		printSql(ctx, sql, args, -1, err)
 		return nil, nil, nil, err
 	}
-	printSql(ctx, sql, args, -1, err)
 	return rows, columns, closeFunc, nil
 }
 
@@ -233,7 +241,6 @@ func exec(ctx context.Context, db *sql.DB, sql string, args []any) (result sql.R
 	affected = int64(-1)
 	prepare, err := createPrepare(ctx, db, sql)
 	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, affected, err)
 		return nil, 0, err
 	}
 	defer func() {
@@ -241,11 +248,9 @@ func exec(ctx context.Context, db *sql.DB, sql string, args []any) (result sql.R
 	}()
 	result, err = prepare.ExecContext(ctx, args...)
 	if err != nil { // coverage-ignore
-		printSql(ctx, sql, args, affected, err)
 		return nil, 0, err
 	}
 	affected, err = result.RowsAffected()
-	printSql(ctx, sql, args, affected, err)
 	return
 }
 
@@ -267,6 +272,8 @@ func (d *Dao[T]) mappingFields(entity *T, columns []string) []any {
 		if value, ok := d.columnToFieldIndexMap[c]; ok {
 			field := v.Field(value)
 			fields = append(fields, field.Addr().Interface())
+		} else {
+			fields = append(fields, new(any))
 		}
 	}
 	return fields
@@ -276,63 +283,12 @@ func Ptr[T any](t T) *T {
 	return &t
 }
 
-func PtrToValue[T any](t *T) T {
+func Val[T any](t *T) T {
 	var v T
 	if t != nil {
 		v = *t
 	}
 	return v
-}
-
-func WithTx(ctx context.Context, tx *sql.Tx) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	ctx = context.WithValue(ctx, ctx_key_tx, tx)
-	return ctx
-}
-
-func Tx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, do func(ctx context.Context) error) (err error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	tx := getTx(ctx)
-	if tx == nil {
-		if db == nil { // coverage-ignore
-			db = DEFAULT_DB
-		}
-		if db == nil { // coverage-ignore
-			return errors.New(`cannot begin a transaction, parameter "db" and gdao.DEFAULT_DB are nil `)
-		}
-		tx, err = DEFAULT_DB.BeginTx(ctx, opts)
-		if err != nil { // coverage-ignore
-			return
-		}
-		WithTx(ctx, tx)
-	}
-
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else if r := recover(); r != nil {
-			tx.Rollback()
-			err = pkgErrors.WithStack(fmt.Errorf("%v", r))
-		} else {
-			tx.Commit()
-		}
-	}()
-	err = do(ctx)
-	return err
-}
-
-func getTx(ctx context.Context) *sql.Tx {
-	if ctx != nil {
-		if tx, ok := ctx.Value(ctx_key_tx).(*sql.Tx); ok {
-			return tx
-		}
-	}
-	return nil
 }
 
 func NewDao[T any](req NewDaoReq) *Dao[T] {
@@ -352,19 +308,36 @@ func NewDao[T any](req NewDaoReq) *Dao[T] {
 			if req.AllowInvalidField {
 				continue
 			} else {
-				panic("field \"" + tf.Name + "\" is invalid, the entity's field must be a pointer and exported")
+				panic("field \"" + tf.Name + "\" of \"" + t.String() + "\" must be exported")
 			}
 		}
 		if !tf.Anonymous {
-			if ft := tf.Type; ft.Kind() == reflect.Pointer {
+			ft := tf.Type
+			if ft.Kind() == reflect.Pointer {
 				if _, ok := supportedFieldTypes[ft.Elem().String()]; ok {
 					registerField[T](dao, tf, req.ColumnMapper)
+				} else {
+					if req.AllowInvalidField {
+						continue
+					} else {
+						panic("field \"" + tf.Name + "\" of \"" + t.String() + "\" is not supported type")
+					}
+				}
+			} else if ft.Kind() == reflect.Slice {
+				if _, ok := supportedFieldTypes[ft.Elem().String()]; ok {
+					registerField[T](dao, tf, req.ColumnMapper)
+				} else {
+					if req.AllowInvalidField {
+						continue
+					} else {
+						panic("field \"" + tf.Name + "\" of \"" + t.String() + "\", its element type is not supported")
+					}
 				}
 			} else {
 				if req.AllowInvalidField {
 					continue
 				} else {
-					panic("field \"" + tf.Name + "\" is invalid, the entity's field must be a pointer and exported")
+					panic("field \"" + tf.Name + "\" of \"" + t.String() + "\" must be a pointer")
 				}
 			}
 		}
@@ -412,7 +385,7 @@ func registerField[T any](d *Dao[T], tf reflect.StructField, columnMapper *NameM
 	}
 	d.columns = append(d.columns, column)
 	if d.commaColumns != "" {
-		d.commaColumns += ","
+		d.commaColumns += ", "
 	}
 	d.commaColumns += column
 	d.columnToFieldIndexMap[column] = tf.Index[0]
