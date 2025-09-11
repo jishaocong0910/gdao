@@ -94,9 +94,9 @@ func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
 			f.FieldType = "*float64"
 		case "float":
 			f.FieldType = "*float32"
-		case "varchar", "char", "text", "tinytext", "mediumtext", "longtext", "enum", "json", "set":
+		case "varchar", "char", "text", "tinytext", "mediumtext", "longtext", "enum", "json", "set", "time":
 			f.FieldType = "*string"
-		case "datetime", "timestamp", "date", "time":
+		case "datetime", "timestamp", "date":
 			f.FieldType = "*time.Time"
 		case "year":
 			f.FieldType = "*int64"
