@@ -88,7 +88,7 @@ type TestTable struct {
 	// Boolean boolean
 	Boolean *bool `gdao:"column=boolean"`
 	// Time
-	Time *time.Time `gdao:"column=time"`
+	Time *string `gdao:"column=time"`
 	// Other
 	// gdao cannot solve this type!
 	Other any `gdao:"column=other"`
