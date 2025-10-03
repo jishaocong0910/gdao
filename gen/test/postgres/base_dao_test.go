@@ -1,3 +1,19 @@
+/*
+Copyright 2024-present jishaocong0910
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package postgres_test
 
 import (
@@ -58,13 +74,14 @@ func TestBaseDao_Get(t *testing.T) {
 	r := require.New(t)
 	{
 		d, mock := dao.MockBaseDao[User](r, "user")
-		mock.ExpectPrepare(`SELECT id, phone FROM user WHERE status = \$1 LIMIT 1 FOR UPDATE`).
+		mock.ExpectPrepare(`SELECT id, phone FROM user WHERE status = \$1 ORDER BY name ASC, id DESC LIMIT 1 FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy"))
 
 		get, err := d.Get(dao.GetReq{
 			SelectColumns: dao.Columns("id", "phone"),
 			Condition:     dao.And().Eq("status", 4),
+			OrderBy:       dao.OrderBy().Asc("name").Desc("id"),
 			ForUpdate:     true,
 		})
 
@@ -83,9 +100,9 @@ func TestBaseDao_Insert(t *testing.T) {
 			ExpectQuery().WithArgs("abc", "12345").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(7))
 
 		u := &User{
-			Name:  gdao.Ptr("abc"),
-			Phone: gdao.Ptr("12345"),
-			Email: gdao.Ptr("email"),
+			Name:  gdao.P("abc"),
+			Phone: gdao.P("12345"),
+			Email: gdao.P("email"),
 		}
 		err := d.Insert(dao.InsertReq[User]{
 			Entity:         u,
@@ -107,14 +124,14 @@ func TestBaseDao_InsertBatch(t *testing.T) {
 		ExpectQuery().WithArgs("abc", "12345", "email11", "def", "6789", "email22").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(8).AddRow(9))
 
 	u := &User{
-		Name:  gdao.Ptr("abc"),
-		Phone: gdao.Ptr("12345"),
-		Email: gdao.Ptr("email11"),
+		Name:  gdao.P("abc"),
+		Phone: gdao.P("12345"),
+		Email: gdao.P("email11"),
 	}
 	u2 := &User{
-		Name:  gdao.Ptr("def"),
-		Phone: gdao.Ptr("6789"),
-		Email: gdao.Ptr("email22"),
+		Name:  gdao.P("def"),
+		Phone: gdao.P("6789"),
+		Email: gdao.P("email22"),
 	}
 	err := d.InsertBatch(dao.InsertBatchReq[User]{
 		Entities: dao.Entities(u, u2),
@@ -134,10 +151,10 @@ func TestBaseDao_Update(t *testing.T) {
 			ExpectExec().WithArgs("name", 2, 10, 20).WillReturnResult(sqlmock.NewResult(0, 3))
 
 		u := &User{
-			Name:    gdao.Ptr("name"),
-			Address: gdao.Ptr("addr"),
-			Status:  gdao.Ptr[int8](2),
-			Level:   gdao.Ptr[int32](10),
+			Name:    gdao.P("name"),
+			Address: gdao.P("addr"),
+			Status:  gdao.P[int8](2),
+			Level:   gdao.P[int32](10),
 		}
 		affected, err := d.Update(dao.UpdateReq[User]{
 			Entity:         u,
@@ -157,10 +174,10 @@ func TestBaseDao_Update(t *testing.T) {
 			ExpectExec().WithArgs("name", "addr", 10, 1).WillReturnResult(sqlmock.NewResult(0, 3))
 
 		u := &User{
-			Id:      gdao.Ptr(int32(1)),
-			Name:    gdao.Ptr("name"),
-			Address: gdao.Ptr("addr"),
-			Level:   gdao.Ptr[int32](10),
+			Id:      gdao.P(int32(1)),
+			Name:    gdao.P("name"),
+			Address: gdao.P("addr"),
+			Level:   gdao.P[int32](10),
 		}
 		affected, err := d.Update(dao.UpdateReq[User]{
 			Entity:       u,
@@ -182,22 +199,22 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 			ExpectExec().WithArgs(1, "name1", 2, "name2", 3, "name3", 1, "phone1", 2, "phone2", 3, "phone3", 1, 2, 3).WillReturnResult(sqlmock.NewResult(0, 3))
 
 		u := &User{
-			Id:    gdao.Ptr[int32](1),
-			Name:  gdao.Ptr("name1"),
-			Phone: gdao.Ptr("phone1"),
-			Email: gdao.Ptr("email1"),
+			Id:    gdao.P[int32](1),
+			Name:  gdao.P("name1"),
+			Phone: gdao.P("phone1"),
+			Email: gdao.P("email1"),
 		}
 		u2 := &User{
-			Id:    gdao.Ptr[int32](2),
-			Name:  gdao.Ptr("name2"),
-			Phone: gdao.Ptr("phone2"),
-			Email: gdao.Ptr("email2"),
+			Id:    gdao.P[int32](2),
+			Name:  gdao.P("name2"),
+			Phone: gdao.P("phone2"),
+			Email: gdao.P("email2"),
 		}
 		u3 := &User{
-			Id:    gdao.Ptr[int32](3),
-			Name:  gdao.Ptr("name3"),
-			Phone: gdao.Ptr("phone3"),
-			Email: gdao.Ptr("email3"),
+			Id:    gdao.P[int32](3),
+			Name:  gdao.P("name3"),
+			Phone: gdao.P("phone3"),
+			Email: gdao.P("email3"),
 		}
 		affected, err := d.UpdateBatch(dao.UpdateBatchReq[User]{
 			Entities:       []*User{u, u2, u3},
@@ -216,22 +233,22 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 			ExpectExec().WithArgs(1, "name1", 2, "name2", 3, "name3", 1, 2, 3, 1, 2, 3, 1, "phone1", 2, "phone2", 3, "phone3", 1, "email1", 2, "email2", 3, "email3", 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3).WillReturnResult(sqlmock.NewResult(0, 3))
 
 		u := &User{
-			Id:    gdao.Ptr[int32](1),
-			Name:  gdao.Ptr("name1"),
-			Phone: gdao.Ptr("phone1"),
-			Email: gdao.Ptr("email1"),
+			Id:    gdao.P[int32](1),
+			Name:  gdao.P("name1"),
+			Phone: gdao.P("phone1"),
+			Email: gdao.P("email1"),
 		}
 		u2 := &User{
-			Id:    gdao.Ptr[int32](2),
-			Name:  gdao.Ptr("name2"),
-			Phone: gdao.Ptr("phone2"),
-			Email: gdao.Ptr("email2"),
+			Id:    gdao.P[int32](2),
+			Name:  gdao.P("name2"),
+			Phone: gdao.P("phone2"),
+			Email: gdao.P("email2"),
 		}
 		u3 := &User{
-			Id:    gdao.Ptr[int32](3),
-			Name:  gdao.Ptr("name3"),
-			Phone: gdao.Ptr("phone3"),
-			Email: gdao.Ptr("email3"),
+			Id:    gdao.P[int32](3),
+			Name:  gdao.P("name3"),
+			Phone: gdao.P("phone3"),
+			Email: gdao.P("email3"),
 		}
 		affected, err := d.UpdateBatch(dao.UpdateBatchReq[User]{
 			Entities:    []*User{u, u2, u3},
@@ -267,7 +284,7 @@ func TestCondition(t *testing.T) {
 		mock.ExpectPrepare(`c1 = \$1 AND c2 = \$2`).
 			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
+		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			c := dao.And().Eq("c1", 1).Group(nil)
 			c2 := dao.Or().Eq("c2", 2).Group(nil)
 			c = dao.And().Group(c).Group(c2)
@@ -286,9 +303,9 @@ func TestCondition(t *testing.T) {
 		mock.ExpectPrepare(`c1 = \$1 AND c2 <> \$2 AND c3 > \$3 AND c4 < \$4 AND c5 >= \$5 AND c6 <= \$6 AND c7 LIKE \$7 AND c8 LIKE \$8 AND c9 LIKE \$9 AND c10 IN\(\$10, \$11, \$12\) AND c11 BETWEEN \$13 AND \$14 AND c12 IS NULL AND c13 IS NOT NULL`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, "%abc%", "abc%", "%abc", 1, 2, 3, 1, 3).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
+		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			c := dao.And().Eq("c1", 1).
-				NotEq("c2", 2).
+				Ne("c2", 2).
 				Gt("c3", 3).
 				Lt("c4", 4).
 				Ge("c5", 5).
@@ -309,7 +326,7 @@ func TestCondition(t *testing.T) {
 		mock.ExpectPrepare(`0 = 0 AND NOT c1 = \$1 AND NOT \(c2 = \$2 AND c3 = \$3 AND 1 = 1 and 2 = 2\) AND c4 = \$4 AND \(c5 = \$5 OR c6 = \$6\) AND NOT c7 = \$7 AND NOT \(c8 = \$8 OR c9 = \$9\)`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, 7, 8, 9).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
+		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			c0 := dao.And().Plain("0 = 0")
 			c1 := dao.NotAnd().Eq("c1", 1)
 			c2 := dao.NotAnd().Eq("c2", 2).Eq("c3", 3).Plain("1 = 1 and 2 = 2")
@@ -327,7 +344,7 @@ func TestCondition(t *testing.T) {
 		mock.ExpectPrepare(`\(c1 = \$1 OR c2 = \$2\) AND c3 = \$3 AND c4 = \$4`).
 			ExpectQuery().WithArgs(1, 2, 3, 4).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
+		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			c1 := dao.Or().Eq("c1", 1).Eq("c2", 2)
 			c2 := dao.Or().Eq("c3", 3)
 			c3 := dao.Or().Eq("c4", 4)

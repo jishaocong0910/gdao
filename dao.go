@@ -1,3 +1,19 @@
+/*
+Copyright 2024-present jishaocong0910
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gdao
 
 import (
@@ -33,16 +49,18 @@ type NewDaoReq struct {
 
 type QueryReq[T any] struct {
 	Ctx      context.Context
+	Catch    *Error
 	RowAs    rowAs
 	Entities []*T
-	BuildSql func(b *Builder[T])
+	BuildSql func(b *DaoSqlBuilder[T])
 }
 
 type ExecReq[T any] struct {
 	Ctx            context.Context
+	Catch          *Error
 	LastInsertIdAs lastInsertIdAs
 	Entities       []*T
-	BuildSql       func(b *Builder[T])
+	BuildSql       func(b *DaoSqlBuilder[T])
 }
 
 type baseDao struct {
@@ -50,7 +68,7 @@ type baseDao struct {
 }
 
 func (d baseDao) DB() *sql.DB {
-	if d.db == nil {
+	if d.db == nil { // coverage-ignore
 		return DEFAULT_DB
 	}
 	return d.db
@@ -68,10 +86,11 @@ type Dao[T any] struct {
 
 func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	list = make([]*T, 0)
-	b := newBuilder(d, req.Entities)
+	b := newDaoSqlBuilder(d, req.Entities)
 	req.BuildSql(b)
 	err = b.Error()
 	if err != nil { // coverage-ignore
+		req.Catch.Match(err)
 		return nil, list, err
 	}
 	if !b.Ok() { // coverage-ignore
@@ -80,6 +99,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		printSql(req.Ctx, b.Sql(), b.args, -1, -1, err)
+		req.Catch.Match(err)
 		return nil, nil, err
 	}
 	defer closeFunc()
@@ -101,17 +121,17 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 				}
 			}
 			if len(fields) > 0 {
-				printError(req.Ctx, rows.Scan(fields...))
+				printWarn(req.Ctx, rows.Scan(fields...))
 			}
 			affected++
 		}
-		printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
+		printSql(req.Ctx, b.Sql(), b.args, affected, -1, nil)
 	case ROW_AS_LAST_ID:
 		var affected int64
 		var id *int64
 		if rows.Next() && len(columns) == 1 && len(d.autoIncrementColumns) == 1 {
 			err = rows.Scan(&id)
-			printError(req.Ctx, err)
+			printWarn(req.Ctx, err)
 			if err != nil && rows.Next() { // coverage-ignore
 				id = nil
 			}
@@ -137,7 +157,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 				}
 			}
 		}
-		printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
+		printSql(req.Ctx, b.Sql(), b.args, affected, -1, nil)
 	default:
 		var rowCounts int64
 		for rows.Next() {
@@ -145,6 +165,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 			fields := d.mappingFields(entity, columns)
 			err = rows.Scan(fields...)
 			if err != nil {
+				req.Catch.Match(err)
 				return
 			}
 			list = append(list, entity)
@@ -153,16 +174,17 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 		if len(list) > 0 {
 			first = list[0]
 		}
-		printSql(req.Ctx, b.Sql(), b.args, -1, rowCounts, err)
+		printSql(req.Ctx, b.Sql(), b.args, -1, rowCounts, nil)
 	}
 	return
 }
 
 func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
-	b := newBuilder(d, req.Entities)
+	b := newDaoSqlBuilder(d, req.Entities)
 	req.BuildSql(b)
 	err = b.Error()
 	if err != nil { // coverage-ignore
+		req.Catch.Match(err)
 		return 0, err
 	}
 	if !b.Ok() { // coverage-ignore
@@ -171,13 +193,14 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 	result, affected, err := exec(req.Ctx, d.DB(), b.Sql(), b.args)
 	printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
 	if err != nil { // coverage-ignore
+		req.Catch.Match(err)
 		return
 	}
 
 	switch req.LastInsertIdAs {
 	case LAST_INSERT_ID_AS_FIRST_ID:
 		id, err := result.LastInsertId()
-		printError(req.Ctx, err)
+		printWarn(req.Ctx, err)
 		if err == nil && len(req.Entities) > 0 && len(d.autoIncrementColumns) == 1 {
 			fieldIndex := d.columnToFieldIndexMap[d.autoIncrementColumns[0]]
 			for i, entity := range req.Entities {
@@ -191,7 +214,7 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 		}
 	case LAST_INSERT_ID_AS_LAST_ID:
 		id, err := result.LastInsertId()
-		printError(req.Ctx, err)
+		printWarn(req.Ctx, err)
 		if err == nil && len(req.Entities) > 0 && len(d.autoIncrementColumns) == 1 {
 			fieldIndex := d.columnToFieldIndexMap[d.autoIncrementColumns[0]]
 			entityLength := len(req.Entities)
@@ -279,11 +302,11 @@ func (d *Dao[T]) mappingFields(entity *T, columns []string) []any {
 	return fields
 }
 
-func Ptr[T any](t T) *T {
+func P[T any](t T) *T {
 	return &t
 }
 
-func Val[T any](t *T) T {
+func V[T any](t *T) T {
 	var v T
 	if t != nil {
 		v = *t
@@ -379,7 +402,7 @@ func registerField[T any](d *Dao[T], tf reflect.StructField, columnMapper *NameM
 	if column == "" {
 		if columnMapper != nil {
 			column = columnMapper.Convert(tf.Name)
-		} else {
+		} else { // coverage-ignore
 			return
 		}
 	}

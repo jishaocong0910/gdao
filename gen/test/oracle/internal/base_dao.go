@@ -10,7 +10,7 @@ import (
 	"github.com/jishaocong0910/gdao"
 )
 
-func getConditionBuilder[T any](b *gdao.Builder[T]) conditionBuilder {
+func getConditionBuilder[T any](b *gdao.DaoSqlBuilder[T]) conditionBuilder {
 	return conditionBuilder{
 		write: func(str string, args ...any) {
 			b.Write(str, args...)
@@ -132,7 +132,7 @@ func (cg *conditionGroup) Eq(column string, arg any) *conditionGroup {
 	return cg.addCondition(&conditionBinOp{column: column, op: "=", arg: arg})
 }
 
-func (cg *conditionGroup) NotEq(column string, arg any) *conditionGroup {
+func (cg *conditionGroup) Ne(column string, arg any) *conditionGroup {
 	return cg.addCondition(&conditionBinOp{column: column, op: "<>", arg: arg})
 }
 
@@ -264,7 +264,8 @@ func (c *conditionIsNull) write(b conditionBuilder) {
 }
 
 type ListReq struct {
-	Ctx context.Context
+	Ctx   context.Context
+	Catch *gdao.Error
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
@@ -278,17 +279,21 @@ type ListReq struct {
 }
 
 type GetReq struct {
-	Ctx context.Context
+	Ctx   context.Context
+	Catch *gdao.Error
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
 	Condition condition
+	// ORDER BY clause，create by function OrderBy.
+	OrderBy *orderBy
 	// FOR UPDATE clause
 	ForUpdate bool
 }
 
 type InsertReq[T any] struct {
-	Ctx context.Context
+	Ctx   context.Context
+	Catch *gdao.Error
 	// the non-nil fields will be saved, and the auto generated keys will be set in it.
 	Entity *T
 	// if true, all fields will be saved, otherwise, save non-nil fields.
@@ -300,7 +305,8 @@ type InsertReq[T any] struct {
 }
 
 type InsertBatchReq[T any] struct {
-	Ctx context.Context
+	Ctx   context.Context
+	Catch *gdao.Error
 	// each element corresponds to a record to be saved, and the auto generated keys will be set in them.
 	Entities []*T
 	// if true, all fields will be saved, otherwise, save non-nil fields.
@@ -312,7 +318,8 @@ type InsertBatchReq[T any] struct {
 }
 
 type UpdateReq[T any] struct {
-	Ctx context.Context
+	Ctx   context.Context
+	Catch *gdao.Error
 	// uses to update values or as the WHERE clause conditions.
 	Entity *T
 	// if true, all fields will be updated, otherwise, update non-nil fields.
@@ -328,7 +335,8 @@ type UpdateReq[T any] struct {
 }
 
 type UpdateBatchReq[T any] struct {
-	Ctx context.Context
+	Ctx   context.Context
+	Catch *gdao.Error
 	// each element corresponds to a record to be updated.
 	Entities []*T
 	// if true, all fields will be updated, otherwise, update non-nil fields.
@@ -344,7 +352,8 @@ type UpdateBatchReq[T any] struct {
 }
 
 type DeleteReq struct {
-	Ctx context.Context
+	Ctx   context.Context
+	Catch *gdao.Error
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
 	Condition condition
 }
@@ -386,7 +395,7 @@ type baseDao[T any] struct {
 
 // List queries records of the conditions.
 func (d baseDao[T]) List(req ListReq) ([]*T, error) {
-	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, BuildSql: func(b *gdao.Builder[T]) {
+	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Catch: req.Catch, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table)
 		if req.Condition != nil && !req.Condition.empty() {
 			b.Write(" WHERE ")
@@ -401,8 +410,10 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 			})
 		}
 		if req.Pagination != nil {
-			b.Write(" OFFSET ")
-			b.Write(strconv.FormatInt(int64(req.Pagination.offset), 10))
+			if req.Pagination.offset > 0 {
+				b.Write(" OFFSET ")
+				b.Write(strconv.FormatInt(int64(req.Pagination.offset), 10))
+			}
 			b.Write(" FETCH NEXT ")
 			b.Write(strconv.FormatInt(int64(req.Pagination.pageSize), 10))
 			b.Write(" ROWS ONLY")
@@ -415,26 +426,27 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 }
 
 // Get queries a record of the conditions.
-func (d baseDao[T]) Get(req GetReq) (*T, error) {
-	first, _, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, BuildSql: func(b *gdao.Builder[T]) {
-		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table)
-		if req.Condition != nil && !req.Condition.empty() {
-			b.Write(" WHERE ")
-			cb := getConditionBuilder(b)
-			req.Condition.write(cb)
-		}
-		b.Write(" FETCH NEXT 1 ROWS ONLY")
-		if req.ForUpdate {
-			b.Write(" FOR UPDATE")
-		}
-	}})
-	return first, err
+func (d baseDao[T]) Get(req GetReq) (entity *T, err error) {
+	list, err := d.List(ListReq{
+		Ctx:           req.Ctx,
+		Catch:         req.Catch,
+		SelectColumns: req.SelectColumns,
+		Condition:     req.Condition,
+		OrderBy:       req.OrderBy,
+		Pagination:    Page(0, 1),
+		ForUpdate:     req.ForUpdate,
+	})
+	if len(list) > 0 {
+		entity = list[0]
+	}
+	return
 }
 
 // Insert saves a record and return the auto generated keys.
 func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 	return d.InsertBatch(InsertBatchReq[T]{
 		Ctx:            req.Ctx,
+		Catch:          req.Catch,
 		Entities:       []*T{req.Entity},
 		InsertAll:      req.InsertAll,
 		SetNullColumns: req.SetNullColumns,
@@ -444,8 +456,8 @@ func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 
 // InsertBatch saves records and return the auto generated keys.
 func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Entities: req.Entities,
-		BuildSql: func(b *gdao.Builder[T]) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Catch: req.Catch, Entities: req.Entities,
+		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 			var setColumnNum, setNullColumnNum int
 			var allIgnoredColumns []string
 			allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
@@ -471,8 +483,8 @@ func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 			b.Write(")")
 
 			b.Write(" VALUES")
-			b.EachEntity(b.Sep(", "), nil, func(_ int, entity *T) {
-				b.EachColumn(entity, b.SepFix("(", ", ", "", true), nil, func(_ int, column string, value any) {
+			b.EachEntity(b.Sep(", "), func(_ int, entity *T) {
+				b.EachColumn(entity, b.SepFix("(", ", ", "", true), func(_ int, column string, value any) {
 					if value != nil {
 						b.Write(b.Pp(":"), value)
 					} else {
@@ -494,8 +506,8 @@ func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 
 // Update modifies a record.
 func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Entities: []*T{req.Entity},
-		BuildSql: func(b *gdao.Builder[T]) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Catch: req.Catch, Entities: []*T{req.Entity},
+		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 			var setColumnNum, setNullColumnNum int
 			var allIgnoredColumns []string
 			allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
@@ -505,7 +517,7 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 			b.Write("UPDATE ").Write(d.table).Write(" SET ")
 
 			columns := b.Columns(!req.UpdateAll, allIgnoredColumns...)
-			b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), nil, func(_ int, column string, value any) {
+			b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
 				setColumnNum++
 				b.Write(column).Write(" = ")
 				if value != nil {
@@ -526,7 +538,7 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 
 			cond := And()
 			if len(req.WhereColumns) > 0 {
-				b.EachColumn(b.Entity(), nil, nil, func(_ int, column string, value any) {
+				b.EachColumn(b.Entity(), nil, func(_ int, column string, value any) {
 					if value == nil {
 						cond.IsNull(column)
 					} else {
@@ -545,7 +557,7 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 
 // UpdateBatch modifies multiple records by a SQL.
 func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Entities: req.Entities, BuildSql: func(b *gdao.Builder[T]) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Catch: req.Catch, Entities: req.Entities, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
 		var allIgnoredColumns []string
 		allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
@@ -555,11 +567,11 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 		b.Write("UPDATE ").Write(d.table).Write(" SET ")
 
 		columns := b.Columns(!req.UpdateAll, allIgnoredColumns...)
-		b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), nil, func(_ int, column string, value any) {
+		b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
 			setColumnNum++
 			b.Write(column).Write(" = CASE ").Write(req.WhereColumn)
-			b.EachEntity(nil, nil, func(_ int, entity *T) {
-				b.Write(" WHEN ").Write(b.Pp(":")).SetArgs(b.ColumnValue(entity, req.WhereColumn)).Write(" THEN ")
+			b.EachEntity(nil, func(_ int, entity *T) {
+				b.Write(" WHEN ").Write(b.Pp(":"), b.ColumnValue(entity, req.WhereColumn)).Write(" THEN ")
 				if value != nil {
 					b.Write(b.Pp(":")).SetArgs(b.ColumnValue(entity, column))
 				} else {
@@ -581,7 +593,7 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 		b.Write(" WHERE ")
 		cond := And()
 		whereColumnValues := make([]any, 0, len(req.Entities))
-		b.EachEntity(nil, nil, func(_ int, entity *T) {
+		b.EachEntity(nil, func(_ int, entity *T) {
 			whereColumnValues = append(whereColumnValues, b.ColumnValue(entity, req.WhereColumn))
 		})
 		cond.In(req.WhereColumn, Anys(whereColumnValues...))
@@ -593,7 +605,7 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 
 // Delete removes records.
 func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, BuildSql: func(b *gdao.Builder[T]) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Catch: req.Catch, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("DELETE FROM ").Write(d.table)
 		if req.Condition != nil && !req.Condition.empty() {
 			b.Write(" WHERE ")

@@ -1,37 +1,51 @@
+/*
+Copyright 2024-present jishaocong0910
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gen
 
 import (
-	"database/sql"
 	_ "embed"
-	"fmt"
-	"strings"
-	"text/template"
-
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/sijms/go-ora/v2"
+	"strings"
 )
 
 //go:embed oracle_base_dao.tpl
 var oracleBaseDaoTpl string
 
 type oracleGenerator struct {
-	baseDaoTemplate *template.Template
-	c               Cfg
-	db              *sql.DB
+	*generator__
 }
 
-func (g oracleGenerator) getBaseDaoTemplate() *template.Template {
-	return g.baseDaoTemplate
+func (this *oracleGenerator) getDriverName() string {
+	return "oracle"
 }
 
-func (g oracleGenerator) getTableInfo(table string) (bool, []*field, string) {
+func (this *oracleGenerator) getBaseDaoTemplate() string {
+	return oracleBaseDaoTpl
+}
+
+func (this *oracleGenerator) getTableInfo(table string) (bool, []*fieldTplParams, string) {
 	var (
 		exists       bool
-		fields       []*field
+		fields       []*fieldTplParams
 		tableComment string
 	)
 
-	rows := mustReturn(g.db.Query(`SELECT c.column_name, c.data_type, c.data_precision , c.data_scale , c.char_length, c2.comments FROM user_tab_columns c LEFT JOIN user_col_comments c2 ON c.table_name =c2.table_name AND c.COLUMN_NAME =c2.COLUMN_NAME WHERE c.table_name = :1 ORDER BY c.column_id`, strings.ToUpper(table)))
+	rows := mustReturn(this.db.Query(`SELECT c.column_name, c.data_type, c.data_precision , c.data_scale , c.char_length, c2.comments FROM user_tab_columns c LEFT JOIN user_col_comments c2 ON c.table_name =c2.table_name AND c.COLUMN_NAME =c2.COLUMN_NAME WHERE c.table_name = :1 ORDER BY c.column_id`, strings.ToUpper(table)))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
@@ -49,10 +63,10 @@ func (g oracleGenerator) getTableInfo(table string) (bool, []*field, string) {
 			dataType = "TIMESTAMP"
 		}
 		if comment == nil {
-			comment = gdao.Ptr("")
+			comment = gdao.P("")
 		}
 
-		f := &field{
+		f := &fieldTplParams{
 			Column:    column,
 			FieldName: fieldNameMapper.Convert(column),
 			FieldType: "any",
@@ -89,7 +103,7 @@ func (g oracleGenerator) getTableInfo(table string) (bool, []*field, string) {
 		fields = append(fields, f)
 	}
 
-	rows = mustReturn(g.db.Query("SELECT comments FROM user_tab_comments WHERE table_name = :1", table))
+	rows = mustReturn(this.db.Query("SELECT comments FROM user_tab_comments WHERE table_name = :1", table))
 	defer rows.Close()
 	if rows.Next() {
 		rows.Scan(&tableComment)
@@ -98,11 +112,8 @@ func (g oracleGenerator) getTableInfo(table string) (bool, []*field, string) {
 	return exists, fields, tableComment
 }
 
-func newOracleGenerator(c Cfg) oracleGenerator {
-	db, err := sql.Open("oracle", c.Dsn)
-	if err != nil { // coverage-ignore
-		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
-	}
-	t := mustReturn(template.New("").Parse(oracleBaseDaoTpl))
-	return oracleGenerator{baseDaoTemplate: t, c: c, db: db}
+func newOracleGenerator(c GenCfg) *oracleGenerator {
+	o := &oracleGenerator{}
+	o.generator__ = ExtendGenerator_(o, c)
+	return o
 }

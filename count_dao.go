@@ -1,3 +1,19 @@
+/*
+Copyright 2024-present jishaocong0910
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gdao
 
 import (
@@ -98,18 +114,9 @@ func (c *Count) BoolPtr() *bool {
 	return &b
 }
 
-type CountBuilder struct {
-	*baseBuilder[CountBuilder]
-}
-
-func newCountBuilder() *CountBuilder {
-	b := &CountBuilder{}
-	b.baseBuilder = newBaseBuilder(b)
-	return b
-}
-
 type CountReq struct {
 	Ctx      context.Context
+	Catch    *Error
 	BuildSql func(b *CountBuilder)
 }
 
@@ -122,7 +129,7 @@ type CountDao struct {
 }
 
 func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) {
-	b := newCountBuilder()
+	b := newCountSqlBuilder()
 	req.BuildSql(b)
 	if !b.Ok() { // coverage-ignore
 		return nil, nil, b.err
@@ -130,6 +137,7 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		printSql(req.Ctx, b.Sql(), b.args, -1, -1, err)
+		req.Catch.Match(err)
 		return nil, nil, err
 	}
 	defer closeFunc()
@@ -139,7 +147,8 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 		c := &Count{}
 		if len(columns) == 1 {
 			err = rows.Scan(&c.Value)
-			if err != nil {
+			if err != nil { // coverage-ignore
+				req.Catch.Match(err)
 				return
 			}
 		} else {
@@ -152,7 +161,8 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 				}
 			}
 			err = rows.Scan(fields...)
-			if err != nil {
+			if err != nil { // coverage-ignore
+				req.Catch.Match(err)
 				return
 			}
 		}
@@ -162,7 +172,7 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 	if len(list) > 0 {
 		first = list[0]
 	}
-	printSql(req.Ctx, b.Sql(), b.args, -1, rowCounts, err)
+	printSql(req.Ctx, b.Sql(), b.args, -1, rowCounts, nil)
 	return
 }
 

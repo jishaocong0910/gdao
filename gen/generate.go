@@ -16,4 +16,20 @@ limitations under the License.
 
 package gen
 
-type DbType = dbType
+// GetGenerator 创建生成器
+func GetGenerator(c GenCfg) Generator_ {
+	switch c.DbType.String() {
+	case DbType_.MYSQL.String():
+		return newMySqlGenerator(c)
+	case DbType_.ORACLE.String():
+		return newOracleGenerator(c)
+	case DbType_.POSTGRES.String():
+		return newPostgresGenerator(c)
+	case DbType_.SQLSERVER.String():
+		return newSqlServerGenerator(c)
+	case DbType_.SQLITE.String():
+		return newSqliteGenerator(c)
+	default: // coverage-ignore
+		panic("not support this db type yet")
+	}
+}

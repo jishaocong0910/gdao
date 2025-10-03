@@ -25,102 +25,105 @@ go get github.com/jishaocong0910/gdao
 package main
 
 import (
-    "database/sql"
-    "encoding/json"
-    "fmt"
-    "log"
-    "time"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
 
-    _ "github.com/go-sql-driver/mysql"
-    "github.com/jishaocong0910/gdao"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jishaocong0910/gdao"
 )
 
 type User struct {
-    Id       *int32 `gdao:"auto"`
-    Name     *string
-    Age      *int32
-    Address  *string
-    Phone    *string
-    Email    *string
-    Status   *int8
-    Level    *int32
-    CreateAt *time.Time
+	Id       *int32 `gdao:"auto"`
+	Name     *string
+	Age      *int32
+	Address  *string
+	Phone    *string
+	Email    *string
+	Status   *int8
+	Level    *int32
+	CreateAt *time.Time
 }
 
 func main() {
-    // open a db
-    db, err := sql.Open("mysql", "(dsn)")
-    if err != nil {
-        log.Fatalln(err)
-    }
-    gdao.DEFAULT_DB = db // set a default db
+	// open a db
+	db, err := sql.Open("mysql", "(dsn)")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	gdao.DEFAULT_DB = db // set a default db
 
-    // create a dao
-    userDao := gdao.NewDao[User](gdao.NewDaoReq{ColumnMapper: gdao.NewNameMapper().LowerSnakeCase()})
+	// create a dao
+	userDao := gdao.NewDao[User](gdao.NewDaoReq{ColumnMapper: gdao.NewNameMapper().LowerSnakeCase()})
 
-    // insert
-    u := &User{
-        Name:     gdao.Ptr("foo"),
-        Age:      gdao.Ptr[int32](1),
-        Address:  gdao.Ptr("bar"),
-        Phone:    gdao.Ptr("1234"),
-        Email:    gdao.Ptr("test@email.com"),
-        Status:   gdao.Ptr[int8](1),
-        Level:    gdao.Ptr[int32](0),
-        CreateAt: gdao.Ptr(time.Now()),
-    }
-    affected, err := userDao.Exec(gdao.ExecReq[User]{
-        Entities:       []*User{u},
-        LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("INSERT INTO user")
-            cvs := b.ColumnValues(true)
-            b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(column string, _ any) {
-                b.Write(column)
-            })
-            b.EachColumnValues(cvs, b.SepFix(" VALUES(", ",", ")", false), func(_ string, value any) {
-                b.Arg(value)
-            })
-        },
-    })
-    if err != nil {
-        log.Fatalln(err)
-    }
-    fmt.Println(affected, *u.Id) // auto increment key
+	// insert
+	u := &User{
+		Name:     gdao.P("foo"),
+		Age:      gdao.P[int32](1),
+		Address:  gdao.P("bar"),
+		Phone:    gdao.P("1234"),
+		Email:    gdao.P("test@email.com"),
+		Status:   gdao.P[int8](1),
+		Level:    gdao.P[int32](0),
+		CreateAt: gdao.P(time.Now()),
+	}
+	affected, err := userDao.Exec(gdao.ExecReq[User]{
+		Entities:       []*User{u},
+		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("INSERT INTO user")
+			columns := b.Columns(true)
+			b.EachColumn(b.Entity(), b.SepFix("(", ",", ")", false),
+				func(_ int, column string, value any) {
+					b.Write(column)
+				}, columns...)
+			b.EachColumn(b.Entity(), b.SepFix(" VALUES(", ",", ")", false),
+				func(_ int, column string, value any) {
+					b.Write("?", value)
+				}, columns...)
+		},
+	})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	fmt.Println(affected, *u.Id) // auto increment key
 
-    // query
-    u2, _, err := userDao.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
-        b.Write("SELECT ").WriteColumns().Write(" FROM user WHERE id=?", u.Id)
-    }})
-    if err != nil {
-        log.Fatalln(err)
-    }
-    j, _ := json.Marshal(u2)
-    fmt.Println(string(j))
+	// query
+	u2, _, err := userDao.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+		b.Write("SELECT ").WriteColumns().Write(" FROM user WHERE id=?", u.Id)
+	}})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	j, _ := json.Marshal(u2)
+	fmt.Println(string(j))
 
-    // update
-    u3 := &User{
-        Email:  gdao.Ptr("example@email.com"),
-        Status: gdao.Ptr[int8](2),
-    }
-    userDao.Exec(gdao.ExecReq[User]{
-        Entities: []*User{u3},
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("UPDATE user SET ")
-            cvs := b.ColumnValues(true)
-            b.EachColumnValues(cvs, b.Sep(","), func(column string, value any) {
-                b.Write(column).Write("=?", value)
-            })
-            b.Write(" WHERE id=?", u.Id)
-        },
-    })
+	// update
+	u3 := &User{
+		Email:  gdao.P("example@email.com"),
+		Status: gdao.P[int8](2),
+	}
+	userDao.Exec(gdao.ExecReq[User]{
+		Entities: []*User{u3},
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			columns := b.Columns(true)
+			b.Write("UPDATE user SET ")
+			b.EachColumn(b.Entity(), b.Sep(","),
+				func(_ int, column string, value any) {
+					b.Write(column).Write("=?", value)
+				}, columns...)
+			b.Write(" WHERE id=?", u.Id)
+		},
+	})
 
-    // delete
-    userDao.Exec(gdao.ExecReq[User]{
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("DELETE FROM user WHERE id=?", u.Id)
-        },
-    })
+	// delete
+	userDao.Exec(gdao.ExecReq[User]{
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("DELETE FROM user WHERE id=?", u.Id)
+		},
+	})
 }
 ```
 
@@ -217,64 +220,65 @@ var UserDao = _UserDao{gdao.NewDao[User](gdao.NewDaoReq{})}
 var AccountDao = _AccountDao{gdao.NewDao[Account](gdao.NewDaoReq{})}
 
 type _UserDao struct {
-    *gdao.Dao[User]
+	*gdao.Dao[User]
 }
 
 func (d _UserDao) GetById(id int32) (*User, error) {
-    first, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.Builder[User]) {
-        b.Write("SELECT ").WriteColumns().Write(" FROM user WHERE id=?", id)
-    }})
-    if err != nil {
-        return nil, err
-    }
-    return first, nil
+	first, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+		b.Write("SELECT ")
+		b.WriteColumns().Write(" FROM user WHERE id=?", id)
+	}})
+	if err != nil {
+		return nil, err
+	}
+	return first, nil
 }
 
 func (d _UserDao) UpdateStatus(id int32, status int8) (int64, error) {
-    affected, err := d.Exec(gdao.ExecReq[User]{BuildSql: func(b *gdao.Builder[User]) {
-        b.Write("UPDATE user SET status=? WHERE id=?", status, id)
-    }})
-    if err != nil {
-        return 0, err
-    }
-    return affected, nil
+	affected, err := d.Exec(gdao.ExecReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+		b.Write("UPDATE user SET status=? WHERE id=?", status, id)
+	}})
+	if err != nil {
+		return 0, err
+	}
+	return affected, nil
 }
 
 type _AccountDao struct {
-    *gdao.Dao[Account]
+	*gdao.Dao[Account]
 }
 
 func (d _AccountDao) GetByUserId(userId int32) (*Account, error) {
-    first, _, err := d.Query(gdao.QueryReq[Account]{BuildSql: func(b *gdao.Builder[Account]) {
-        b.Write("SELECT ").WriteColumns().Write(" FROM user WHERE user_id=?", userId)
-    }})
-    if err != nil {
-        return nil, err
-    }
-    return first, nil
+	first, _, err := d.Query(gdao.QueryReq[Account]{BuildSql: func(b *gdao.DaoSqlBuilder[Account]) {
+		b.Write("SELECT ").WriteColumns().Write(" FROM user WHERE user_id=?", userId)
+	}})
+	if err != nil {
+		return nil, err
+	}
+	return first, nil
 }
 
 func (d _AccountDao) ReduceBalance(id int32, balance int64) (bool, error) {
-    a, _, err := d.Query(gdao.QueryReq[Account]{BuildSql: func(b *gdao.Builder[Account]) {
-        b.Write("SELECT balance FROM user WHERE id=?", id)
-    }})
-    if err != nil {
-        return false, err
-    }
+	a, _, err := d.Query(gdao.QueryReq[Account]{BuildSql: func(b *gdao.DaoSqlBuilder[Account]) {
+		b.Write("SELECT balance FROM user WHERE id=?", id)
+	}})
+	if err != nil {
+		return false, err
+	}
 
-    oldBalance := *a.Balance
-    newBalance := oldBalance - balance
-    if newBalance < 0 {
-        return false, nil
-    }
+	oldBalance := *a.Balance
+	newBalance := oldBalance - balance
+	if newBalance < 0 {
+		return false, nil
+	}
 
-    affected, err := d.Exec(gdao.ExecReq[Account]{BuildSql: func(b *gdao.Builder[Account]) {
-        b.Write("UPDATE account SET balance=? WHERE id=? AND balance=?", newBalance, id, oldBalance)
-    }})
-    if err != nil {
-        return false, err
-    }
-    return affected > 0, nil
+	affected, err := d.Exec(gdao.ExecReq[Account]{BuildSql: func(b *gdao.DaoSqlBuilder[Account]) {
+		b.Write("UPDATE account SET balance=? WHERE id=? AND balance=?", newBalance, id, oldBalance)
+	}})
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
 }
 ```
 
@@ -317,25 +321,24 @@ UserDao := gdao.NewDao[User](gdao.NewDaoReq{DB: db})
 
 ```go
 func foo() error {
-    user := &User{Status: gdao.Ptr[int8](1), Level: gdao.Ptr[int32](2)}
+	user := &User{Status: gdao.P[int8](1), Level: gdao.P[int32](2)}
 
-    _, list, err := UserDao.Query(gdao.QueryReq[User]{
-        Entities: []*User{user},
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("SELECT ").WriteColumns().Write(" FROM user WHERE ")
-            cvs := b.ColumnValues(true)
-            b.EachColumnValues(cvs, b.Sep(" AND "), func(column string, value any) {
-                b.Write(column).Write("=?").Arg(value)
-            })
-        }})
+	_, list, err := UserDao.Query(gdao.QueryReq[User]{
+		Entities: []*User{user},
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("SELECT ").WriteColumns().Write(" FROM user WHERE ")
+			b.EachColumn(b.Entity(), b.Sep(" AND "), func(_ int, column string, value any) {
+				b.Write(column).Write("=?",value)
+			})
+		}})
 
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 
-    json, _ := json.Marshal(list)
-    fmt.Println(json)
-    return nil
+	json, _ := json.Marshal(list)
+	fmt.Println(json)
+	return nil
 }
 ```
 
@@ -356,16 +359,16 @@ func foo() error {
 
 ```go
 func foo() {
-    affected, err := UserDao.Exec(gdao.ExecReq[User]{
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("UPDATE user SET level=2 WHERE id=?", 1)
-        }})
+	affected, err := UserDao.Exec(gdao.ExecReq[User]{
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("UPDATE user SET level=2 WHERE id=?", 1)
+		}})
 
-    if err != nil {
-        fmt.Println(err)
-    } else {
-        fmt.Println(affected)
-    }
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(affected)
+	}
 }
 ```
 
@@ -387,31 +390,30 @@ func foo() {
 
 ```go
 func foo() {
-    users := []*User{
-        {Name: gdao.Ptr("Jack"), Phone: gdao.Ptr("12345"), Email: gdao.Ptr("jack@email.com")},
-        {Name: gdao.Ptr("Nick"), Phone: gdao.Ptr("43422"), Email: gdao.Ptr("rose@email.com")},
-    }
+	users := []*User{
+		{Name: gdao.P("Jack"), Phone: gdao.P("12345"), Email: gdao.P("jack@email.com")},
+		{Name: gdao.P("Nick"), Phone: gdao.P("43422"), Email: gdao.P("rose@email.com")},
+	}
 
-    affected, err := UserDao.Exec(gdao.ExecReq[User]{
-        Entities:       users,
-        LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
-            b.EachEntity(b.Sep(","), func(_, _ int, entity *User) {
-                cvs := b.ColumnValuesAt(entity, false)
-                b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(_ int, _ string, value any) {
-                    b.Write("?").Arg(value)
-                })
-            })
-        }})
+	affected, err := UserDao.Exec(gdao.ExecReq[User]{
+		Entities:       users,
+		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
+			b.EachEntity(b.Sep(","), func(_ int, entity *User) {
+				b.EachColumn(entity, b.SepFix("(", ",", ")", false), func(_ int, _ string, value any) {
+					b.Write("?", value)
+				})
+			})
+		}})
 
-    if err != nil {
-        fmt.Println(err)
-    } else {
-        fmt.Println(affected)
-        fmt.Println(*users[0].Id)
-        fmt.Println(*users[1].Id)
-    }
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(affected)
+		fmt.Println(*users[0].Id)
+		fmt.Println(*users[1].Id)
+	}
 }
 ```
 
@@ -419,31 +421,30 @@ func foo() {
 
 ```go
 func foo() {
-    users := []*User{
-        {Name: gdao.Ptr("Jack"), Phone: gdao.Ptr("12345"), Email: gdao.Ptr("jack@email.com")},
-        {Name: gdao.Ptr("Nick"), Phone: gdao.Ptr("43422"), Email: gdao.Ptr("rose@email.com")},
-    }
+	users := []*User{
+		{Name: gdao.P("Jack"), Phone: gdao.P("12345"), Email: gdao.P("jack@email.com")},
+		{Name: gdao.P("Nick"), Phone: gdao.P("43422"), Email: gdao.P("rose@email.com")},
+	}
 
-    affected, err := UserDao.Exec(gdao.ExecReq[User]{
-        Entities:       users,
-        LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID,
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
-            b.EachEntity(b.Sep(","), func(_, _ int, entity *User) {
-                cvs := b.ColumnValuesAt(entity, false)
-                b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(_ int, _ string, value any) {
-                    b.Write("?").Arg(value)
-                })
-            })
-        }})
+	affected, err := UserDao.Exec(gdao.ExecReq[User]{
+		Entities:       users,
+		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID,
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
+			b.EachEntity(b.Sep(","), func(_ int, entity *User) {
+				b.EachColumn(entity, b.SepFix("(", ",", ")", false), func(_ int, _ string, value any) {
+					b.Write("?", value)
+				})
+			})
+		}})
 
-    if err != nil {
-        fmt.Println(err)
-    } else {
-        fmt.Println(affected)
-        fmt.Println(*users[0].Id)
-        fmt.Println(*users[1].Id)
-    }
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(affected)
+		fmt.Println(*users[0].Id)
+		fmt.Println(*users[1].Id)
+	}
 }
 ```
 ## RowAs参数
@@ -459,31 +460,30 @@ func foo() {
 
 ```go
 func foo() {
-    users := []*User{
-        {Name: gdao.Ptr("Jack"), Phone: gdao.Ptr("12345"), Email: gdao.Ptr("jack@email.com")},
-        {Name: gdao.Ptr("Nick"), Phone: gdao.Ptr("43422"), Email: gdao.Ptr("nick@email.com")},
-    }
+	users := []*User{
+		{Name: gdao.P("Jack"), Phone: gdao.P("12345"), Email: gdao.P("jack@email.com")},
+		{Name: gdao.P("Nick"), Phone: gdao.P("43422"), Email: gdao.P("nick@email.com")},
+	}
 
-    _, _, err := UserDao.Query(gdao.QueryReq[User]{
-        Entities: users,
-        RowAs:    gdao.ROW_AS_RETURNING,
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
-            b.EachEntity(b.Sep(","), func(_, _ int, entity *User) {
-                cvs := b.ColumnValuesAt(entity, false)
-                b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(_ string, value any) {
-                    b.Write("?").Arg(value)
-                })
-            })
-            b.Write(" RETURNING id")
-        }})
+	_, _, err := UserDao.Query(gdao.QueryReq[User]{
+		Entities: users,
+		RowAs:    gdao.ROW_AS_RETURNING,
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
+			b.EachEntity(b.Sep(","), func(_ int, entity *User) {
+				b.EachColumn(entity, b.SepFix("(", ",", ")", false), func(_ string, value any) {
+					b.Write("?", value)
+				})
+			})
+			b.Write(" RETURNING id")
+		}})
 
-    if err != nil {
-        fmt.Println(err)
-    } else {
-        fmt.Println(*users[0].Id)
-        fmt.Println(*users[1].Id)
-    }
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(*users[0].Id)
+		fmt.Println(*users[1].Id)
+	}
 }
 ```
 
@@ -491,31 +491,30 @@ func foo() {
 
 ```go
 func foo() {
-    users := []*User{
-        {Name: gdao.Ptr("Jack"), Phone: gdao.Ptr("12345"), Email: gdao.Ptr("jack@email.com")},
-        {Name: gdao.Ptr("Nick"), Phone: gdao.Ptr("43422"), Email: gdao.Ptr("rose@email.com")},
-    }
+	users := []*User{
+		{Name: gdao.P("Jack"), Phone: gdao.P("12345"), Email: gdao.P("jack@email.com")},
+		{Name: gdao.P("Nick"), Phone: gdao.P("43422"), Email: gdao.P("rose@email.com")},
+	}
 
-    _, _, err := UserDao.Query(gdao.QueryReq[User]{
-        Entities: users,
-        RowAs:    gdao.ROW_AS_LAST_ID,
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("INSERT INTO user (").WriteColumns().Write(") VALUES")
-            b.EachEntity(b.Sep(","), func(_, _ int, entity *User) {
-                cvs := b.ColumnValuesAt(entity, false)
-                b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(_ string, value any) {
-                    b.Write("?").Arg(value)
-                })
-            })
-            b.Write("; select ID = convert(bigint, SCOPE_IDENTITY())")
-        }})
+	_, _, err := UserDao.Query(gdao.QueryReq[User]{
+		Entities: users,
+		RowAs:    gdao.ROW_AS_LAST_ID,
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("INSERT INTO user (").WriteColumns().Write(") VALUES")
+			b.EachEntity(b.Sep(","), func(_ int, entity *User) {
+				b.EachColumn(entity, b.SepFix("(", ",", ")", false), func(_ string, value any) {
+					b.Write("?", value)
+				})
+			})
+			b.Write("; select ID = convert(bigint, SCOPE_IDENTITY())")
+		}})
 
-    if err != nil {
-        fmt.Println(err)
-    } else {
-        fmt.Println(*users[0].Id)
-        fmt.Println(*users[1].Id)
-    }
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(*users[0].Id)
+		fmt.Println(*users[1].Id)
+	}
 }
 ```
 
@@ -552,46 +551,44 @@ func (d _CountDao) ExistUser(id string) (bool, error) {
 var UserDao = _UserDao{gdao.NewDao[User](gdao.NewDaoReq{})}
 
 type _UserDao struct {
-    *gdao.Dao[User]
+	*gdao.Dao[User]
 }
 
 // InsertBatch 批量插入数据
 func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
-    affected, err := d.Exec(gdao.ExecReq[User]{
-        Entities: entities,
-        LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
-        BuildSql: func(b *gdao.Builder[User]) {
-            // 如果请求参数是空的，则通过b.SetOk(false)设置为无SQL可执行，然后return
-            if len(entities) == 0 {
-                b.SetOk(false)
-                return
-            }
-            // 开始拼接INSERT语句
-            b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
-            // 遍历Entities的每个实体
-            b.EachEntity(b.Sep(","), func(_, _ int, entity *User) {
-                // 获取实体的“列名称-字段值“键值对列表
-                cvs := b.ColumnValues(false)
-                // 遍历这些键值对，指定开始、分隔和结束符号
-                b.EachColumnValues(cvs, b.SepFix("(", ",", ")", false), func(columnName string, value any) {
-                    // 拼接参数占位符并设置参数
-                    b.Write("?").Arg(value)
-                })
-            })
-            // 最终会拼接成类似如下SQL（为了方便说明SQL已格式化）
-            //
-            // INSERT INTO
-            //     user(id,name,age,address,phone,email,status,level,create_at)
-            // VALUES
-            //     (?,?,?,?,?,?,?,?,?),
-            //     (?,?,?,?,?,?,?,?,?),
-            //     ...
-            //     (?,?,?,?,?,?,?,?,?)
-        }})
-    if err != nil {
-        return 0, err
-    }
-    return affected, nil
+	affected, err := d.Exec(gdao.ExecReq[User]{
+		Entities:       entities,
+		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			// 如果请求参数是空的，则通过b.SetOk(false)设置为无SQL可执行，然后return
+			if len(entities) == 0 {
+				b.SetOk(false)
+				return
+			}
+			// 开始拼接INSERT语句
+			b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
+			// 遍历Entities的每个实体
+			b.EachEntity(b.Sep(","), func(_ int, entity *User) {
+				// 遍历这些键值对，指定开始、分隔和结束符号
+				b.EachColumn(entity, b.SepFix("(", ",", ")", false), func(_ int, columnName string, value any) {
+					// 拼接参数占位符并设置参数
+					b.Write("?", value)
+				})
+			})
+			// 最终会拼接成类似如下SQL（为了方便说明SQL已格式化）
+			//
+			// INSERT INTO
+			//     user(id,name,age,address,phone,email,status,level,create_at)
+			// VALUES
+			//     (?,?,?,?,?,?,?,?,?),
+			//     (?,?,?,?,?,?,?,?,?),
+			//     ...
+			//     (?,?,?,?,?,?,?,?,?)
+		}})
+	if err != nil {
+		return 0, err
+	}
+	return affected, nil
 }
 ```
 
@@ -607,8 +604,8 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
 | `EntityAt`     | 返回`Entities`中指定索引的实体。                                             |
 | `Entity`       | 相当于`EntityAt(0)`                                                  |
 | `ColumnValue`  | 返回首个实体中指定列名称对应字段的值。                                               |
-| `EachEntity`   | 遍历`Entities`，自动过滤nil元素，`handle`函数参数`n`为调用次数，从1开始。                 |
-| `EachColumn`   | 遍历指定实体的“列名称-字段值”列表，`handle`函数参数`n`为调用次数。。                         |
+| `EachEntity`   | 遍历`Entities`，`handle`函数参数`n`为调用次数，从1开始。                           |
+| `EachColumn`   | 遍历指定实体的“列名称-字段值”列表，`handle`函数参数`n`为调用次数，从1开始。                     |
 | `Repeat`       | 循环指定次数，`handle`函数参数`n`为调用次数，从1开始，`i`为循环次数。                        |
 | `Sep`          | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定分隔符号                               |
 | `SepFix`       | 在“Each”开头的方法和`Repeat`方法中使用，拼接指定开始、分隔和结束符号，可指定无元素时是否拼接开始、结束符号。     |
@@ -630,34 +627,35 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
 
 ```go
 func foo(ctx context.Context) error {
-    tx, err := demo.UserDao.DB().Begin()
-    if err != nil {
-        return err
-    }
-    
-    ctx = gdao.SetTx(ctx, tx)
+	tx, err := UserDao.DB().Begin()
+	if err != nil {
+		return err
+	}
 
-    _, err = UserDao.Exec(gdao.ExecReq[User]{
-        Ctx: ctx,
-        BuildSql: func(b *gdao.Builder[User]) {
-            b.Write("UPDATE user SET status=-1 WHERE user_id=?", 1)
-        }})
-    if err != nil {
-        tx.Rollback()
-        return err
-    }
+	ctx = gdao.SetTx(ctx, tx)
 
-    _, err = AccountDao.Exec(gdao.ExecReq[Account]{
-        Ctx: ctx,
-        BuildSql: func(b *gdao.Builder[Account]) {
-            b.Write("UPDATE account SET status=-1 WHERE user_id=?", 1)
-        }})
-    if err != nil {
-        tx.Rollback()
-        return err
-    }
+	_, err = UserDao.Exec(gdao.ExecReq[User]{
+		Ctx: ctx,
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("UPDATE user SET status=-1 WHERE user_id=?", 1)
+		}})
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-    tx.Commit()
+	_, err = AccountDao.Exec(gdao.ExecReq[Account]{
+		Ctx: ctx,
+		BuildSql: func(b *gdao.DaoSqlBuilder[Account]) {
+			b.Write("UPDATE account SET status=-1 WHERE user_id=?", 1)
+		}})
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	tx.Commit()
+	return nil
 }
 ```
 
@@ -677,26 +675,26 @@ func foo(ctx context.Context) error {
 
 ```go
 func foo(c context.Context) {
-    gdao.Tx(c, func(ctx context.Context) error {
-        _, err := UserDao.Exec(gdao.ExecReq[User]{
-            Ctx: ctx,
-            BuildSql: func(b *gdao.Builder[User]) {
-                b.Write("UPDATE user SET status=-1 WHERE user_id=?", 1)
-            }})
-        if err != nil {
-            return err
-        }
+	gdao.Tx(c, func(ctx context.Context) error {
+		_, err := UserDao.Exec(gdao.ExecReq[User]{
+			Ctx: ctx,
+			BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+				b.Write("UPDATE user SET status=-1 WHERE user_id=?", 1)
+			}})
+		if err != nil {
+			return err
+		}
 
-        _, err = AccountDao.Exec(gdao.ExecReq[Account]{
-            Ctx: ctx,
-            BuildSql: func(b *gdao.Builder[Account]) {
-                b.Write("UPDATE account SET status=-1 WHERE user_id=?", 1)
-            }})
-        if err != nil {
-            return err
-        }
-        return nil
-    })
+		_, err = AccountDao.Exec(gdao.ExecReq[Account]{
+			Ctx: ctx,
+			BuildSql: func(b *gdao.DaoSqlBuilder[Account]) {
+				b.Write("UPDATE account SET status=-1 WHERE user_id=?", 1)
+			}})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
 ```
 
@@ -751,21 +749,21 @@ GDAO提供了常用数据库的实体和DAO代码生成器，**生成后的代�
 package main
 
 import (
-    "github.com/jishaocong0910/gdao/gen"
+	"github.com/jishaocong0910/gdao/gen"
 )
 
 func main() {
-    gen.GetGenerator(gen.Cfg{
-        DbType:  gen.DB_MYSQL,
-        Dsn:     "(dsn)",
-        OutPath: "demo", // 生成文件相对路径，绝对路径为"os.Getwd()/OutPath"。
-        TableCfg: gen.TableCfg{
-            Tables: gen.Tables{"user", "account"},
-        },
-        DaoCfg: gen.DaoCfg{
-            GenDao: true, // 是否生成DAO，false只生成实体。
-        },
-    }).Gen()
+	gen.GetGenerator(gen.GenCfg{
+		DbType:  gen.DbType_.MYSQL,
+		Dsn:     "(dsn)",
+		OutPath: "demo", // 生成文件相对路径，绝对路径为"os.Getwd()/OutPath"。
+		TableCfg: gen.TableCfg{
+			Tables: gen.Tables{"user", "account"},
+		},
+		DaoCfg: gen.DaoCfg{
+			GenDao: true, // 是否生成DAO，false只生成实体。
+		},
+	}).Gen()
 }
 ```
 
@@ -791,62 +789,38 @@ func main() {
 package main
 
 import (
-    "context"
-    "github.com/jishaocong0910/gdao"
+	"context"
+	"github.com/jishaocong0910/gdao"
 )
 
 var UserDao = _UserDao{newBaseDao[User](gdao.NewDaoReq{}, "user")}
 
 type _UserDao struct {
-    *baseDao[User]
+	*baseDao[User]
 }
 
 // 扩展了一个查询方法
 func (d _UserDao) QueryByStatus(ctx context.Context, status ...int) ([]*User, error) {
-    _, list, err := d.Query(gdao.QueryReq[User]{
-        Ctx: ctx,
-        BuildSql: func(b *gdao.Builder[User]) {
-            if len(status) == 0 {
-                b.SetOk(false) //设置为false表示不执行SQL
-                return
-            }
-            b.Write("SELECT * FROM user WHERE status IN")
-            b.Repeat(len(status), b.SepFix("(", ",", ")", false), nil, func(n, i int) {
-                b.Write(",", status[i])
-            })
-        },
-    })
-    return list, err
+	_, list, err := d.Query(gdao.QueryReq[User]{
+		Ctx: ctx,
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			if len(status) == 0 {
+				b.SetOk(false) //设置为false表示不执行SQL
+				return
+			}
+			b.Write("SELECT * FROM user WHERE status IN")
+			b.Repeat(len(status), b.SepFix("(", ",", ")", false), nil, func(n, i int) {
+				b.Write(",", status[i])
+			})
+		},
+	})
+	return list, err
 }
 ```
 
 ## 基础DAO
 
 实体DAO内嵌了基础DAO结构体`baseDao`，提供了常用的单表操作能力，基础DAO不建议二次编辑。
-
-*Example*
-
-```go
-package main
-
-import (
-    "github.com/jishaocong0910/gdao"
-    "gdao-demo/demo"
-)
-
-func main() {
-    // 将执行SQL如下：
-    // UPDATE user SET email = 'some@email.com', status = 2 WHERE id = 1
-    demo.UserDao.Update(demo.UpdateReq[demo.User]{
-        Entity: &demo.User{
-            Id:     gdao.Ptr[int32](1),
-            Email:  gdao.Ptr("some@email.com"),
-            Status: gdao.Ptr[int8](2),
-        },
-        WhereColumns: []string{"id"},
-    })
-}
-```
 
 ### 内置方法
 

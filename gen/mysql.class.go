@@ -1,38 +1,51 @@
+/*
+Copyright 2024-present jishaocong0910
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gen
 
 import (
-	"database/sql"
-	"fmt"
-	"strings"
-	"text/template"
-
 	_ "embed"
-
 	_ "github.com/go-sql-driver/mysql"
+	"strings"
 )
 
 //go:embed mysql_base_dao.tpl
 var mysqlBaseDaoTpl string
 
 type mySqlGenerator struct {
-	baseDaoTemplate *template.Template
-	c               Cfg
-	db              *sql.DB
-	database        string
+	*generator__
+	database string
 }
 
-func (g mySqlGenerator) getBaseDaoTemplate() *template.Template {
-	return g.baseDaoTemplate
+func (this *mySqlGenerator) getDriverName() string {
+	return "mysql"
 }
 
-func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
+func (this *mySqlGenerator) getBaseDaoTemplate() string {
+	return mysqlBaseDaoTpl
+}
+
+func (this *mySqlGenerator) getTableInfo(table string) (bool, []*fieldTplParams, string) {
 	var (
 		exists       bool
-		fields       []*field
+		fields       []*fieldTplParams
 		tableComment string
 	)
 
-	rows := mustReturn(g.db.Query("SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, EXTRA = 'auto_increment', COLUMN_COMMENT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION", g.database, table))
+	rows := mustReturn(this.db.Query("SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, EXTRA = 'auto_increment', COLUMN_COMMENT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION", this.database, table))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
@@ -45,7 +58,7 @@ func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
 		)
 		mustNoError(rows.Scan(&column, &dataType, &columnType, &isAutoIncrement, &comment))
 
-		f := &field{
+		f := &fieldTplParams{
 			Column:          column,
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       "any",
@@ -109,7 +122,7 @@ func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
 		fields = append(fields, f)
 	}
 
-	rows = mustReturn(g.db.Query("SELECT TABLE_COMMENT FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", g.database, table))
+	rows = mustReturn(this.db.Query("SELECT TABLE_COMMENT FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", this.database, table))
 	defer rows.Close()
 	if rows.Next() {
 		rows.Scan(&tableComment)
@@ -118,17 +131,16 @@ func (g mySqlGenerator) getTableInfo(table string) (bool, []*field, string) {
 	return exists, fields, tableComment
 }
 
-func newMySqlGenerator(c Cfg) mySqlGenerator {
-	db, err := sql.Open("mysql", c.Dsn)
-	if err != nil { // coverage-ignore
-		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
-	}
+func newMySqlGenerator(c GenCfg) *mySqlGenerator {
+	m := &mySqlGenerator{}
+	m.generator__ = ExtendGenerator_(m, c)
+
 	database := ""
-	rows := mustReturn(db.Query("SELECT DATABASE()"))
+	rows := mustReturn(m.db.Query("SELECT DATABASE()"))
 	if rows.Next() {
 		rows.Scan(&database)
 	}
 	rows.Close()
-	t := mustReturn(template.New("").Parse(mysqlBaseDaoTpl))
-	return mySqlGenerator{baseDaoTemplate: t, c: c, db: db, database: database}
+	m.database = database
+	return m
 }

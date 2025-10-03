@@ -16,4 +16,19 @@ limitations under the License.
 
 package gen
 
-type DbType = dbType
+import e "github.com/jishaocong0910/enum"
+
+type dbType struct {
+	*e.EnumElem__
+}
+
+type _DbType struct {
+	*e.Enum__[dbType]
+	MYSQL,
+	ORACLE,
+	POSTGRES,
+	SQLSERVER,
+	SQLITE dbType
+}
+
+var DbType_ = e.NewEnum[dbType](_DbType{})
