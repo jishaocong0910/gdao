@@ -1,3 +1,19 @@
+/*
+Copyright 2024-present jishaocong0910
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gdao_test
 
 import (
@@ -18,7 +34,7 @@ func TestTx(t *testing.T) {
 		mock.ExpectCommit()
 		tx, err := userDao.DB().Begin()
 		r.NoError(err)
-		affected, err := userDao.Exec(gdao.ExecReq[User]{Ctx: gdao.SetTx(nil, tx), BuildSql: func(b *gdao.Builder[User]) {
+		affected, err := userDao.Exec(gdao.ExecReq[User]{Ctx: gdao.SetTx(nil, tx), BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("UPDATE user set status=1 WHERE id=?", 1)
 		}})
 		tx.Commit()
@@ -35,7 +51,7 @@ func TestTx(t *testing.T) {
 		err := gdao.Tx(nil, func(ctx context.Context) error {
 			_, err := userDao.Exec(gdao.ExecReq[User]{
 				Ctx: ctx,
-				BuildSql: func(b *gdao.Builder[User]) {
+				BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 					b.Write("UPDATE user set status=1 WHERE id=?", 1)
 				},
 			})

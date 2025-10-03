@@ -1,3 +1,19 @@
+/*
+Copyright 2024-present jishaocong0910
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gdao_test
 
 import (
@@ -96,16 +112,17 @@ func TestDao_Query(t *testing.T) {
 			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows([]string{"id", "name", "age", "address", "phone", "email", "status", "level", "create_at"}).
 			AddRow(1, "foo", 1, "bar", "123456", "foo@gmail", 2, 1, createAt))
 		user, users, err := dao.Query(gdao.QueryReq[User]{
-			BuildSql: func(b *gdao.Builder[User]) {
-				b.Write("SELECT ").WriteColumns().
-					Write(" FROM user").
-					Write(" WHERE id=? AND status=?", 1, 2)
+			BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+				b.Write("SELECT ")
+				b.WriteColumns()
+				b.Write(" FROM user")
+				b.Write(" WHERE id=? AND status=?", 1, 2)
 			},
 		})
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
 		r.Equal(user, users[0])
-		r.Equal(int32(1), gdao.Val(user.Id))
+		r.Equal(int32(1), gdao.V(user.Id))
 		r.Equal("foo", *user.Name)
 		r.Equal(int8(2), *user.Status)
 		r.Equal(int32(1), *user.Age)
@@ -118,23 +135,29 @@ func TestDao_Query(t *testing.T) {
 	{
 		dao, mock := mockUserDao(r)
 		user := &User{
-			Status:   gdao.Ptr[int8](1),
-			CreateAt: gdao.Ptr(createAt),
-			Level:    gdao.Ptr[int32](2),
+			Status:   gdao.P[int8](1),
+			CreateAt: gdao.P(createAt),
+			Level:    gdao.P[int32](2),
 		}
 		mock.ExpectPrepare(`SELECT id, name, age, address, phone, email, status, level, create_at FROM user WHERE status=\$1 AND level=\$2 AND create_at=\$3`).
 			ExpectQuery().WithArgs(user.Status, user.Level, user.CreateAt).WillReturnRows(mock.NewRows([]string{"id", "name", "age", "address", "phone", "email", "status", "level", "create_at"}).
 			AddRow(1, "foo", 1, "bar", "123456", "foo@gmail", 2, 1, createAt))
 		_, _, err := dao.Query(gdao.QueryReq[User]{
 			Entities: []*User{user},
-			BuildSql: func(b *gdao.Builder[User]) {
-				b.Write("SELECT ").WriteColumns()
+			BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+				b.Write("SELECT ")
+				b.WriteColumns()
 				b.Write(" FROM user")
 				b.Write(" WHERE ")
 				e := b.Entity()
-				b.Write("status=").Write(b.Pp("$"), e.Status)
-				b.Write(" AND ").Write("level=").Write(b.Pp("$"), e.Level)
-				b.Write(" AND ").Write("create_at=").Write(b.Pp("$"), e.CreateAt)
+				b.Write("status=")
+				b.Write(b.Pp("$"), e.Status)
+				b.Write(" AND ")
+				b.Write("level=")
+				b.Write(b.Pp("$"), e.Level)
+				b.Write(" AND ")
+				b.Write("create_at=")
+				b.Write(b.Pp("$"), e.CreateAt)
 			},
 		})
 		r.NoError(err)
@@ -147,17 +170,18 @@ func TestDao_Query(t *testing.T) {
 			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows([]string{"id", "name", "age", "address", "phone", "email", "status", "level", "create_at", "valid"}).
 			AddRow(1, "foo", 1, "bar", "123456", "foo@gmail", 2, 1, createAt, true))
 		user, users, err := dao.Query(gdao.QueryReq[User]{
-			BuildSql: func(b *gdao.Builder[User]) {
-				b.Write("SELECT ").WriteColumns().
-					Write(", valid").
-					Write(" FROM user").
-					Write(" WHERE id=? AND status=?", 1, 2)
+			BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+				b.Write("SELECT ")
+				b.WriteColumns()
+				b.Write(", valid")
+				b.Write(" FROM user")
+				b.Write(" WHERE id=? AND status=?", 1, 2)
 			},
 		})
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
 		r.Equal(user, users[0])
-		r.Equal(int32(1), gdao.Val(user.Id))
+		r.Equal(int32(1), gdao.V(user.Id))
 		r.Equal("foo", *user.Name)
 		r.Equal(int8(2), *user.Status)
 		r.Equal(int32(1), *user.Age)
@@ -174,14 +198,14 @@ func TestDao_Query_RowAsReturning(t *testing.T) {
 	dao, mock := mockAccountDao(r)
 	accounts := []*Account{
 		{
-			UserId:  gdao.Ptr[int32](1),
-			Status:  gdao.Ptr[int8](1),
-			Balance: gdao.Ptr[int64](100),
+			UserId:  gdao.P[int32](1),
+			Status:  gdao.P[int8](1),
+			Balance: gdao.P[int64](100),
 		},
 		{
-			UserId:  gdao.Ptr[int32](2),
-			Status:  gdao.Ptr[int8](1),
-			Balance: gdao.Ptr[int64](200),
+			UserId:  gdao.P[int32](2),
+			Status:  gdao.P[int8](1),
+			Balance: gdao.P[int64](200),
 		},
 	}
 	mock.ExpectPrepare(`INSERT account\(user_id,status,balance\) VALUES\(\?,\?,\?\),\(\?,\?,\?\) RETURNING id`).
@@ -191,9 +215,10 @@ func TestDao_Query_RowAsReturning(t *testing.T) {
 	_, _, err := dao.Query(gdao.QueryReq[Account]{
 		Entities: accounts,
 		RowAs:    gdao.ROW_AS_RETURNING,
-		BuildSql: func(b *gdao.Builder[Account]) {
-			b.Write("INSERT account").Write("(user_id,status,balance) VALUES")
-			b.EachEntity(b.Sep(","), nil, func(n int, entity *Account) {
+		BuildSql: func(b *gdao.DaoSqlBuilder[Account]) {
+			b.Write("INSERT account")
+			b.Write("(user_id,status,balance) VALUES")
+			b.EachEntity(b.Sep(","), func(n int, entity *Account) {
 				b.Write("(?,?,?)", entity.UserId, entity.Status, entity.Balance)
 			})
 			b.Write(" RETURNING id")
@@ -211,14 +236,14 @@ func TestDao_Query_RowAsLastId(t *testing.T) {
 	dao, mock := mockAccountDao(r)
 	accounts := []*Account{
 		{
-			UserId:  gdao.Ptr[int32](1),
-			Status:  gdao.Ptr[int8](1),
-			Balance: gdao.Ptr[int64](100),
+			UserId:  gdao.P[int32](1),
+			Status:  gdao.P[int8](1),
+			Balance: gdao.P[int64](100),
 		},
 		{
-			UserId:  gdao.Ptr[int32](2),
-			Status:  gdao.Ptr[int8](1),
-			Balance: gdao.Ptr[int64](200),
+			UserId:  gdao.P[int32](2),
+			Status:  gdao.P[int8](1),
+			Balance: gdao.P[int64](200),
 		},
 	}
 	mock.ExpectPrepare(`INSERT account\(user_id,status,balance\) VALUES\(\?,\?,\?\),\(\?,\?,\?\); SELECT ID=convert\(bigint, SCOPE_IDENTITY\(\)\)`).
@@ -228,9 +253,10 @@ func TestDao_Query_RowAsLastId(t *testing.T) {
 	_, _, err := dao.Query(gdao.QueryReq[Account]{
 		Entities: accounts,
 		RowAs:    gdao.ROW_AS_LAST_ID,
-		BuildSql: func(b *gdao.Builder[Account]) {
-			b.Write("INSERT account").Write("(user_id,status,balance) VALUES")
-			b.EachEntity(b.Sep(","), nil, func(n int, entity *Account) {
+		BuildSql: func(b *gdao.DaoSqlBuilder[Account]) {
+			b.Write("INSERT account")
+			b.Write("(user_id,status,balance) VALUES")
+			b.EachEntity(b.Sep(","), func(n int, entity *Account) {
 				b.Write("(?,?,?)", entity.UserId, entity.Status, entity.Balance)
 			})
 			b.Write("; SELECT ID=convert(bigint, SCOPE_IDENTITY())")
@@ -248,20 +274,21 @@ func TestDao_Exec(t *testing.T) {
 	{
 		dao, mock := mockUserDao(r)
 		user := &User{
-			Status:  gdao.Ptr[int8](3),
-			Level:   gdao.Ptr[int32](10),
-			Address: gdao.Ptr("address"),
-			Phone:   gdao.Ptr("56789"),
+			Status:  gdao.P[int8](3),
+			Level:   gdao.P[int32](10),
+			Address: gdao.P("address"),
+			Phone:   gdao.P("56789"),
 		}
 		mock.ExpectPrepare(`UPDATE user SET address=\?,phone=\?,status=\?,level=\? WHERE id=\?`).
 			ExpectExec().WithArgs(user.Address, user.Phone, user.Status, user.Level, 1001).WillReturnResult(sqlmock.NewResult(0, 1))
 		affected, err := dao.Exec(gdao.ExecReq[User]{
 			Entities: []*User{user},
-			BuildSql: func(b *gdao.Builder[User]) {
+			BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 				b.Write("UPDATE user SET ")
 				columns := b.Columns(true)
-				b.EachColumn(b.Entity(), b.Sep(","), nil, func(_ int, column string, value any) {
-					b.Write(column).Write("=?", value)
+				b.EachColumn(b.Entity(), b.Sep(","), func(_ int, column string, value any) {
+					b.Write(column)
+					b.Write("=?", value)
 				}, columns...)
 				b.Write(" WHERE id=?", 1001)
 			},
@@ -274,11 +301,11 @@ func TestDao_Exec(t *testing.T) {
 	{
 		dao, mock := mockUserDao(r)
 		user := &User{
-			Name:    gdao.Ptr("foo"),
-			Status:  gdao.Ptr[int8](3),
-			Level:   gdao.Ptr[int32](10),
-			Address: gdao.Ptr("address"),
-			Phone:   gdao.Ptr("56789"),
+			Name:    gdao.P("foo"),
+			Status:  gdao.P[int8](3),
+			Level:   gdao.P[int32](10),
+			Address: gdao.P("address"),
+			Phone:   gdao.P("56789"),
 		}
 		mock.ExpectPrepare(`INSERT user\(name, address, phone, status, level\) VALUES\(\?,\?,\?,\?,\?\)`).
 			ExpectExec().
@@ -286,13 +313,13 @@ func TestDao_Exec(t *testing.T) {
 			WillReturnResult(sqlmock.NewResult(1, 1))
 		affected, err := dao.Exec(gdao.ExecReq[User]{
 			Entities: []*User{user},
-			BuildSql: func(b *gdao.Builder[User]) {
+			BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 				b.Write("INSERT user")
 				columns := b.Columns(true)
 				b.Write("(")
 				b.WriteColumns(columns...)
 				b.Write(")")
-				b.EachColumn(b.Entity(), b.SepFix(" VALUES(", ",", ")", true), nil, func(n int, column string, value any) {
+				b.EachColumn(b.Entity(), b.SepFix(" VALUES(", ",", ")", true), func(n int, column string, value any) {
 					b.Write("?", value)
 				}, columns...)
 			},
@@ -311,16 +338,16 @@ func TestDao_Exec_LastInsertIdAsFirstId(t *testing.T) {
 	export := gdao.ExportDao(dao)
 	users := []*User{
 		{
-			Status:  gdao.Ptr[int8](3),
-			Level:   gdao.Ptr[int32](10),
-			Address: gdao.Ptr("address"),
-			Phone:   gdao.Ptr("56789"),
+			Status:  gdao.P[int8](3),
+			Level:   gdao.P[int32](10),
+			Address: gdao.P("address"),
+			Phone:   gdao.P("56789"),
 		},
 		{
-			Status:  gdao.Ptr[int8](2),
-			Level:   gdao.Ptr[int32](2),
-			Address: gdao.Ptr("addr"),
-			Phone:   gdao.Ptr("2325325"),
+			Status:  gdao.P[int8](2),
+			Level:   gdao.P[int32](2),
+			Address: gdao.P("addr"),
+			Phone:   gdao.P("2325325"),
 		},
 	}
 	mock.ExpectPrepare(`INSERT user\(`+export.ColumnsWithComma+`\) VALUES\(\?,\?,\?,\?,\?,\?,\?,\?,\?\),\(\?,\?,\?,\?,\?,\?,\?,\?,\?\)`).
@@ -331,10 +358,13 @@ func TestDao_Exec_LastInsertIdAsFirstId(t *testing.T) {
 	affected, err := dao.Exec(gdao.ExecReq[User]{
 		Entities:       users,
 		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
-		BuildSql: func(b *gdao.Builder[User]) {
-			b.Write("INSERT user").Write("(").WriteColumns().Write(") VALUES")
-			b.EachEntity(b.Sep(","), nil, func(n int, entity *User) {
-				b.EachColumn(entity, b.SepFix("(", ",", ")", false), nil, func(n int, column string, value any) {
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("INSERT user")
+			b.Write("(")
+			b.WriteColumns()
+			b.Write(") VALUES")
+			b.EachEntity(b.Sep(","), func(n int, entity *User) {
+				b.EachColumn(entity, b.SepFix("(", ",", ")", false), func(n int, column string, value any) {
 					b.Write("?", value)
 				}, b.Columns(false)...)
 			})
@@ -354,16 +384,16 @@ func TestDao_Exec_LastInsertIdAsLastId(t *testing.T) {
 	export := gdao.ExportDao(dao)
 	users := []*User{
 		{
-			Status:  gdao.Ptr[int8](3),
-			Level:   gdao.Ptr[int32](10),
-			Address: gdao.Ptr("address"),
-			Phone:   gdao.Ptr("56789"),
+			Status:  gdao.P[int8](3),
+			Level:   gdao.P[int32](10),
+			Address: gdao.P("address"),
+			Phone:   gdao.P("56789"),
 		},
 		{
-			Status:  gdao.Ptr[int8](2),
-			Level:   gdao.Ptr[int32](2),
-			Address: gdao.Ptr("addr"),
-			Phone:   gdao.Ptr("2325325"),
+			Status:  gdao.P[int8](2),
+			Level:   gdao.P[int32](2),
+			Address: gdao.P("addr"),
+			Phone:   gdao.P("2325325"),
 		},
 	}
 	mock.ExpectPrepare(`INSERT user\(`+export.ColumnsWithComma+`\) VALUES\(\?,\?,\?,\?,\?,\?,\?,\?,\?\),\(\?,\?,\?,\?,\?,\?,\?,\?,\?\)`).
@@ -374,10 +404,13 @@ func TestDao_Exec_LastInsertIdAsLastId(t *testing.T) {
 	affected, err := dao.Exec(gdao.ExecReq[User]{
 		Entities:       users,
 		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID,
-		BuildSql: func(b *gdao.Builder[User]) {
-			b.Write("INSERT user").Write("(").WriteColumns().Write(") VALUES")
-			b.EachEntity(b.Sep(","), nil, func(n int, entity *User) {
-				b.EachColumn(entity, b.SepFix("(", ",", ")", false), nil, func(n int, column string, value any) {
+		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			b.Write("INSERT user")
+			b.Write("(")
+			b.WriteColumns()
+			b.Write(") VALUES")
+			b.EachEntity(b.Sep(","), func(n int, entity *User) {
+				b.EachColumn(entity, b.SepFix("(", ",", ")", false), func(n int, column string, value any) {
 					b.Write("?", value)
 				}, b.Columns(false)...)
 			})

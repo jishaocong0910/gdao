@@ -14,6 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gen
+package gdao
 
-type DbType = dbType
+import "errors"
+
+type Error struct {
+	isTargets []error
+}
+
+func (r *Error) Is(e error) *Error { // coverage-ignore
+	r.isTargets = append(r.isTargets, e)
+	return r
+}
+
+func (r *Error) Match(e error) { // coverage-ignore
+	if r == nil {
+		return
+	}
+	for _, t := range r.isTargets {
+		if errors.Is(e, t) {
+			return
+		}
+	}
+	panic(e)
+}
+
+func Catch() *Error { // coverage-ignore
+	return &Error{}
+}

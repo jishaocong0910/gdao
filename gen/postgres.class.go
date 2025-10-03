@@ -1,35 +1,51 @@
+/*
+Copyright 2024-present jishaocong0910
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gen
 
 import (
 	"database/sql"
 	_ "embed"
 	"fmt"
-	"strings"
-	"text/template"
-
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/lib/pq"
+	"strings"
 )
 
 //go:embed postgres_base_dao.tpl
 var postgresBaseDaoTpl string
 
 type postgresGenerator struct {
-	baseDaoTemplate *template.Template
-	c               Cfg
-	db              *sql.DB
-	schema          string
-	database        string
+	*generator__
+	schema   string
+	database string
 }
 
-func (g postgresGenerator) getBaseDaoTemplate() *template.Template {
-	return g.baseDaoTemplate
+func (g postgresGenerator) getDriverName() string {
+	return "postgres"
 }
 
-func (g postgresGenerator) getTableInfo(table string) (bool, []*field, string) {
+func (g postgresGenerator) getBaseDaoTemplate() string {
+	return postgresBaseDaoTpl
+}
+
+func (g postgresGenerator) getTableInfo(table string) (bool, []*fieldTplParams, string) {
 	var (
 		exists       bool
-		fields       []*field
+		fields       []*fieldTplParams
 		tableComment string
 	)
 
@@ -49,7 +65,7 @@ func (g postgresGenerator) getTableInfo(table string) (bool, []*field, string) {
 		)
 		mustNoError(rows.Scan(&column, &udtName, &isIdentity, &columnDefault, &attndims, &description))
 		if description == nil {
-			description = gdao.Ptr("")
+			description = gdao.P("")
 		}
 
 		if strings.EqualFold(isIdentity, "YES") || (columnDefault != nil && strings.HasPrefix(*columnDefault, "nextval(")) {
@@ -88,7 +104,7 @@ func (g postgresGenerator) getTableInfo(table string) (bool, []*field, string) {
 			fieldType = "[]" + fieldType
 		}
 
-		f := &field{
+		f := &fieldTplParams{
 			Column:          column,
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,
@@ -108,7 +124,10 @@ func (g postgresGenerator) getTableInfo(table string) (bool, []*field, string) {
 	return exists, fields, tableComment
 }
 
-func newPostgresGenerator(c Cfg) postgresGenerator {
+func newPostgresGenerator(c GenCfg) *postgresGenerator {
+	p := &postgresGenerator{}
+	p.generator__ = ExtendGenerator_(p, c)
+
 	db, err := sql.Open("postgres", c.Dsn)
 	if err != nil { // coverage-ignore
 		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
@@ -127,6 +146,8 @@ func newPostgresGenerator(c Cfg) postgresGenerator {
 		rows.Scan(&database)
 	}
 	rows.Close()
-	t := mustReturn(template.New("").Parse(postgresBaseDaoTpl))
-	return postgresGenerator{baseDaoTemplate: t, c: c, db: db, schema: schema, database: database}
+
+	p.schema = schema
+	p.database = database
+	return p
 }

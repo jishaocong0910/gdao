@@ -14,6 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gen
+package gdao
 
-type DbType = dbType
+type CountBuilder struct {
+	*sqlBuilder__
+}
+
+func newCountSqlBuilder() *CountBuilder {
+	b := &CountBuilder{}
+	b.sqlBuilder__ = extendSqlBuilder(b)
+	return b
+}
