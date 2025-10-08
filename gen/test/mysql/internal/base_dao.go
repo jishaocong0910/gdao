@@ -253,7 +253,7 @@ func (c *conditionIsNull) write(b conditionBuilder) {
 
 type ListReq struct {
 	Ctx   context.Context
-	Catch *gdao.Error
+	Catch *gdao.Catch
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
@@ -268,7 +268,7 @@ type ListReq struct {
 
 type GetReq struct {
 	Ctx   context.Context
-	Catch *gdao.Error
+	Catch *gdao.Catch
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
@@ -281,7 +281,7 @@ type GetReq struct {
 
 type InsertReq[T any] struct {
 	Ctx   context.Context
-	Catch *gdao.Error
+	Catch *gdao.Catch
 	// the non-nil fields will be saved, and the auto generated keys will be set in it.
 	Entity *T
 	// if true, all fields will be saved, otherwise, save non-nil fields.
@@ -298,7 +298,7 @@ type InsertReq[T any] struct {
 
 type InsertBatchReq[T any] struct {
 	Ctx   context.Context
-	Catch *gdao.Error
+	Catch *gdao.Catch
 	// each element corresponds to a record to be saved, and the auto generated keys will be set in them.
 	Entities []*T
 	// if true, all fields will be saved, otherwise, save non-nil fields.
@@ -315,7 +315,7 @@ type InsertBatchReq[T any] struct {
 
 type UpdateReq[T any] struct {
 	Ctx   context.Context
-	Catch *gdao.Error
+	Catch *gdao.Catch
 	// uses to update values or as the WHERE clause conditions.
 	Entity *T
 	// if true, all fields will be updated, otherwise, update non-nil fields.
@@ -332,7 +332,7 @@ type UpdateReq[T any] struct {
 
 type UpdateBatchReq[T any] struct {
 	Ctx   context.Context
-	Catch *gdao.Error
+	Catch *gdao.Catch
 	// each element corresponds to a record to be updated.
 	Entities []*T
 	// if true, all fields will be updated, otherwise, update non-nil fields.
@@ -349,7 +349,7 @@ type UpdateBatchReq[T any] struct {
 
 type DeleteReq struct {
 	Ctx   context.Context
-	Catch *gdao.Error
+	Catch *gdao.Catch
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
 	Condition condition
 }

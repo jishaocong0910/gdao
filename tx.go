@@ -29,8 +29,9 @@ var ctx_key_tx = P("")
 type TxOption func(*txOption)
 
 type txOption struct {
-	db   *sql.DB
-	opts *sql.TxOptions
+	db    *sql.DB
+	opts  *sql.TxOptions
+	catch *Catch
 }
 
 func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOption) (err error) {
@@ -74,6 +75,7 @@ func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOptio
 		}
 	}()
 	err = do(ctx)
+	o.catch.Match(err)
 	return err
 }
 
@@ -89,6 +91,12 @@ func WithDefaultTx(db *sql.DB, opts *sql.TxOptions) TxOption { // coverage-ignor
 	return func(o *txOption) {
 		o.db = db
 		o.opts = opts
+	}
+}
+
+func WithCatch(catch *Catch) TxOption {
+	return func(o *txOption) {
+		o.catch = catch
 	}
 }
 
