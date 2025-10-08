@@ -49,7 +49,7 @@ type NewDaoReq struct {
 
 type QueryReq[T any] struct {
 	Ctx      context.Context
-	Catch    *Error
+	Catch    *Catch
 	RowAs    rowAs
 	Entities []*T
 	BuildSql func(b *DaoSqlBuilder[T])
@@ -57,7 +57,7 @@ type QueryReq[T any] struct {
 
 type ExecReq[T any] struct {
 	Ctx            context.Context
-	Catch          *Error
+	Catch          *Catch
 	LastInsertIdAs lastInsertIdAs
 	Entities       []*T
 	BuildSql       func(b *DaoSqlBuilder[T])

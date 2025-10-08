@@ -116,7 +116,7 @@ func (c *Count) BoolPtr() *bool {
 
 type CountReq struct {
 	Ctx      context.Context
-	Catch    *Error
+	Catch    *Catch
 	BuildSql func(b *CountBuilder)
 }
 

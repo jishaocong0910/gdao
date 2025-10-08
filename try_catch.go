@@ -18,27 +18,27 @@ package gdao
 
 import "errors"
 
-type Error struct {
-	isTargets []error
+func Try() *Catch { // coverage-ignore
+	return &Catch{}
 }
 
-func (r *Error) Is(e error) *Error { // coverage-ignore
-	r.isTargets = append(r.isTargets, e)
+type Catch struct {
+	isErrors []error
+}
+
+func (r *Catch) Is(e error) *Catch { // coverage-ignore
+	r.isErrors = append(r.isErrors, e)
 	return r
 }
 
-func (r *Error) Match(e error) { // coverage-ignore
+func (r *Catch) Match(e error) { // coverage-ignore
 	if r == nil {
 		return
 	}
-	for _, t := range r.isTargets {
+	for _, t := range r.isErrors {
 		if errors.Is(e, t) {
 			return
 		}
 	}
 	panic(e)
-}
-
-func Catch() *Error { // coverage-ignore
-	return &Error{}
 }
