@@ -252,8 +252,10 @@ func (c *conditionIsNull) write(b conditionBuilder) {
 }
 
 type ListReq struct {
-	Ctx   context.Context
-	Catch *gdao.Catch
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
@@ -267,8 +269,10 @@ type ListReq struct {
 }
 
 type GetReq struct {
-	Ctx   context.Context
-	Catch *gdao.Catch
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
@@ -280,8 +284,10 @@ type GetReq struct {
 }
 
 type InsertReq[T any] struct {
-	Ctx   context.Context
-	Catch *gdao.Catch
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
 	// the non-nil fields will be saved, and the auto generated keys will be set in it.
 	Entity *T
 	// if true, all fields will be saved, otherwise, save non-nil fields.
@@ -293,8 +299,10 @@ type InsertReq[T any] struct {
 }
 
 type InsertBatchReq[T any] struct {
-	Ctx   context.Context
-	Catch *gdao.Catch
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
 	// each element corresponds to a record to be saved, and the auto generated keys will be set in them.
 	Entities []*T
 	// if true, all fields will be saved, otherwise, save non-nil fields.
@@ -306,8 +314,10 @@ type InsertBatchReq[T any] struct {
 }
 
 type UpdateReq[T any] struct {
-	Ctx   context.Context
-	Catch *gdao.Catch
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
 	// uses to update values or as the WHERE clause conditions.
 	Entity *T
 	// if true, all fields will be updated, otherwise, update non-nil fields.
@@ -323,8 +333,10 @@ type UpdateReq[T any] struct {
 }
 
 type UpdateBatchReq[T any] struct {
-	Ctx   context.Context
-	Catch *gdao.Catch
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
 	// each element corresponds to a record to be updated.
 	Entities []*T
 	// if true, all fields will be updated, otherwise, update non-nil fields.
@@ -340,8 +352,10 @@ type UpdateBatchReq[T any] struct {
 }
 
 type DeleteReq struct {
-	Ctx   context.Context
-	Catch *gdao.Catch
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
 	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
 	Condition condition
 }
@@ -383,7 +397,7 @@ type baseDao[T any] struct {
 
 // List queries records of the conditions.
 func (d baseDao[T]) List(req ListReq) ([]*T, error) {
-	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Catch: req.Catch, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
+	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Must: req.Must, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table)
 		if req.Condition != nil && !req.Condition.empty() {
 			b.Write(" WHERE ")
@@ -416,7 +430,7 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 func (d baseDao[T]) Get(req GetReq) (entity *T, err error) {
 	list, err := d.List(ListReq{
 		Ctx:           req.Ctx,
-		Catch:         req.Catch,
+		Must:          req.Must,
 		SelectColumns: req.SelectColumns,
 		Condition:     req.Condition,
 		OrderBy:       req.OrderBy,
@@ -433,7 +447,7 @@ func (d baseDao[T]) Get(req GetReq) (entity *T, err error) {
 func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 	return d.InsertBatch(InsertBatchReq[T]{
 		Ctx:            req.Ctx,
-		Catch:          req.Catch,
+		Must:           req.Must,
 		Entities:       []*T{req.Entity},
 		InsertAll:      req.InsertAll,
 		SetNullColumns: req.SetNullColumns,
@@ -443,7 +457,7 @@ func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 
 // InsertBatch saves records and return the auto generated keys.
 func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Catch: req.Catch, LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID, Entities: req.Entities,
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID, Entities: req.Entities,
 		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 			var setColumnNum, setNullColumnNum int
 			var allIgnoredColumns []string
@@ -493,7 +507,7 @@ func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
 
 // Update modifies a record.
 func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Catch: req.Catch, Entities: []*T{req.Entity},
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, Entities: []*T{req.Entity},
 		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 			var setColumnNum, setNullColumnNum int
 			var allIgnoredColumns []string
@@ -544,7 +558,7 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 
 // UpdateBatch modifies multiple records by a SQL.
 func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Catch: req.Catch, Entities: req.Entities, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, Entities: req.Entities, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
 		var allIgnoredColumns []string
 		allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
@@ -592,7 +606,7 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 
 // Delete removes records.
 func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Catch: req.Catch, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("DELETE FROM ").Write(d.table)
 		if req.Condition != nil && !req.Condition.empty() {
 			b.Write(" WHERE ")

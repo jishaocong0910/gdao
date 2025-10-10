@@ -116,7 +116,7 @@ func (c *Count) BoolPtr() *bool {
 
 type CountReq struct {
 	Ctx      context.Context
-	Catch    *Catch
+	Must     bool
 	BuildSql func(b *CountBuilder)
 }
 
@@ -137,7 +137,7 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		printSql(req.Ctx, b.Sql(), b.args, -1, -1, err)
-		req.Catch.Match(err)
+		checkMust(req.Must, err)
 		return nil, nil, err
 	}
 	defer closeFunc()
@@ -148,7 +148,7 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 		if len(columns) == 1 {
 			err = rows.Scan(&c.Value)
 			if err != nil { // coverage-ignore
-				req.Catch.Match(err)
+				checkMust(req.Must, err)
 				return
 			}
 		} else {
@@ -162,7 +162,7 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 			}
 			err = rows.Scan(fields...)
 			if err != nil { // coverage-ignore
-				req.Catch.Match(err)
+				checkMust(req.Must, err)
 				return
 			}
 		}

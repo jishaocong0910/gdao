@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	pkgErrors "github.com/pkg/errors"
 )
 
@@ -29,9 +30,9 @@ var ctx_key_tx = P("")
 type TxOption func(*txOption)
 
 type txOption struct {
-	db    *sql.DB
-	opts  *sql.TxOptions
-	catch *Catch
+	db   *sql.DB
+	opts *sql.TxOptions
+	must bool
 }
 
 func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOption) (err error) {
@@ -75,7 +76,7 @@ func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOptio
 		}
 	}()
 	err = do(ctx)
-	o.catch.Match(err)
+	checkMust(o.must, err)
 	return err
 }
 
@@ -94,9 +95,9 @@ func WithDefaultTx(db *sql.DB, opts *sql.TxOptions) TxOption { // coverage-ignor
 	}
 }
 
-func WithCatch(catch *Catch) TxOption {
+func WithMust(must bool) TxOption {
 	return func(o *txOption) {
-		o.catch = catch
+		o.must = must
 	}
 }
 

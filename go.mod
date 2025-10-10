@@ -1,5 +1,9 @@
 module github.com/jishaocong0910/gdao
 
+godebug (
+    x509negativeserial=1
+)
+
 go 1.24
 
 toolchain go1.24.5
