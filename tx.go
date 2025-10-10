@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	pkgErrors "github.com/pkg/errors"
 )
 
@@ -31,6 +32,7 @@ type TxOption func(*txOption)
 type txOption struct {
 	db   *sql.DB
 	opts *sql.TxOptions
+	must bool
 }
 
 func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOption) (err error) {
@@ -74,6 +76,7 @@ func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOptio
 		}
 	}()
 	err = do(ctx)
+	checkMust(o.must, err)
 	return err
 }
 
@@ -89,6 +92,12 @@ func WithDefaultTx(db *sql.DB, opts *sql.TxOptions) TxOption { // coverage-ignor
 	return func(o *txOption) {
 		o.db = db
 		o.opts = opts
+	}
+}
+
+func WithMust(must bool) TxOption {
+	return func(o *txOption) {
+		o.must = must
 	}
 }
 

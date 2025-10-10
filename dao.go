@@ -49,7 +49,7 @@ type NewDaoReq struct {
 
 type QueryReq[T any] struct {
 	Ctx      context.Context
-	Catch    *Error
+	Must     bool
 	RowAs    rowAs
 	Entities []*T
 	BuildSql func(b *DaoSqlBuilder[T])
@@ -57,7 +57,7 @@ type QueryReq[T any] struct {
 
 type ExecReq[T any] struct {
 	Ctx            context.Context
-	Catch          *Error
+	Must           bool
 	LastInsertIdAs lastInsertIdAs
 	Entities       []*T
 	BuildSql       func(b *DaoSqlBuilder[T])
@@ -90,7 +90,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	req.BuildSql(b)
 	err = b.Error()
 	if err != nil { // coverage-ignore
-		req.Catch.Match(err)
+		checkMust(req.Must, err)
 		return nil, list, err
 	}
 	if !b.Ok() { // coverage-ignore
@@ -99,7 +99,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
 		printSql(req.Ctx, b.Sql(), b.args, -1, -1, err)
-		req.Catch.Match(err)
+		checkMust(req.Must, err)
 		return nil, nil, err
 	}
 	defer closeFunc()
@@ -165,7 +165,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 			fields := d.mappingFields(entity, columns)
 			err = rows.Scan(fields...)
 			if err != nil {
-				req.Catch.Match(err)
+				checkMust(req.Must, err)
 				return
 			}
 			list = append(list, entity)
@@ -184,7 +184,7 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 	req.BuildSql(b)
 	err = b.Error()
 	if err != nil { // coverage-ignore
-		req.Catch.Match(err)
+		checkMust(req.Must, err)
 		return 0, err
 	}
 	if !b.Ok() { // coverage-ignore
@@ -193,7 +193,7 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 	result, affected, err := exec(req.Ctx, d.DB(), b.Sql(), b.args)
 	printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
 	if err != nil { // coverage-ignore
-		req.Catch.Match(err)
+		checkMust(req.Must, err)
 		return
 	}
 
@@ -312,6 +312,12 @@ func V[T any](t *T) T {
 		v = *t
 	}
 	return v
+}
+
+func checkMust(must bool, err error) { // coverage-ignore
+	if must && err != nil {
+		panic(err)
+	}
 }
 
 func NewDao[T any](req NewDaoReq) *Dao[T] {
