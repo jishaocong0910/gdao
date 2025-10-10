@@ -95,9 +95,9 @@ func WithDefaultTx(db *sql.DB, opts *sql.TxOptions) TxOption { // coverage-ignor
 	}
 }
 
-func WithMust(must bool) TxOption {
+func WithMust() TxOption {
 	return func(o *txOption) {
-		o.must = must
+		o.must = true
 	}
 }
 
