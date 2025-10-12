@@ -55,23 +55,24 @@ func TestPrintSql(t *testing.T) {
 	{
 		log := &MockLogger{}
 		gdao.LogCfg(log, "debug", false)
-		gdao.PrintSql(nil, "UPDATE user SET status=?,phone=?,email=? WHERE level=?)", []any{2, nil, (*int)(nil), gdao.P("abc")}, 15, -1, errors.New("error"))
-		r.Equal(`SQL: %s; args: %v, affected: %d, error: %+v`, log.msg)
-		r.Len(log.args, 4)
-		r.Equal("UPDATE user SET status=?,phone=?,email=? WHERE level=?)", log.args[0])
-		args := log.args[1].([]any)
+		gdao.PrintSql(nil, "update a user", "UPDATE user SET status=?,phone=?,email=? WHERE level=?)", []any{2, nil, (*int)(nil), gdao.P("abc")}, 15, -1, errors.New("error"))
+		r.Equal(`Desc: %s, SQL: %s; args: %v, affected: %d, error: %+v`, log.msg)
+		r.Len(log.args, 5)
+		r.Equal("update a user", log.args[0])
+		r.Equal("UPDATE user SET status=?,phone=?,email=? WHERE level=?)", log.args[1])
+		args := log.args[2].([]any)
 		r.Len(args, 4)
 		r.Equal(2, args[0])
 		r.Equal(nil, args[1])
 		r.Equal(nil, args[2])
 		r.Equal(`"abc"`, args[3])
-		r.Equal(int64(15), log.args[2])
-		r.EqualError(log.args[3].(error), "error")
+		r.Equal(int64(15), log.args[3])
+		r.EqualError(log.args[4].(error), "error")
 	}
 	{
 		log := &MockLogger{}
 		gdao.LogCfg(log, "debug", true)
-		gdao.PrintSql(nil, `  
+		gdao.PrintSql(nil, "", `  
 SELECT *
   FROM
 user`, nil, -1, 10, nil)

@@ -10,6 +10,444 @@ import (
 	"github.com/jishaocong0910/gdao"
 )
 
+type ListReq struct {
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
+	// dsescribe the SQL in the log
+	Desc string
+	// specify the columns which in the select column list, default is all columns.
+	SelectColumns []string
+	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
+	Condition condition
+	// ORDER BY clause，create by function OrderBy.
+	OrderBy *orderBy
+	// paging query，create by function Page.
+	Pagination *pagination
+	// FOR UPDATE clause
+	ForUpdate bool
+}
+
+type GetReq struct {
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
+	// dsescribe the SQL in the log
+	Desc string
+	// specify the columns which in the select column list, default is all columns.
+	SelectColumns []string
+	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
+	Condition condition
+	// ORDER BY clause，create by function OrderBy.
+	OrderBy *orderBy
+	// FOR UPDATE clause
+	ForUpdate bool
+}
+
+type InsertReq[T any] struct {
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
+	// dsescribe the SQL in the log
+	Desc string
+	// the non-nil fields will be saved, and the auto generated keys will be set in it.
+	Entity *T
+	// if true, all fields will be saved, otherwise, save non-nil fields.
+	InsertAll bool
+	// specify the columns which set a null value
+	SetNullColumns []string
+	// specify the columns which be not set
+	IgnoredColumns []string
+	// INSERT IGNORE ...
+	InsertIgnore bool
+	// INSERT ... ON DUPLICATE KEY UPDATE, create by function OnDuplKeyUpd
+	OnDuplicateKeyUpdate *onDuplKeyUpd
+}
+
+type InsertBatchReq[T any] struct {
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
+	// dsescribe the SQL in the log
+	Desc string
+	// each element corresponds to a record to be saved, and the auto generated keys will be set in them.
+	Entities []*T
+	// if true, all fields will be saved, otherwise, save non-nil fields.
+	InsertAll bool
+	// specify the columns which set a null value
+	SetNullColumns []string
+	// specify the columns which be not set
+	IgnoredColumns []string
+	// INSERT IGNORE ...
+	InsertIgnore bool
+	// INSERT ... ON DUPLICATE KEY UPDATE, create by function OnDuplKeyUpd
+	OnDuplicateKeyUpdate *onDuplKeyUpd
+}
+
+type UpdateReq[T any] struct {
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
+	// dsescribe the SQL in the log
+	Desc string
+	// uses to update values or as the WHERE clause conditions.
+	Entity *T
+	// if true, all fields will be updated, otherwise, update non-nil fields.
+	UpdateAll bool
+	// specify the columns which set a null value
+	SetNullColumns []string
+	// specify the columns which be not set
+	IgnoredColumns []string
+	// specify the non-nil fields in the entity used as conditions.
+	WhereColumns []string
+	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr..
+	Condition condition
+}
+
+type UpdateBatchReq[T any] struct {
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
+	// dsescribe the SQL in the log
+	Desc string
+	// each element corresponds to a record to be updated.
+	Entities []*T
+	// if true, all fields will be updated, otherwise, update non-nil fields.
+	UpdateAll bool
+	// specify the columns which set a null value
+	SetNullColumns []string
+	// specify the columns which be not set
+	IgnoredColumns []string
+	// specify the column which used as a condition.
+	WhereColumn string
+	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr..
+	Condition condition
+}
+
+type DeleteReq struct {
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
+	// dsescribe the SQL in the log
+	Desc string
+	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
+	Condition condition
+}
+
+type orderBy struct {
+	items []orderByItem
+}
+
+func (o *orderBy) Asc(column string) *orderBy {
+	o.items = append(o.items, orderByItem{column: column, sequence: asc})
+	return o
+}
+
+func (o *orderBy) Desc(column string) *orderBy {
+	o.items = append(o.items, orderByItem{column: column, sequence: desc})
+	return o
+}
+
+type orderBySequence string
+
+const (
+	asc  orderBySequence = "ASC"
+	desc                 = "DESC"
+)
+
+type orderByItem struct {
+	column   string
+	sequence orderBySequence
+}
+
+type pagination struct {
+	offset, pageSize int
+}
+
+type onDuplKeyUpd struct {
+	items []onDuplKeyUpdItem
+}
+
+func (o *onDuplKeyUpd) SetValue(column string, value any) *onDuplKeyUpd {
+	o.items = append(o.items, onDuplKeyUpdItem{column: column, value: value})
+	return o
+}
+
+func (o *onDuplKeyUpd) SetPlain(column, value string) *onDuplKeyUpd {
+	o.items = append(o.items, onDuplKeyUpdItem{column: column, value: value, plain: true})
+	return o
+}
+
+type onDuplKeyUpdItem struct {
+	column string
+	value  any
+	plain  bool
+}
+
+type baseDao[T any] struct {
+	*gdao.Dao[T]
+	table string
+}
+
+// List queries records of the conditions.
+func (d baseDao[T]) List(req ListReq) ([]*T, error) {
+	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Must: req.Must, Desc: req.Desc, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
+		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table)
+		if req.Condition != nil && !req.Condition.empty() {
+			b.Write(" WHERE ")
+			cb := getConditionBuilder(b)
+			req.Condition.write(cb)
+		}
+		if req.OrderBy != nil {
+			b.Repeat(len(req.OrderBy.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
+				item := req.OrderBy.items[i]
+				b.Write(item.column).Write(" ")
+				b.Write(string(item.sequence))
+			})
+		}
+		if req.Pagination != nil {
+			b.Write(" LIMIT ")
+			if req.Pagination.offset > 0 {
+				b.Write(strconv.FormatInt(int64(req.Pagination.offset), 10))
+				b.Write(", ")
+			}
+			b.Write(strconv.FormatInt(int64(req.Pagination.pageSize), 10))
+		}
+		if req.ForUpdate {
+			b.Write(" FOR UPDATE")
+		}
+	}})
+	return list, err
+}
+
+// Get queries a record of the conditions.
+func (d baseDao[T]) Get(req GetReq) (entity *T, err error) {
+	list, err := d.List(ListReq{
+		Ctx:           req.Ctx,
+		Must:          req.Must,
+		Desc:          req.Desc,
+		SelectColumns: req.SelectColumns,
+		Condition:     req.Condition,
+		OrderBy:       req.OrderBy,
+		Pagination:    Page(0, 1),
+		ForUpdate:     req.ForUpdate,
+	})
+	if len(list) > 0 {
+		entity = list[0]
+	}
+	return
+}
+
+// Insert saves a record and return the auto generated keys.
+func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
+	return d.InsertBatch(InsertBatchReq[T]{
+		Ctx:                  req.Ctx,
+		Must:                 req.Must,
+		Desc:                 req.Desc,
+		Entities:             []*T{req.Entity},
+		InsertAll:            req.InsertAll,
+		SetNullColumns:       req.SetNullColumns,
+		IgnoredColumns:       req.IgnoredColumns,
+		InsertIgnore:         req.InsertIgnore,
+		OnDuplicateKeyUpdate: req.OnDuplicateKeyUpdate,
+	})
+}
+
+// InsertBatch saves records and return the auto generated keys.
+func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, Desc: req.Desc, LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID, Entities: req.Entities,
+		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
+			var setColumnNum, setNullColumnNum int
+			var allIgnoredColumns []string
+			allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
+			allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
+			allIgnoredColumns = append(allIgnoredColumns, b.AutoColumns()...)
+
+			b.Write("INSERT")
+			if req.InsertIgnore {
+				b.Write(" IGNORE")
+			}
+			b.Write(" INTO ").Write(d.table)
+
+			columns := b.Columns(!req.InsertAll, allIgnoredColumns...)
+			b.Repeat(len(columns), b.SepFix("(", ", ", "", true), nil, func(_, i int) {
+				setColumnNum++
+				b.Write(columns[i])
+			})
+			if len(req.SetNullColumns) > 0 {
+				if setColumnNum > 0 {
+					b.Write(", ")
+				}
+				b.Repeat(len(req.SetNullColumns), b.Sep(", "), nil, func(_, i int) {
+					setNullColumnNum++
+					b.Write(req.SetNullColumns[i])
+				})
+			}
+			b.Write(")")
+
+			b.Write(" VALUES")
+			b.EachEntity(b.Sep(", "), func(_ int, entity *T) {
+				b.EachColumn(entity, b.SepFix("(", ", ", "", true), func(_ int, column string, value any) {
+					if value != nil {
+						b.Write("?", value)
+					} else {
+						b.Write("NULL")
+					}
+				}, columns...)
+				if len(req.SetNullColumns) > 0 {
+					if setColumnNum > 0 {
+						b.Write(", ")
+					}
+					b.Repeat(len(req.SetNullColumns), b.Sep(", "), nil, func(_, i int) {
+						b.Write("NULL")
+					})
+				}
+				b.Write(")")
+			})
+
+			if req.OnDuplicateKeyUpdate != nil {
+				b.Write(" ON DUPLICATE KEY UPDATE ")
+				b.Repeat(len(req.OnDuplicateKeyUpdate.items), b.Sep(", "), nil, func(_, i int) {
+					item := req.OnDuplicateKeyUpdate.items[i]
+					b.Write(item.column)
+					b.Write(" = ")
+					if item.plain {
+						b.Write(item.value.(string))
+					} else {
+						b.Write("?", item.value)
+					}
+				})
+			}
+		}})
+}
+
+// Update modifies a record.
+func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, Desc: req.Desc, Entities: []*T{req.Entity},
+		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
+			var setColumnNum, setNullColumnNum int
+			var allIgnoredColumns []string
+			allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
+			allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
+			allIgnoredColumns = append(allIgnoredColumns, req.WhereColumns...)
+
+			b.Write("UPDATE ").Write(d.table).Write(" SET ")
+
+			columns := b.Columns(!req.UpdateAll, allIgnoredColumns...)
+			b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
+				setColumnNum++
+				b.Write(column).Write(" = ")
+				if value != nil {
+					b.Write("?").SetArgs(value)
+				} else {
+					b.Write("NULL")
+				}
+			}, columns...)
+			if len(req.SetNullColumns) > 0 {
+				if setColumnNum > 0 {
+					b.Write(", ")
+				}
+				b.Repeat(len(req.SetNullColumns), b.Sep(", "), nil, func(_, i int) {
+					setNullColumnNum++
+					b.Write(req.SetNullColumns[i]).Write(" = NULL")
+				})
+			}
+
+			cond := And()
+			if len(req.WhereColumns) > 0 {
+				b.EachColumn(b.Entity(), nil, func(_ int, column string, value any) {
+					if value == nil {
+						cond.IsNull(column)
+					} else {
+						cond.Eq(column, value)
+					}
+				}, req.WhereColumns...)
+			}
+			cond.addCondition(req.Condition)
+			if !cond.empty() {
+				b.Write(" WHERE ")
+				cb := getConditionBuilder(b)
+				cond.write(cb)
+			}
+		}})
+}
+
+// UpdateBatch modifies multiple records by a SQL.
+func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, Desc: req.Desc, Entities: req.Entities, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
+		var setColumnNum, setNullColumnNum int
+		var allIgnoredColumns []string
+		allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
+		allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
+		allIgnoredColumns = append(allIgnoredColumns, req.WhereColumn)
+
+		b.Write("UPDATE ").Write(d.table).Write(" SET ")
+
+		columns := b.Columns(!req.UpdateAll, allIgnoredColumns...)
+		b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
+			setColumnNum++
+			b.Write(column).Write(" = CASE ").Write(req.WhereColumn)
+			b.EachEntity(nil, func(_ int, entity *T) {
+				b.Write(" WHEN ").Write("?", b.ColumnValue(entity, req.WhereColumn)).Write(" THEN ")
+				if value != nil {
+					b.Write("?").SetArgs(b.ColumnValue(entity, column))
+				} else {
+					b.Write("NULL")
+				}
+			})
+			b.Write(" END")
+		}, columns...)
+		if len(req.SetNullColumns) > 0 {
+			if setColumnNum > 0 {
+				b.Write(", ")
+			}
+			b.Repeat(len(req.SetNullColumns), b.Sep(", "), nil, func(_, i int) {
+				setNullColumnNum++
+				b.Write(req.SetNullColumns[i]).Write(" = NULL")
+			})
+		}
+
+		b.Write(" WHERE ")
+		cond := And()
+		whereColumnValues := make([]any, 0, len(req.Entities))
+		b.EachEntity(nil, func(_ int, entity *T) {
+			whereColumnValues = append(whereColumnValues, b.ColumnValue(entity, req.WhereColumn))
+		})
+		cond.In(req.WhereColumn, Anys(whereColumnValues...))
+		cond.addCondition(req.Condition)
+		cb := getConditionBuilder(b)
+		cond.write(cb)
+	}})
+}
+
+// Delete removes records.
+func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, Desc: req.Desc, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
+		b.Write("DELETE FROM ").Write(d.table)
+		if req.Condition != nil && !req.Condition.empty() {
+			b.Write(" WHERE ")
+			cb := getConditionBuilder(b)
+			req.Condition.write(cb)
+		}
+	}})
+}
+
+func newBaseDao[T any](req gdao.NewDaoReq, table string) *baseDao[T] {
+	dao := gdao.NewDao[T](req)
+	table = strings.TrimSpace(table)
+	if table == "" {
+		panic(`parameter "table" must not be blank`)
+	}
+	return &baseDao[T]{Dao: dao, table: table}
+}
+
 func getConditionBuilder[T any](b *gdao.DaoSqlBuilder[T]) conditionBuilder {
 	return conditionBuilder{
 		write: func(str string, args ...any) {
@@ -249,428 +687,6 @@ func (c *conditionIsNull) write(b conditionBuilder) {
 		}
 		b.write(" NULL")
 	})
-}
-
-type ListReq struct {
-	// the context
-	Ctx context.Context
-	// if true, panic when error occurs, otherwise, return error.
-	Must bool
-	// specify the columns which in the select column list, default is all columns.
-	SelectColumns []string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition condition
-	// ORDER BY clause，create by function OrderBy.
-	OrderBy *orderBy
-	// paging query，create by function Page.
-	Pagination *pagination
-	// FOR UPDATE clause
-	ForUpdate bool
-}
-
-type GetReq struct {
-	// the context
-	Ctx context.Context
-	// if true, panic when error occurs, otherwise, return error.
-	Must bool
-	// specify the columns which in the select column list, default is all columns.
-	SelectColumns []string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition condition
-	// ORDER BY clause，create by function OrderBy.
-	OrderBy *orderBy
-	// FOR UPDATE clause
-	ForUpdate bool
-}
-
-type InsertReq[T any] struct {
-	// the context
-	Ctx context.Context
-	// if true, panic when error occurs, otherwise, return error.
-	Must bool
-	// the non-nil fields will be saved, and the auto generated keys will be set in it.
-	Entity *T
-	// if true, all fields will be saved, otherwise, save non-nil fields.
-	InsertAll bool
-	// specify the columns which set a null value
-	SetNullColumns []string
-	// specify the columns which be not set
-	IgnoredColumns []string
-	// INSERT IGNORE ...
-	InsertIgnore bool
-	// INSERT ... ON DUPLICATE KEY UPDATE, create by function OnDuplKeyUpd
-	OnDuplicateKeyUpdate *onDuplKeyUpd
-}
-
-type InsertBatchReq[T any] struct {
-	// the context
-	Ctx context.Context
-	// if true, panic when error occurs, otherwise, return error.
-	Must bool
-	// each element corresponds to a record to be saved, and the auto generated keys will be set in them.
-	Entities []*T
-	// if true, all fields will be saved, otherwise, save non-nil fields.
-	InsertAll bool
-	// specify the columns which set a null value
-	SetNullColumns []string
-	// specify the columns which be not set
-	IgnoredColumns []string
-	// INSERT IGNORE ...
-	InsertIgnore bool
-	// INSERT ... ON DUPLICATE KEY UPDATE, create by function OnDuplKeyUpd
-	OnDuplicateKeyUpdate *onDuplKeyUpd
-}
-
-type UpdateReq[T any] struct {
-	// the context
-	Ctx context.Context
-	// if true, panic when error occurs, otherwise, return error.
-	Must bool
-	// uses to update values or as the WHERE clause conditions.
-	Entity *T
-	// if true, all fields will be updated, otherwise, update non-nil fields.
-	UpdateAll bool
-	// specify the columns which set a null value
-	SetNullColumns []string
-	// specify the columns which be not set
-	IgnoredColumns []string
-	// specify the non-nil fields in the entity used as conditions.
-	WhereColumns []string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr..
-	Condition condition
-}
-
-type UpdateBatchReq[T any] struct {
-	// the context
-	Ctx context.Context
-	// if true, panic when error occurs, otherwise, return error.
-	Must bool
-	// each element corresponds to a record to be updated.
-	Entities []*T
-	// if true, all fields will be updated, otherwise, update non-nil fields.
-	UpdateAll bool
-	// specify the columns which set a null value
-	SetNullColumns []string
-	// specify the columns which be not set
-	IgnoredColumns []string
-	// specify the column which used as a condition.
-	WhereColumn string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr..
-	Condition condition
-}
-
-type DeleteReq struct {
-	// the context
-	Ctx context.Context
-	// if true, panic when error occurs, otherwise, return error.
-	Must bool
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition condition
-}
-
-type orderBy struct {
-	items []orderByItem
-}
-
-func (o *orderBy) Asc(column string) *orderBy {
-	o.items = append(o.items, orderByItem{column: column, sequence: asc})
-	return o
-}
-
-func (o *orderBy) Desc(column string) *orderBy {
-	o.items = append(o.items, orderByItem{column: column, sequence: desc})
-	return o
-}
-
-type orderBySequence string
-
-const (
-	asc  orderBySequence = "ASC"
-	desc                 = "DESC"
-)
-
-type orderByItem struct {
-	column   string
-	sequence orderBySequence
-}
-
-type pagination struct {
-	offset, pageSize int
-}
-
-type onDuplKeyUpd struct {
-	items []onDuplKeyUpdItem
-}
-
-func (o *onDuplKeyUpd) SetValue(column string, value any) *onDuplKeyUpd {
-	o.items = append(o.items, onDuplKeyUpdItem{column: column, value: value})
-	return o
-}
-
-func (o *onDuplKeyUpd) SetPlain(column, value string) *onDuplKeyUpd {
-	o.items = append(o.items, onDuplKeyUpdItem{column: column, value: value, plain: true})
-	return o
-}
-
-type onDuplKeyUpdItem struct {
-	column string
-	value  any
-	plain  bool
-}
-
-type baseDao[T any] struct {
-	*gdao.Dao[T]
-	table string
-}
-
-// List queries records of the conditions.
-func (d baseDao[T]) List(req ListReq) ([]*T, error) {
-	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Must: req.Must, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
-		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table)
-		if req.Condition != nil && !req.Condition.empty() {
-			b.Write(" WHERE ")
-			cb := getConditionBuilder(b)
-			req.Condition.write(cb)
-		}
-		if req.OrderBy != nil {
-			b.Repeat(len(req.OrderBy.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
-				item := req.OrderBy.items[i]
-				b.Write(item.column).Write(" ")
-				b.Write(string(item.sequence))
-			})
-		}
-		if req.Pagination != nil {
-			b.Write(" LIMIT ")
-			if req.Pagination.offset > 0 {
-				b.Write(strconv.FormatInt(int64(req.Pagination.offset), 10))
-				b.Write(", ")
-			}
-			b.Write(strconv.FormatInt(int64(req.Pagination.pageSize), 10))
-		}
-		if req.ForUpdate {
-			b.Write(" FOR UPDATE")
-		}
-	}})
-	return list, err
-}
-
-// Get queries a record of the conditions.
-func (d baseDao[T]) Get(req GetReq) (entity *T, err error) {
-	list, err := d.List(ListReq{
-		Ctx:           req.Ctx,
-		Must:          req.Must,
-		SelectColumns: req.SelectColumns,
-		Condition:     req.Condition,
-		OrderBy:       req.OrderBy,
-		Pagination:    Page(0, 1),
-		ForUpdate:     req.ForUpdate,
-	})
-	if len(list) > 0 {
-		entity = list[0]
-	}
-	return
-}
-
-// Insert saves a record and return the auto generated keys.
-func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
-	return d.InsertBatch(InsertBatchReq[T]{
-		Ctx:                  req.Ctx,
-		Must:                 req.Must,
-		Entities:             []*T{req.Entity},
-		InsertAll:            req.InsertAll,
-		SetNullColumns:       req.SetNullColumns,
-		IgnoredColumns:       req.IgnoredColumns,
-		InsertIgnore:         req.InsertIgnore,
-		OnDuplicateKeyUpdate: req.OnDuplicateKeyUpdate,
-	})
-}
-
-// InsertBatch saves records and return the auto generated keys.
-func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID, Entities: req.Entities,
-		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
-			var setColumnNum, setNullColumnNum int
-			var allIgnoredColumns []string
-			allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
-			allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
-			allIgnoredColumns = append(allIgnoredColumns, b.AutoColumns()...)
-
-			b.Write("INSERT")
-			if req.InsertIgnore {
-				b.Write(" IGNORE")
-			}
-			b.Write(" INTO ").Write(d.table)
-
-			columns := b.Columns(!req.InsertAll, allIgnoredColumns...)
-			b.Repeat(len(columns), b.SepFix("(", ", ", "", true), nil, func(_, i int) {
-				setColumnNum++
-				b.Write(columns[i])
-			})
-			if len(req.SetNullColumns) > 0 {
-				if setColumnNum > 0 {
-					b.Write(", ")
-				}
-				b.Repeat(len(req.SetNullColumns), b.Sep(", "), nil, func(_, i int) {
-					setNullColumnNum++
-					b.Write(req.SetNullColumns[i])
-				})
-			}
-			b.Write(")")
-
-			b.Write(" VALUES")
-			b.EachEntity(b.Sep(", "), func(_ int, entity *T) {
-				b.EachColumn(entity, b.SepFix("(", ", ", "", true), func(_ int, column string, value any) {
-					if value != nil {
-						b.Write("?", value)
-					} else {
-						b.Write("NULL")
-					}
-				}, columns...)
-				if len(req.SetNullColumns) > 0 {
-					if setColumnNum > 0 {
-						b.Write(", ")
-					}
-					b.Repeat(len(req.SetNullColumns), b.Sep(", "), nil, func(_, i int) {
-						b.Write("NULL")
-					})
-				}
-				b.Write(")")
-			})
-
-			if req.OnDuplicateKeyUpdate != nil {
-				b.Write(" ON DUPLICATE KEY UPDATE ")
-				b.Repeat(len(req.OnDuplicateKeyUpdate.items), b.Sep(", "), nil, func(_, i int) {
-					item := req.OnDuplicateKeyUpdate.items[i]
-					b.Write(item.column)
-					b.Write(" = ")
-					if item.plain {
-						b.Write(item.value.(string))
-					} else {
-						b.Write("?", item.value)
-					}
-				})
-			}
-		}})
-}
-
-// Update modifies a record.
-func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, Entities: []*T{req.Entity},
-		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
-			var setColumnNum, setNullColumnNum int
-			var allIgnoredColumns []string
-			allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
-			allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
-			allIgnoredColumns = append(allIgnoredColumns, req.WhereColumns...)
-
-			b.Write("UPDATE ").Write(d.table).Write(" SET ")
-
-			columns := b.Columns(!req.UpdateAll, allIgnoredColumns...)
-			b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
-				setColumnNum++
-				b.Write(column).Write(" = ")
-				if value != nil {
-					b.Write("?").SetArgs(value)
-				} else {
-					b.Write("NULL")
-				}
-			}, columns...)
-			if len(req.SetNullColumns) > 0 {
-				if setColumnNum > 0 {
-					b.Write(", ")
-				}
-				b.Repeat(len(req.SetNullColumns), b.Sep(", "), nil, func(_, i int) {
-					setNullColumnNum++
-					b.Write(req.SetNullColumns[i]).Write(" = NULL")
-				})
-			}
-
-			cond := And()
-			if len(req.WhereColumns) > 0 {
-				b.EachColumn(b.Entity(), nil, func(_ int, column string, value any) {
-					if value == nil {
-						cond.IsNull(column)
-					} else {
-						cond.Eq(column, value)
-					}
-				}, req.WhereColumns...)
-			}
-			cond.addCondition(req.Condition)
-			if !cond.empty() {
-				b.Write(" WHERE ")
-				cb := getConditionBuilder(b)
-				cond.write(cb)
-			}
-		}})
-}
-
-// UpdateBatch modifies multiple records by a SQL.
-func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, Entities: req.Entities, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
-		var setColumnNum, setNullColumnNum int
-		var allIgnoredColumns []string
-		allIgnoredColumns = append(allIgnoredColumns, req.SetNullColumns...)
-		allIgnoredColumns = append(allIgnoredColumns, req.IgnoredColumns...)
-		allIgnoredColumns = append(allIgnoredColumns, req.WhereColumn)
-
-		b.Write("UPDATE ").Write(d.table).Write(" SET ")
-
-		columns := b.Columns(!req.UpdateAll, allIgnoredColumns...)
-		b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
-			setColumnNum++
-			b.Write(column).Write(" = CASE ").Write(req.WhereColumn)
-			b.EachEntity(nil, func(_ int, entity *T) {
-				b.Write(" WHEN ").Write("?", b.ColumnValue(entity, req.WhereColumn)).Write(" THEN ")
-				if value != nil {
-					b.Write("?").SetArgs(b.ColumnValue(entity, column))
-				} else {
-					b.Write("NULL")
-				}
-			})
-			b.Write(" END")
-		}, columns...)
-		if len(req.SetNullColumns) > 0 {
-			if setColumnNum > 0 {
-				b.Write(", ")
-			}
-			b.Repeat(len(req.SetNullColumns), b.Sep(", "), nil, func(_, i int) {
-				setNullColumnNum++
-				b.Write(req.SetNullColumns[i]).Write(" = NULL")
-			})
-		}
-
-		b.Write(" WHERE ")
-		cond := And()
-		whereColumnValues := make([]any, 0, len(req.Entities))
-		b.EachEntity(nil, func(_ int, entity *T) {
-			whereColumnValues = append(whereColumnValues, b.ColumnValue(entity, req.WhereColumn))
-		})
-		cond.In(req.WhereColumn, Anys(whereColumnValues...))
-		cond.addCondition(req.Condition)
-		cb := getConditionBuilder(b)
-		cond.write(cb)
-	}})
-}
-
-// Delete removes records.
-func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
-		b.Write("DELETE FROM ").Write(d.table)
-		if req.Condition != nil && !req.Condition.empty() {
-			b.Write(" WHERE ")
-			cb := getConditionBuilder(b)
-			req.Condition.write(cb)
-		}
-	}})
-}
-
-func newBaseDao[T any](req gdao.NewDaoReq, table string) *baseDao[T] {
-	dao := gdao.NewDao[T](req)
-	table = strings.TrimSpace(table)
-	if table == "" {
-		panic(`parameter "table" must not be blank`)
-	}
-	return &baseDao[T]{Dao: dao, table: table}
 }
 
 func OrderBy() *orderBy {
