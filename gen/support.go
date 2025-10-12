@@ -40,8 +40,10 @@ type GenCfg struct {
 type DaoCfg struct {
 	// 是否生成DAO
 	GenDao bool
-	// 覆盖BaseDao
+	// 覆盖BaseDao和CountDao
 	CoverBaseDao bool
+	// 不生成CountDao
+	NoCountDao bool
 	// 是否允许非法字段，如字段未导出、未使用指针等。若为false，实体中有非法字段将会在程序初始化时panic
 	AllowInvalidField bool
 }
@@ -53,6 +55,33 @@ type TableCfg struct {
 	MappingTypes MappingTypes
 	// 指定表忽略的字段，key为表名，value为列名
 	IgnoreColumns IgnoreColumns
+}
+
+type baseDaoTplParam struct {
+	Package string
+}
+
+type entityTplParam struct {
+	Table             string
+	EntityFileName    string
+	Package           string
+	EntityName        string
+	Fields            []*fieldTplParam
+	Comment           string
+	GenDao            bool
+	DaoFileName       string
+	DaoName           string
+	AllowInvalidField bool
+}
+
+type fieldTplParam struct {
+	Column            string
+	FieldName         string
+	FieldType         string
+	IsAutoIncrement   bool
+	AutoIncrementStep int
+	Comment           string
+	Valid             bool
 }
 
 type Tables []string
@@ -82,33 +111,6 @@ var daoFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix("_dao.go
 
 var supportedFieldTypes = map[string]struct{}{
 	"bool": {}, "string": {}, "time.Time": {}, "float32": {}, "float64": {}, "int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {}, "uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {},
-}
-
-type baseDaoTplParams struct {
-	Package string
-}
-
-type entityTplParams struct {
-	Table             string
-	EntityFileName    string
-	Package           string
-	EntityName        string
-	Fields            []*fieldTplParams
-	Comment           string
-	GenDao            bool
-	DaoFileName       string
-	DaoName           string
-	AllowInvalidField bool
-}
-
-type fieldTplParams struct {
-	Column            string
-	FieldName         string
-	FieldType         string
-	IsAutoIncrement   bool
-	AutoIncrementStep int
-	Comment           string
-	Valid             bool
 }
 
 func mustNoError(err error) {

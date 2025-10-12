@@ -38,10 +38,10 @@ func (this *oracleGenerator) getBaseDaoTemplate() string {
 	return oracleBaseDaoTpl
 }
 
-func (this *oracleGenerator) getTableInfo(table string) (bool, []*fieldTplParams, string) {
+func (this *oracleGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
 	var (
 		exists       bool
-		fields       []*fieldTplParams
+		fields       []*fieldTplParam
 		tableComment string
 	)
 
@@ -66,7 +66,7 @@ func (this *oracleGenerator) getTableInfo(table string) (bool, []*fieldTplParams
 			comment = gdao.P("")
 		}
 
-		f := &fieldTplParams{
+		f := &fieldTplParam{
 			Column:    column,
 			FieldName: fieldNameMapper.Convert(column),
 			FieldType: "any",
@@ -113,7 +113,7 @@ func (this *oracleGenerator) getTableInfo(table string) (bool, []*fieldTplParams
 }
 
 func newOracleGenerator(c GenCfg) *oracleGenerator {
-	o := &oracleGenerator{}
-	o.generator__ = ExtendGenerator_(o, c)
-	return o
+	this := &oracleGenerator{}
+	this.generator__ = ExtendGenerator_(this, c)
+	return this
 }

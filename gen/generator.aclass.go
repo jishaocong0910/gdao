@@ -33,14 +33,20 @@ type Generator_ interface {
 	generator_() *generator__
 	Gen()
 	getDriverName() string
-	getTableInfo(table string) (bool, []*fieldTplParams, string)
+	getTableInfo(table string) (bool, []*fieldTplParam, string)
 	getBaseDaoTemplate() string
 }
 
 type generator__ struct {
-	i  Generator_
-	c  GenCfg
-	db *sql.DB
+	i               Generator_
+	c               GenCfg
+	db              *sql.DB
+	entityTpl       *template.Template
+	daoTpl          *template.Template
+	countDaoTpl     *template.Template
+	entityTplParams []entityTplParam
+	// 记录表名为“count”（不区分大小写）的表，因为表名为count时会和生成CountDao冲突。
+	namedCountCiTable string
 }
 
 func (this *generator__) generator_() *generator__ { // coverage-ignore
@@ -48,83 +54,87 @@ func (this *generator__) generator_() *generator__ { // coverage-ignore
 }
 
 func (this *generator__) Gen() {
-	entityTpl := mustReturn(template.New("").Parse(entityTpl))
-	daoTpl := mustReturn(template.New("").Parse(daoTpl))
-	countDaoTpl := mustReturn(template.New("").Parse(countDaoTpl))
-
 	log.Println("start generating...")
 	log.Printf("full output path: %s", this.c.OutPath)
-	var entities []entityTplParams
-	var namedCountCiTable string
-	for _, table := range this.c.TableCfg.Tables {
-		// 表名为count时会和生成CountDao冲突
-		if strings.EqualFold(table, "count") { // coverage-ignore
-			namedCountCiTable = table
-		}
-		// 获取表信息
-		exists, fields, comment := this.i.getTableInfo(table)
-		if !exists { // coverage-ignore
-			log.Printf("table \"%s\" is not exists", table)
-			continue
-		}
-		// 过滤字段
-		if columns, ok := this.c.TableCfg.IgnoreColumns[table]; ok {
-			var filtered []*fieldTplParams
-			for _, f := range fields {
-				isIgnored := false
-				for _, column := range columns {
-					if column == f.Column {
-						isIgnored = true
+	this.queryEntityTplParams()
+	this.createOutPath()
+	this.genBaseDao()
+	this.genEntity()
+	log.Println("finish generating")
+}
+
+func (this *generator__) queryEntityTplParams() {
+	if this.db != nil {
+		for _, table := range this.c.TableCfg.Tables {
+			if strings.EqualFold(table, "count") { // coverage-ignore
+				this.namedCountCiTable = table
+			}
+			// 获取表信息
+			exists, fields, comment := this.i.getTableInfo(table)
+			if !exists { // coverage-ignore
+				log.Printf("table \"%s\" is not exists", table)
+				continue
+			}
+			// 过滤字段
+			if columns, ok := this.c.TableCfg.IgnoreColumns[table]; ok {
+				var filtered []*fieldTplParam
+				for _, f := range fields {
+					isIgnored := false
+					for _, column := range columns {
+						if column == f.Column {
+							isIgnored = true
+						}
+					}
+					if !isIgnored {
+						filtered = append(filtered, f)
 					}
 				}
-				if !isIgnored {
-					filtered = append(filtered, f)
-				}
+				fields = filtered
 			}
-			fields = filtered
-		}
-		// 强制指定表字段映射类型
-		if mappingTypes, ok := this.c.TableCfg.MappingTypes[table]; ok {
-			for column, fieldType := range mappingTypes {
-				for _, f := range fields {
-					if f.Column == column {
-						f.FieldType = fieldType
-						if strings.HasPrefix(f.FieldType, "[]") {
-							if _, ok := supportedFieldTypes[strings.TrimLeft(f.FieldType, "[]")]; !ok { // coverage-ignore
-								f.Valid = false
-							}
-						} else {
-							if _, ok := supportedFieldTypes[f.FieldType[1:]]; !ok {
-								f.Valid = false
+			// 强制指定表字段映射类型
+			if mappingTypes, ok := this.c.TableCfg.MappingTypes[table]; ok {
+				for column, fieldType := range mappingTypes {
+					for _, f := range fields {
+						if f.Column == column {
+							f.FieldType = fieldType
+							if strings.HasPrefix(f.FieldType, "[]") {
+								if _, ok := supportedFieldTypes[strings.TrimLeft(f.FieldType, "[]")]; !ok { // coverage-ignore
+									f.Valid = false
+								}
+							} else {
+								if _, ok := supportedFieldTypes[f.FieldType[1:]]; !ok {
+									f.Valid = false
+								}
 							}
 						}
 					}
 				}
 			}
+			// 创建实体模板参数
+			e := entityTplParam{
+				Table:             table,
+				EntityFileName:    entityFileNameMapper.Convert(table),
+				Package:           this.c.Package,
+				EntityName:        entityNameMapper.Convert(table),
+				Fields:            fields,
+				Comment:           comment,
+				GenDao:            this.c.DaoCfg.GenDao,
+				DaoFileName:       daoFileNameMapper.Convert(table),
+				DaoName:           daoNameMapper.Convert(table),
+				AllowInvalidField: this.c.DaoCfg.AllowInvalidField,
+			}
+			this.entityTplParams = append(this.entityTplParams, e)
 		}
-		// 创建实体模板参数
-		e := entityTplParams{
-			Table:             table,
-			EntityFileName:    entityFileNameMapper.Convert(table),
-			Package:           this.c.Package,
-			EntityName:        entityNameMapper.Convert(table),
-			Fields:            fields,
-			Comment:           comment,
-			GenDao:            this.c.DaoCfg.GenDao,
-			DaoFileName:       daoFileNameMapper.Convert(table),
-			DaoName:           daoNameMapper.Convert(table),
-			AllowInvalidField: this.c.DaoCfg.AllowInvalidField,
-		}
-		entities = append(entities, e)
 	}
+}
 
-	if len(entities) == 0 { // coverage-ignore
-		return
-	}
+func (this *generator__) createOutPath() {
+	mustNoError(os.MkdirAll(this.c.OutPath, os.ModePerm))
+}
 
-	this.createOutPath()
+func (this *generator__) genBaseDao() {
 	if this.c.DaoCfg.GenDao {
-		b := baseDaoTplParams{
+		b := baseDaoTplParam{
 			Package: this.c.Package,
 		}
 		baseDaoTpl := mustReturn(template.New("").Parse(this.i.getBaseDaoTemplate()))
@@ -134,26 +144,31 @@ func (this *generator__) Gen() {
 		} else {
 			log.Println("create base dao success")
 		}
-		if namedCountCiTable != "" { // coverage-ignore
-			log.Printf("create count dao fail because exists table named \"%s\"", namedCountCiTable)
-		} else {
-			err = this.createFile("count_dao.go", false, countDaoTpl, b)
-			if err != nil { // coverage-ignore
-				log.Printf("create count dao fail: %+v\n", err)
+		if !this.c.DaoCfg.NoCountDao {
+			if this.namedCountCiTable != "" { // coverage-ignore
+				log.Printf("create count dao fail because exists table named \"%s\"", this.namedCountCiTable)
 			} else {
-				log.Println("create count dao success")
+				err = this.createFile("count_dao.go", false, this.countDaoTpl, b)
+				if err != nil { // coverage-ignore
+					log.Printf("create count dao fail: %+v\n", err)
+				} else {
+					log.Println("create count dao success")
+				}
 			}
 		}
 	}
-	for _, e := range entities {
-		err := this.createFile(e.EntityFileName, true, entityTpl, e)
+}
+
+func (this *generator__) genEntity() {
+	for _, e := range this.entityTplParams {
+		err := this.createFile(e.EntityFileName, true, this.entityTpl, e)
 		if err != nil { // coverage-ignore
 			log.Printf("create entity of table \"%s\" fail, error: %+v\n", e.Table, err)
 		} else {
 			log.Printf("create entity of table \"%s\" success\n", e.Table)
 		}
 		if this.c.DaoCfg.GenDao {
-			err := this.createFile(e.DaoFileName, false, daoTpl, e)
+			err := this.createFile(e.DaoFileName, false, this.daoTpl, e)
 			if err != nil { // coverage-ignore
 				log.Printf("create dao of table \"%s\" fail, error: %+v\n", e.Table, err)
 			} else {
@@ -161,11 +176,6 @@ func (this *generator__) Gen() {
 			}
 		}
 	}
-	log.Println("finish generating")
-}
-
-func (this *generator__) createOutPath() {
-	mustNoError(os.MkdirAll(this.c.OutPath, os.ModePerm))
 }
 
 func (this *generator__) createFile(fileName string, cover bool, tpl *template.Template, param any) error {
@@ -210,5 +220,9 @@ func ExtendGenerator_(i Generator_, c GenCfg) *generator__ {
 	}
 	mustNoError(err)
 
-	return &generator__{i: i, c: c, db: db}
+	entityTpl := mustReturn(template.New("").Parse(entityTpl))
+	daoTpl := mustReturn(template.New("").Parse(daoTpl))
+	countDaoTpl := mustReturn(template.New("").Parse(countDaoTpl))
+
+	return &generator__{i: i, c: c, db: db, entityTpl: entityTpl, daoTpl: daoTpl, countDaoTpl: countDaoTpl}
 }
