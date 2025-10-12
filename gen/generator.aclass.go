@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
-	"fmt"
 	"golang.org/x/tools/imports"
 	"log"
 	"os"
@@ -213,11 +212,10 @@ func extendGenerator_(i Generator_, c GenCfg) *generator__ {
 		c.Package = p
 	}
 
-	db, err := sql.Open(i.getDriverName(), c.Dsn)
-	if err != nil { // coverage-ignore
-		err = fmt.Errorf("connect db fail, dsn: %s, error: %w", c.Dsn, err)
+	var db *sql.DB
+	if c.Dsn != "" {
+		db = mustReturn(sql.Open(i.getDriverName(), c.Dsn))
 	}
-	mustNoError(err)
 
 	entityTpl := mustReturn(template.New("").Parse(entityTpl))
 	daoTpl := mustReturn(template.New("").Parse(daoTpl))
