@@ -115,10 +115,11 @@ func (c *Count) BoolPtr() *bool {
 }
 
 type CountReq struct {
-	Ctx      context.Context
-	Must     bool
-	Desc     string
-	BuildSql func(b *CountBuilder)
+	Ctx         context.Context
+	Must        bool
+	SqlLogLevel SqlLogLevel
+	Desc        string
+	BuildSql    func(b *CountBuilder)
 }
 
 type NewCountDaoReq struct {
@@ -137,7 +138,7 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 	}
 	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
-		printSql(req.Ctx, req.Desc, b.Sql(), b.args, -1, -1, err)
+		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, -1, -1, err)
 		checkMust(req.Must, err)
 		return nil, nil, err
 	}
@@ -173,7 +174,7 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 	if len(list) > 0 {
 		first = list[0]
 	}
-	printSql(req.Ctx, req.Desc, b.Sql(), b.args, -1, rowCounts, nil)
+	printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, -1, rowCounts, nil)
 	return
 }
 
