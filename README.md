@@ -310,14 +310,15 @@ UserDao := gdao.NewDao[User](gdao.NewDaoReq{DB: db})
 
 *参数*
 
-| 字段                                  | 说明                              |
-|-------------------------------------|---------------------------------|
-| `Ctx context.Context`               | Context                         |
-| `Must bool`                         | 若为true，有error时将panic，否则返回error  |
-| `Desc string`                       | 在日志中描述SQL                       |
-| `RowAs gdao.rowAs`                  | 指定当前为获取插入记录自增ID模式。              |
-| `Entities []*T`                     | 实体参数，用于动态构建SQL，获取的自增ID会注入到这些实体。 |
-| `BuildSql func(b *gdao.Builder[T])` | 动态构建SQL函数                       |
+| 字段                                  | 说明                                   |
+|-------------------------------------|--------------------------------------|
+| `Ctx context.Context`               | Context                              |
+| `Must bool`                         | 若为true，有error时将panic，否则返回error       |
+| `SqlLogLevel gdao.SqlLogLevel`      | 指定SQL日志级别，示例：`gdao.SqlLogLevel_.OFF` |
+| `Desc string`                       | 在日志中描述SQL                            |
+| `RowAs gdao.rowAs`                  | 指定当前为获取插入记录自增ID模式。                   |
+| `Entities []*T`                     | 实体参数，用于动态构建SQL，获取的自增ID会注入到这些实体。      |
+| `BuildSql func(b *gdao.Builder[T])` | 动态构建SQL函数                            |
 
 *Example（MySQL驱动）*
 
@@ -350,14 +351,15 @@ func foo() error {
 
 *参数*
 
-| 字段                                   | 说明                              |
-|--------------------------------------|---------------------------------|
-| `Ctx context.Context`                | Context                         |
-| `Must bool`                          | 若为true，有error时将panic，否则返回error  |
-| `Desc string`                        | 在日志中描述SQL                       |
-| `LastInsertIdAs gdao.lastInsertIdAs` | 指定当前为获取插入记录自增ID模式。              |
-| `Entities []*T`                      | 实体参数，用于动态构建SQL，获取的自增ID会注入到这些实体。 |
-| `BuildSql func(b *gdao.Builder[T])`  | 动态构建SQL函数                       |
+| 字段                                   | 说明                                   |
+|--------------------------------------|--------------------------------------|
+| `Ctx context.Context`                | Context                              |
+| `Must bool`                          | 若为true，有error时将panic，否则返回error       |
+| `SqlLogLevel gdao.SqlLogLevel`       | 指定SQL日志级别，示例：`gdao.SqlLogLevel_.OFF` |
+| `Desc string`                        | 在日志中描述SQL                            |
+| `LastInsertIdAs gdao.lastInsertIdAs` | 指定当前为获取插入记录自增ID模式。                   |
+| `Entities []*T`                      | 实体参数，用于动态构建SQL，获取的自增ID会注入到这些实体。      |
+| `BuildSql func(b *gdao.Builder[T])`  | 动态构建SQL函数                            |
 
 *Example（MySQL驱动）*
 
@@ -719,12 +721,12 @@ func foo(c context.Context) {
     </thead>
     <tbody>
         <tr>
-            <td width="210px"><code>log gdao.Logger</code></td>
+            <td width="270px"><code>log gdao.Logger</code></td>
             <td>设置日志器，日志器须实现<code>gdao.Logger</code>。</td>
         </tr>
         <tr>
-            <td><code>printSqlLevel string</code></td>
-            <td>打印SQL的日志级别，可选值："develop"、"info"。SQL执行失败会打印error级别日志，不受此配置影响。</td>
+            <td><code>sqlLogLevel gdao.SqlLogLevel</code></td>
+            <td>打印SQL的日志级别，可选值："debug"、"info"。SQL执行失败会打印error级别日志，不受此配置影响。</td>
         </tr>
         <tr>
             <td><code>compressSql bool</code></td>

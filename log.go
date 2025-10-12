@@ -31,14 +31,14 @@ type Logger interface {
 	Errorf(ctx context.Context, msg string, args ...any)
 }
 
-func LogCfg(log Logger, printSqlLevel string, compressSql bool) {
-	_logger = log
-	_printSqlLevel = strings.ToLower(printSqlLevel)
+func LogCfg(log Logger, sqlLogLevel string, compressSql bool) {
+	_log = log
+	_sqlLogLevel = SqlLogLevel_.OfStringIgnoreCase(sqlLogLevel)
 	_compressSql = compressSql
 }
 
-var _logger Logger
-var _printSqlLevel string
+var _log Logger
+var _sqlLogLevel SqlLogLevel
 var _compressSql bool
 
 func formatSql(sql string) string {
@@ -62,7 +62,13 @@ func formatSql(sql string) string {
 	return sql
 }
 
-func printSql(ctx context.Context, desc string, sql string, args []any, affected, rowCounts int64, err error) {
+func printSql(ctx context.Context, sqlLogLevel SqlLogLevel, desc string, sql string, args []any, affected, rowCounts int64, err error) {
+	if sqlLogLevel.IsUndefined() {
+		sqlLogLevel = _sqlLogLevel
+	}
+	if SqlLogLevel_.Not(sqlLogLevel, SqlLogLevel_.DEBUG, SqlLogLevel_.INFO) { // coverage-ignore
+		return
+	}
 	var msg strings.Builder
 	msgArgs := make([]any, 0, 5+len(args))
 	if desc != "" {
@@ -122,28 +128,28 @@ func printSql(ctx context.Context, desc string, sql string, args []any, affected
 		msgArgs = append(msgArgs, err)
 	}
 
-	printSqlLog(ctx, err != nil, msg.String(), msgArgs...)
+	printSqlLog(ctx, sqlLogLevel, err != nil, msg.String(), msgArgs...)
 }
 
-func printSqlLog(ctx context.Context, hasError bool, msg string, args ...any) {
-	if _logger == nil { // coverage-ignore
+func printSqlLog(ctx context.Context, sqlLogLevel SqlLogLevel, hasError bool, msg string, args ...any) {
+	if _log == nil { // coverage-ignore
 		return
 	}
 	if hasError {
-		_logger.Errorf(ctx, msg, args...)
+		_log.Errorf(ctx, msg, args...)
 	} else {
-		switch _printSqlLevel {
-		case "info":
-			_logger.Infof(ctx, msg, args...)
-		default:
-			_logger.Debugf(ctx, msg, args...)
+		switch sqlLogLevel.String() {
+		case SqlLogLevel_.DEBUG.String():
+			_log.Debugf(ctx, msg, args...)
+		case SqlLogLevel_.INFO.String():
+			_log.Infof(ctx, msg, args...)
 		}
 	}
 }
 
 func printWarn(ctx context.Context, err error) {
-	if _logger == nil || err == nil { // coverage-ignore
+	if _log == nil || err == nil { // coverage-ignore
 		return
 	}
-	_logger.Warnf(ctx, fmt.Sprintf("%v", err))
+	_log.Warnf(ctx, fmt.Sprintf("%v", err))
 }
