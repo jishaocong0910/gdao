@@ -22,13 +22,13 @@ import (
 )
 
 type DaoSqlBuilder[T any] struct {
-	*sqlBuilder__
+	*BaseSqlBuilder__
 	dao      *Dao[T]
 	entities []*T
 }
 
 func (this *DaoSqlBuilder[T]) Write(str string, args ...any) *DaoSqlBuilder[T] {
-	this.sqlBuilder__.Write(str, args...)
+	this.BaseSqlBuilder__.Write(str, args...)
 	return this
 }
 
@@ -166,7 +166,7 @@ type separate struct {
 }
 
 func newDaoSqlBuilder[T any](d *Dao[T], entities []*T) *DaoSqlBuilder[T] {
-	b := &DaoSqlBuilder[T]{dao: d, entities: entities}
-	b.sqlBuilder__ = extendSqlBuilder(b)
-	return b
+	this := &DaoSqlBuilder[T]{dao: d, entities: entities}
+	this.BaseSqlBuilder__ = ExtendBaseSqlBuilder(this)
+	return this
 }

@@ -547,7 +547,7 @@ func (d _CountDao) ExistUser(id string) (bool, error) {
 
 `Query`和`Exec`方法具有的`Entities`和`BuildeSql`参数用于动态构建SQL。
 
-`BuildeSql`是一个函数，其唯一参数`b *gdao.Bulider`用于拼接SQL和设置参数，并提供了许多动态构建SQL的方法，`Entities`将作为某些方法的数据来源。
+`BuildeSql`是一个函数，其唯一参数`b *gdao.DaoSqlBuilder`用于拼接SQL和设置参数，并提供了许多动态构建SQL的方法，`Entities`将作为某些方法的数据来源。
 
 *Example（MySQL驱动）*
 
@@ -596,7 +596,7 @@ func (d _UserDao) InsertBatch(entities []*User) (int64, error) {
 }
 ```
 
-## Builder的方法
+## DaoSqlBuilder的方法
 
 | 方法             | 说明                                                                |
 |----------------|-------------------------------------------------------------------|
@@ -828,15 +828,16 @@ func (d _UserDao) QueryByStatus(ctx context.Context, status ...int) ([]*User, er
 
 ### 内置方法
 
-| 方法名称          | 说明     |
-|---------------|--------|
-| `Get`         | 查询单个记录 |
-| `List`        | 查询记录列表 |
-| `Insert`      | 插入单个记录 |
-| `InsertBatch` | 批量插入记录 |
-| `Update`      | 更新单个记录 |
-| `UpdateBatch` | 批量更新记录 |
-| `Delete`      | 删除记录   |
+| 方法名称          | 说明      |
+|---------------|---------|
+| `Get`         | 查询单个记录  |
+| `List`        | 查询记录列表  |
+| `Insert`      | 插入单个记录  |
+| `InsertBatch` | 批量插入记录  |
+| `Update`      | 更新单个记录  |
+| `UpdateBatch` | 批量更新记录  |
+| `Delete`      | 删除记录    |
+| `Count`       | Count记录 |
 
 
 

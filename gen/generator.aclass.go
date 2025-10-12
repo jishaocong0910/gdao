@@ -30,7 +30,7 @@ import (
 )
 
 type Generator_ interface {
-	generator_() *generator__
+	generator_()
 	Gen()
 	getDriverName() string
 	getTableInfo(table string) (bool, []*fieldTplParam, string)
@@ -49,8 +49,7 @@ type generator__ struct {
 	namedCountCiTable string
 }
 
-func (this *generator__) generator_() *generator__ { // coverage-ignore
-	return this
+func (this *generator__) generator_() { // coverage-ignore
 }
 
 func (this *generator__) Gen() {
@@ -144,11 +143,11 @@ func (this *generator__) genBaseDao() {
 		} else {
 			log.Println("create base dao success")
 		}
-		if !this.c.DaoCfg.NoCountDao {
+		if this.c.DaoCfg.GenCountDao {
 			if this.namedCountCiTable != "" { // coverage-ignore
 				log.Printf("create count dao fail because exists table named \"%s\"", this.namedCountCiTable)
 			} else {
-				err = this.createFile("count_dao.go", false, this.countDaoTpl, b)
+				err = this.createFile("count_dao.go", this.c.DaoCfg.CoverCountDao, this.countDaoTpl, b)
 				if err != nil { // coverage-ignore
 					log.Printf("create count dao fail: %+v\n", err)
 				} else {
@@ -202,7 +201,7 @@ func (this *generator__) createFile(fileName string, cover bool, tpl *template.T
 	return nil
 }
 
-func ExtendGenerator_(i Generator_, c GenCfg) *generator__ {
+func extendGenerator_(i Generator_, c GenCfg) *generator__ {
 	fullOutPath := mustReturn(os.Getwd())
 	if c.OutPath != "" {
 		fullOutPath = filepath.Join(fullOutPath, c.OutPath)

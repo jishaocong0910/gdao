@@ -277,6 +277,23 @@ func TestBaseDao_Delete(t *testing.T) {
 	r.Equal(int64(3), affected)
 }
 
+func TestBaseDao_Count(t *testing.T) {
+	r := require.New(t)
+	d, mock := dao.MockBaseDao[User](r, "user")
+
+	mock.ExpectPrepare(`SELECT COUNT\(\*\) FROM user WHERE status = :1`).
+		ExpectQuery().WithArgs(1).WillReturnRows(mock.NewRows([]string{"count"}).
+		AddRow(8))
+
+	count, err := d.Count(dao.CountReq{
+		Condition: dao.And().Eq("status", 1),
+	})
+
+	r.NoError(err)
+	r.NoError(mock.ExpectationsWereMet())
+	r.Equal(int64(8), count.Int64())
+}
+
 func TestCondition(t *testing.T) {
 	r := require.New(t)
 	{

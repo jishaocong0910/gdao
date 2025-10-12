@@ -21,12 +21,12 @@ import (
 	"strings"
 )
 
-type sqlBuilder_ interface {
-	sqlBuilder_() *sqlBuilder__
+type baseSqlBuilder_ interface {
+	baseSqlBuilder_()
 }
 
-type sqlBuilder__ struct {
-	i      sqlBuilder_
+type BaseSqlBuilder__ struct {
+	i      baseSqlBuilder_
 	sql    strings.Builder
 	args   []any
 	argNum int
@@ -34,63 +34,62 @@ type sqlBuilder__ struct {
 	err    error
 }
 
-func (this *sqlBuilder__) sqlBuilder_() *sqlBuilder__ { // coverage-ignore
-	return this
+func (this *BaseSqlBuilder__) baseSqlBuilder_() { // coverage-ignore
 }
 
-func (this *sqlBuilder__) Write(str string, args ...any) *sqlBuilder__ {
+func (this *BaseSqlBuilder__) Write(str string, args ...any) *BaseSqlBuilder__ {
 	this.sql.WriteString(str)
 	this.SetArgs(args...)
 	return this
 }
 
-func (this *sqlBuilder__) SetArgs(args ...any) {
+func (this *BaseSqlBuilder__) SetArgs(args ...any) {
 	this.args = append(this.args, args...)
 }
 
-func (this *sqlBuilder__) Pp(prefix string) string {
+func (this *BaseSqlBuilder__) Pp(prefix string) string {
 	this.argNum++
 	return prefix + strconv.Itoa(this.argNum)
 }
 
-func (this *sqlBuilder__) Sql() string {
+func (this *BaseSqlBuilder__) Sql() string {
 	return this.sql.String()
 }
 
-func (this *sqlBuilder__) Args() []any {
+func (this *BaseSqlBuilder__) Args() []any {
 	return this.args
 }
 
-func (this *sqlBuilder__) SetError(err error) {
+func (this *BaseSqlBuilder__) SetError(err error) {
 	if err != nil {
 		this.err = err
 		this.ok = false
 	}
 }
 
-func (this *sqlBuilder__) Error() error {
+func (this *BaseSqlBuilder__) Error() error {
 	return this.err
 }
 
-func (this *sqlBuilder__) SetOk(ok bool) {
+func (this *BaseSqlBuilder__) SetOk(ok bool) {
 	if this.err == nil {
 		this.ok = ok
 	}
 }
 
-func (this *sqlBuilder__) Ok() bool {
+func (this *BaseSqlBuilder__) Ok() bool {
 	return this.ok
 }
 
-func (this *sqlBuilder__) Sep(separator string) *separate {
+func (this *BaseSqlBuilder__) Sep(separator string) *separate {
 	return &separate{separator: separator}
 }
 
-func (this *sqlBuilder__) SepFix(prefix, separator, suffix string, writeFixIfEmpty bool) *separate {
+func (this *BaseSqlBuilder__) SepFix(prefix, separator, suffix string, writeFixIfEmpty bool) *separate {
 	return &separate{prefix: prefix, separator: separator, suffix: suffix, writeFixIfEmpty: writeFixIfEmpty}
 }
 
-func (this *sqlBuilder__) Repeat(num int, sep *separate, filter func(i int) bool, handle func(n, i int)) {
+func (this *BaseSqlBuilder__) Repeat(num int, sep *separate, filter func(i int) bool, handle func(n, i int)) {
 	var n int
 	this.writePrefix(sep, n)
 	for i := 0; i < num; i++ {
@@ -105,7 +104,7 @@ func (this *sqlBuilder__) Repeat(num int, sep *separate, filter func(i int) bool
 	this.writeSuffix(sep, n)
 }
 
-func (this *sqlBuilder__) writePrefix(s *separate, n int) *sqlBuilder__ {
+func (this *BaseSqlBuilder__) writePrefix(s *separate, n int) *BaseSqlBuilder__ {
 	if s != nil {
 		if n == 0 && s.writeFixIfEmpty || n == 1 && !s.writeFixIfEmpty {
 			this.Write(s.prefix)
@@ -114,20 +113,20 @@ func (this *sqlBuilder__) writePrefix(s *separate, n int) *sqlBuilder__ {
 	return this
 }
 
-func (this *sqlBuilder__) writeSep(s *separate, n int) *sqlBuilder__ {
+func (this *BaseSqlBuilder__) writeSep(s *separate, n int) *BaseSqlBuilder__ {
 	if s != nil && n != 1 {
 		this.Write(s.separator)
 	}
 	return this
 }
 
-func (this *sqlBuilder__) writeSuffix(s *separate, n int) *sqlBuilder__ {
+func (this *BaseSqlBuilder__) writeSuffix(s *separate, n int) *BaseSqlBuilder__ {
 	if s != nil && n != 0 {
 		this.Write(s.suffix)
 	}
 	return this
 }
 
-func extendSqlBuilder(i sqlBuilder_) *sqlBuilder__ {
-	return &sqlBuilder__{i: i, ok: true}
+func ExtendBaseSqlBuilder(i baseSqlBuilder_) *BaseSqlBuilder__ {
+	return &BaseSqlBuilder__{i: i, ok: true}
 }

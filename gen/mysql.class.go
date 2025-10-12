@@ -133,7 +133,7 @@ func (this *mySqlGenerator) getTableInfo(table string) (bool, []*fieldTplParam, 
 
 func newMySqlGenerator(c GenCfg) *mySqlGenerator {
 	this := &mySqlGenerator{}
-	this.generator__ = ExtendGenerator_(this, c)
+	this.generator__ = extendGenerator_(this, c)
 
 	if this.db != nil {
 		database := ""

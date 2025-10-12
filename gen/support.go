@@ -40,10 +40,12 @@ type GenCfg struct {
 type DaoCfg struct {
 	// 是否生成DAO
 	GenDao bool
-	// 覆盖BaseDao和CountDao
+	// 覆盖BaseDao
 	CoverBaseDao bool
-	// 不生成CountDao
-	NoCountDao bool
+	// 是否生成CountDao
+	GenCountDao bool
+	// 覆盖CountDao
+	CoverCountDao bool
 	// 是否允许非法字段，如字段未导出、未使用指针等。若为false，实体中有非法字段将会在程序初始化时panic
 	AllowInvalidField bool
 }

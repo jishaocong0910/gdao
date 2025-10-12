@@ -17,11 +17,11 @@ limitations under the License.
 package gdao
 
 type CountBuilder struct {
-	*sqlBuilder__
+	*BaseSqlBuilder__
 }
 
 func newCountSqlBuilder() *CountBuilder {
-	b := &CountBuilder{}
-	b.sqlBuilder__ = extendSqlBuilder(b)
-	return b
+	this := &CountBuilder{}
+	this.BaseSqlBuilder__ = ExtendBaseSqlBuilder(this)
+	return this
 }

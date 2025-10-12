@@ -114,6 +114,6 @@ func (this *oracleGenerator) getTableInfo(table string) (bool, []*fieldTplParam,
 
 func newOracleGenerator(c GenCfg) *oracleGenerator {
 	this := &oracleGenerator{}
-	this.generator__ = ExtendGenerator_(this, c)
+	this.generator__ = extendGenerator_(this, c)
 	return this
 }

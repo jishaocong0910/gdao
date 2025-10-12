@@ -112,6 +112,6 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*fieldTplParam, 
 
 func newSqlServerGenerator(c GenCfg) *sqlServerGenerator {
 	this := &sqlServerGenerator{}
-	this.generator__ = ExtendGenerator_(this, c)
+	this.generator__ = extendGenerator_(this, c)
 	return this
 }

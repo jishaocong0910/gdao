@@ -124,7 +124,7 @@ func (g postgresGenerator) getTableInfo(table string) (bool, []*fieldTplParam, s
 
 func newPostgresGenerator(c GenCfg) *postgresGenerator {
 	this := &postgresGenerator{}
-	this.generator__ = ExtendGenerator_(this, c)
+	this.generator__ = extendGenerator_(this, c)
 
 	if this.db != nil {
 		schema := ""

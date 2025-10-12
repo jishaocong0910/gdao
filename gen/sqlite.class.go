@@ -194,6 +194,6 @@ func (this *sqliteGenerator) nextComment(st *stringTokenizer) string {
 
 func newSqliteGenerator(c GenCfg) *sqliteGenerator {
 	this := &sqliteGenerator{}
-	this.generator__ = ExtendGenerator_(this, c)
+	this.generator__ = extendGenerator_(this, c)
 	return this
 }
