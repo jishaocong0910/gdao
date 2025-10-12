@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type Logger interface {
@@ -61,10 +62,14 @@ func formatSql(sql string) string {
 	return sql
 }
 
-func printSql(ctx context.Context, sql string, args []any, affected, rowCounts int64, err error) {
+func printSql(ctx context.Context, desc string, sql string, args []any, affected, rowCounts int64, err error) {
 	var msg strings.Builder
+	msgArgs := make([]any, 0, 5+len(args))
+	if desc != "" {
+		msg.WriteString("Desc: %s, ")
+		msgArgs = append(msgArgs, desc)
+	}
 	msg.WriteString("SQL: %s;")
-	msgArgs := make([]any, 0, 3)
 	msgArgs = append(msgArgs, formatSql(sql))
 
 	sep := " "
@@ -84,8 +89,12 @@ func printSql(ctx context.Context, sql string, args []any, affected, rowCounts i
 						a = v.Elem().Interface()
 					}
 				}
-				if s, ok := a.(string); ok {
-					a = "\"" + s + "\""
+				if a != nil {
+					if s, ok := a.(string); ok {
+						a = "\"" + s + "\""
+					} else if t, ok := a.(time.Time); ok {
+						a = "time.Time(" + t.String() + ")"
+					}
 				}
 				values = append(values, a)
 			}

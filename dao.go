@@ -50,6 +50,7 @@ type NewDaoReq struct {
 type QueryReq[T any] struct {
 	Ctx      context.Context
 	Must     bool
+	Desc     string
 	RowAs    rowAs
 	Entities []*T
 	BuildSql func(b *DaoSqlBuilder[T])
@@ -58,6 +59,7 @@ type QueryReq[T any] struct {
 type ExecReq[T any] struct {
 	Ctx            context.Context
 	Must           bool
+	Desc           string
 	LastInsertIdAs lastInsertIdAs
 	Entities       []*T
 	BuildSql       func(b *DaoSqlBuilder[T])
@@ -98,7 +100,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	}
 	rows, columns, closeFunc, err := query(req.Ctx, d.DB(), b.Sql(), b.args)
 	if err != nil { // coverage-ignore
-		printSql(req.Ctx, b.Sql(), b.args, -1, -1, err)
+		printSql(req.Ctx, req.Desc, b.Sql(), b.args, -1, -1, err)
 		checkMust(req.Must, err)
 		return nil, nil, err
 	}
@@ -125,7 +127,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 			}
 			affected++
 		}
-		printSql(req.Ctx, b.Sql(), b.args, affected, -1, nil)
+		printSql(req.Ctx, req.Desc, b.Sql(), b.args, affected, -1, nil)
 	case ROW_AS_LAST_ID:
 		var affected int64
 		var id *int64
@@ -157,7 +159,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 				}
 			}
 		}
-		printSql(req.Ctx, b.Sql(), b.args, affected, -1, nil)
+		printSql(req.Ctx, req.Desc, b.Sql(), b.args, affected, -1, nil)
 	default:
 		var rowCounts int64
 		for rows.Next() {
@@ -174,7 +176,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 		if len(list) > 0 {
 			first = list[0]
 		}
-		printSql(req.Ctx, b.Sql(), b.args, -1, rowCounts, nil)
+		printSql(req.Ctx, req.Desc, b.Sql(), b.args, -1, rowCounts, nil)
 	}
 	return
 }
@@ -191,7 +193,7 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 		return 0, nil
 	}
 	result, affected, err := exec(req.Ctx, d.DB(), b.Sql(), b.args)
-	printSql(req.Ctx, b.Sql(), b.args, affected, -1, err)
+	printSql(req.Ctx, req.Desc, b.Sql(), b.args, affected, -1, err)
 	if err != nil { // coverage-ignore
 		checkMust(req.Must, err)
 		return

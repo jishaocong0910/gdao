@@ -313,6 +313,8 @@ UserDao := gdao.NewDao[User](gdao.NewDaoReq{DB: db})
 | 字段                                  | 说明                              |
 |-------------------------------------|---------------------------------|
 | `Ctx context.Context`               | Context                         |
+| `Must bool`                         | 若为true，有error时将panic，否则返回error  |
+| `Desc string`                       | 在日志中描述SQL                       |
 | `RowAs gdao.rowAs`                  | 指定当前为获取插入记录自增ID模式。              |
 | `Entities []*T`                     | 实体参数，用于动态构建SQL，获取的自增ID会注入到这些实体。 |
 | `BuildSql func(b *gdao.Builder[T])` | 动态构建SQL函数                       |
@@ -351,6 +353,8 @@ func foo() error {
 | 字段                                   | 说明                              |
 |--------------------------------------|---------------------------------|
 | `Ctx context.Context`                | Context                         |
+| `Must bool`                          | 若为true，有error时将panic，否则返回error  |
+| `Desc string`                        | 在日志中描述SQL                       |
 | `LastInsertIdAs gdao.lastInsertIdAs` | 指定当前为获取插入记录自增ID模式。              |
 | `Entities []*T`                      | 实体参数，用于动态构建SQL，获取的自增ID会注入到这些实体。 |
 | `BuildSql func(b *gdao.Builder[T])`  | 动态构建SQL函数                       |
