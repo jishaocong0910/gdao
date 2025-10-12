@@ -38,10 +38,10 @@ func (g sqlServerGenerator) getBaseDaoTemplate() string {
 	return sqlserverBaseDaoTpl
 }
 
-func (g sqlServerGenerator) getTableInfo(table string) (bool, []*fieldTplParams, string) {
+func (g sqlServerGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
 	var (
 		exists       bool
-		fields       []*fieldTplParams
+		fields       []*fieldTplParam
 		tableComment string
 	)
 
@@ -89,7 +89,7 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*fieldTplParams,
 			fieldType = "[]byte"
 		}
 
-		f := &fieldTplParams{
+		f := &fieldTplParam{
 			Column:            column,
 			FieldName:         fieldNameMapper.Convert(column),
 			FieldType:         fieldType,
@@ -111,7 +111,7 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*fieldTplParams,
 }
 
 func newSqlServerGenerator(c GenCfg) *sqlServerGenerator {
-	s := &sqlServerGenerator{}
-	s.generator__ = ExtendGenerator_(s, c)
-	return s
+	this := &sqlServerGenerator{}
+	this.generator__ = extendGenerator_(this, c)
+	return this
 }

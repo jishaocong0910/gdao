@@ -133,6 +133,17 @@ type DeleteReq struct {
 	Condition condition
 }
 
+type CountReq struct {
+	// the context
+	Ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	Must bool
+	// dsescribe the SQL in the log
+	Desc string
+	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
+	Condition condition
+}
+
 type orderBy struct {
 	items []orderByItem
 }
@@ -165,6 +176,7 @@ type pagination struct {
 
 type baseDao[T any] struct {
 	*gdao.Dao[T]
+	*gdao.CountDao
 	table string
 }
 
@@ -174,8 +186,7 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table)
 		if req.Condition != nil && !req.Condition.empty() {
 			b.Write(" WHERE ")
-			cb := getConditionBuilder(b)
-			req.Condition.write(cb)
+			req.Condition.write(b.BaseSqlBuilder__)
 		}
 		if req.OrderBy != nil {
 			b.Repeat(len(req.OrderBy.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
@@ -330,8 +341,7 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 			cond.addCondition(req.Condition)
 			if !cond.empty() {
 				b.Write(" WHERE ")
-				cb := getConditionBuilder(b)
-				cond.write(cb)
+				cond.write(b.BaseSqlBuilder__)
 			}
 		}})
 }
@@ -379,8 +389,7 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 		})
 		cond.In(req.WhereColumn, Anys(whereColumnValues...))
 		cond.addCondition(req.Condition)
-		cb := getConditionBuilder(b)
-		cond.write(cb)
+		cond.write(b.BaseSqlBuilder__)
 	}})
 }
 
@@ -390,30 +399,41 @@ func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
 		b.Write("DELETE FROM ").Write(d.table)
 		if req.Condition != nil && !req.Condition.empty() {
 			b.Write(" WHERE ")
-			cb := getConditionBuilder(b)
-			req.Condition.write(cb)
+			req.Condition.write(b.BaseSqlBuilder__)
 		}
 	}})
 }
 
+// Count return a count of the number of records returned
+func (d baseDao[T]) Count(req CountReq) (*gdao.Count, error) {
+	first, _, err := d.CountDao.Count(gdao.CountReq{Ctx: req.Ctx, Must: req.Must, Desc: req.Desc, BuildSql: func(b *gdao.CountBuilder) {
+		b.Write("SELECT COUNT(*) FROM ").Write(d.table)
+		if req.Condition != nil && !req.Condition.empty() {
+			b.Write(" WHERE ")
+			req.Condition.write(b.BaseSqlBuilder__)
+		}
+	}})
+	return first, err
+}
+
 func newBaseDao[T any](req gdao.NewDaoReq, table string) *baseDao[T] {
 	dao := gdao.NewDao[T](req)
+	countDao := gdao.NewCountDao(gdao.NewCountDaoReq{DB: req.DB})
 	table = strings.TrimSpace(table)
 	if table == "" {
 		panic(`parameter "table" must not be blank`)
 	}
-	return &baseDao[T]{Dao: dao, table: table}
+	return &baseDao[T]{Dao: dao, CountDao: countDao, table: table}
 }
 
-func getConditionBuilder[T any](b *gdao.DaoSqlBuilder[T]) conditionBuilder {
-	return conditionBuilder{
-		write: func(str string, args ...any) {
-			b.Write(str, args...)
-		},
-		pp: func() string {
-			return b.Pp("$")
-		},
-	}
+type TempSqlBuilder struct {
+	*gdao.BaseSqlBuilder__
+}
+
+func newTempSqlBuilder() *TempSqlBuilder {
+	this := &TempSqlBuilder{}
+	this.BaseSqlBuilder__ = gdao.ExtendBaseSqlBuilder(this)
+	return this
 }
 
 func parenthesizeGroup(c condition) {
@@ -424,13 +444,8 @@ func parenthesizeGroup(c condition) {
 	}
 }
 
-type conditionBuilder struct {
-	write func(str string, args ...any)
-	pp    func() string
-}
-
 type condition interface {
-	write(b conditionBuilder)
+	write(b *gdao.BaseSqlBuilder__)
 	empty() bool
 }
 
@@ -443,16 +458,16 @@ func (bc baseCondition) empty() bool {
 	return false
 }
 
-func (bc baseCondition) doWrite(b conditionBuilder, write func()) {
+func (bc baseCondition) doWrite(b *gdao.BaseSqlBuilder__, write func()) {
 	if bc.not {
-		b.write("NOT ")
+		b.Write("NOT ")
 	}
 	if bc.parenthesized {
-		b.write("(")
+		b.Write("(")
 	}
 	write()
 	if bc.parenthesized {
-		b.write(")")
+		b.Write(")")
 	}
 }
 
@@ -466,14 +481,14 @@ func (cg *conditionGroup) empty() bool {
 	return cg == nil || len(cg.cs) == 0
 }
 
-func (cg *conditionGroup) write(b conditionBuilder) {
+func (cg *conditionGroup) write(b *gdao.BaseSqlBuilder__) {
 	cg.doWrite(b, func() {
 		for i, cond := range cg.cs {
 			if i != 0 {
 				if cg.or {
-					b.write(" OR ")
+					b.Write(" OR ")
 				} else {
-					b.write(" AND ")
+					b.Write(" AND ")
 				}
 			}
 			cond.write(b)
@@ -498,21 +513,9 @@ func (cg *conditionGroup) addCondition(other condition) *conditionGroup {
 }
 
 func (cg *conditionGroup) ToStrArgs() (string, []any) {
-	var str strings.Builder
-	var args []any
-	var argNum int
-	cb := conditionBuilder{
-		write: func(s string, a ...any) {
-			str.WriteString(s)
-			args = append(args, a...)
-		},
-		pp: func() string {
-			argNum++
-			return "$" + strconv.Itoa(argNum)
-		},
-	}
-	cg.write(cb)
-	return str.String(), args
+	b := newTempSqlBuilder()
+	cg.write(b.BaseSqlBuilder__)
+	return b.Sql(), b.Args()
 }
 
 func (cg *conditionGroup) Group(other *conditionGroup) *conditionGroup {
@@ -582,9 +585,9 @@ type conditionPlain struct {
 	args []any
 }
 
-func (c *conditionPlain) write(b conditionBuilder) {
+func (c *conditionPlain) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
-		b.write(c.sql, c.args...)
+		b.Write(c.sql, c.args...)
 	})
 }
 
@@ -595,13 +598,13 @@ type conditionBinOp struct {
 	arg    any
 }
 
-func (c *conditionBinOp) write(b conditionBuilder) {
+func (c *conditionBinOp) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
-		b.write(c.column)
-		b.write(" ")
-		b.write(c.op)
-		b.write(" ")
-		b.write(b.pp(), c.arg)
+		b.Write(c.column)
+		b.Write(" ")
+		b.Write(c.op)
+		b.Write(" ")
+		b.Write(b.Pp("$"), c.arg)
 	})
 }
 
@@ -611,17 +614,17 @@ type conditionIn struct {
 	args   []any
 }
 
-func (c *conditionIn) write(b conditionBuilder) {
+func (c *conditionIn) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
-		b.write(c.column)
-		b.write(" IN(")
+		b.Write(c.column)
+		b.Write(" IN(")
 		for i := 0; i < len(c.args); i++ {
 			if i != 0 {
-				b.write(", ")
+				b.Write(", ")
 			}
-			b.write(b.pp())
+			b.Write(b.Pp("$"))
 		}
-		b.write(")", c.args...)
+		b.Write(")", c.args...)
 	})
 }
 
@@ -631,13 +634,13 @@ type conditionBetween struct {
 	min, max any
 }
 
-func (c *conditionBetween) write(b conditionBuilder) {
+func (c *conditionBetween) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
-		b.write(c.column)
-		b.write(" BETWEEN ")
-		b.write(b.pp())
-		b.write(" AND ")
-		b.write(b.pp(), c.min, c.max)
+		b.Write(c.column)
+		b.Write(" BETWEEN ")
+		b.Write(b.Pp("$"))
+		b.Write(" AND ")
+		b.Write(b.Pp("$"), c.min, c.max)
 	})
 }
 
@@ -647,14 +650,14 @@ type conditionIsNull struct {
 	column  string
 }
 
-func (c *conditionIsNull) write(b conditionBuilder) {
+func (c *conditionIsNull) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
-		b.write(c.column)
-		b.write(" IS")
+		b.Write(c.column)
+		b.Write(" IS")
 		if c.notNull {
-			b.write(" NOT")
+			b.Write(" NOT")
 		}
-		b.write(" NULL")
+		b.Write(" NULL")
 	})
 }
 

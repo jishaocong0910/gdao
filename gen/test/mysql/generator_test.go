@@ -75,6 +75,7 @@ func TestMySql(t *testing.T) {
 		DaoCfg: gen.DaoCfg{
 			GenDao:            true,
 			CoverBaseDao:      true,
+			GenCountDao:       true,
 			AllowInvalidField: true,
 		},
 	}).Gen()

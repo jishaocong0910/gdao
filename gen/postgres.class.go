@@ -17,9 +17,7 @@ limitations under the License.
 package gen
 
 import (
-	"database/sql"
 	_ "embed"
-	"fmt"
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/lib/pq"
 	"strings"
@@ -42,10 +40,10 @@ func (g postgresGenerator) getBaseDaoTemplate() string {
 	return postgresBaseDaoTpl
 }
 
-func (g postgresGenerator) getTableInfo(table string) (bool, []*fieldTplParams, string) {
+func (g postgresGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
 	var (
 		exists       bool
-		fields       []*fieldTplParams
+		fields       []*fieldTplParam
 		tableComment string
 	)
 
@@ -104,7 +102,7 @@ func (g postgresGenerator) getTableInfo(table string) (bool, []*fieldTplParams, 
 			fieldType = "[]" + fieldType
 		}
 
-		f := &fieldTplParams{
+		f := &fieldTplParam{
 			Column:          column,
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,
@@ -125,29 +123,26 @@ func (g postgresGenerator) getTableInfo(table string) (bool, []*fieldTplParams, 
 }
 
 func newPostgresGenerator(c GenCfg) *postgresGenerator {
-	p := &postgresGenerator{}
-	p.generator__ = ExtendGenerator_(p, c)
+	this := &postgresGenerator{}
+	this.generator__ = extendGenerator_(this, c)
 
-	db, err := sql.Open("postgres", c.Dsn)
-	if err != nil { // coverage-ignore
-		panic(fmt.Sprintf("connect db fail, dsn: %s, error: %v", c.Dsn, err))
+	if this.db != nil {
+		schema := ""
+		rows := mustReturn(this.db.Query("SELECT CURRENT_SCHEMA()"))
+		if rows.Next() {
+			rows.Scan(&schema)
+		}
+		rows.Close()
+
+		database := ""
+		rows = mustReturn(this.db.Query("SELECT CURRENT_DATABASE()"))
+		if rows.Next() {
+			rows.Scan(&database)
+		}
+		rows.Close()
+
+		this.schema = schema
+		this.database = database
 	}
-
-	schema := ""
-	rows := mustReturn(db.Query("SELECT CURRENT_SCHEMA()"))
-	if rows.Next() {
-		rows.Scan(&schema)
-	}
-	rows.Close()
-
-	database := ""
-	rows = mustReturn(db.Query("SELECT CURRENT_DATABASE()"))
-	if rows.Next() {
-		rows.Scan(&database)
-	}
-	rows.Close()
-
-	p.schema = schema
-	p.database = database
-	return p
+	return this
 }

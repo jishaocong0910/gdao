@@ -37,10 +37,10 @@ func (this *sqliteGenerator) getBaseDaoTemplate() string {
 	return sqliteBaseDaoTpl
 }
 
-func (this *sqliteGenerator) getTableInfo(table string) (bool, []*fieldTplParams, string) {
+func (this *sqliteGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
 	var (
 		exists       bool
-		fields       []*fieldTplParams
+		fields       []*fieldTplParam
 		tableComment string
 	)
 
@@ -140,7 +140,7 @@ func (this *sqliteGenerator) getTableInfo(table string) (bool, []*fieldTplParams
 			}
 		}
 
-		f := &fieldTplParams{
+		f := &fieldTplParam{
 			Column:          column,
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,
@@ -193,7 +193,7 @@ func (this *sqliteGenerator) nextComment(st *stringTokenizer) string {
 }
 
 func newSqliteGenerator(c GenCfg) *sqliteGenerator {
-	s := &sqliteGenerator{}
-	s.generator__ = ExtendGenerator_(s, c)
-	return s
+	this := &sqliteGenerator{}
+	this.generator__ = extendGenerator_(this, c)
+	return this
 }

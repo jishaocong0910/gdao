@@ -38,10 +38,10 @@ func (this *mySqlGenerator) getBaseDaoTemplate() string {
 	return mysqlBaseDaoTpl
 }
 
-func (this *mySqlGenerator) getTableInfo(table string) (bool, []*fieldTplParams, string) {
+func (this *mySqlGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
 	var (
 		exists       bool
-		fields       []*fieldTplParams
+		fields       []*fieldTplParam
 		tableComment string
 	)
 
@@ -58,7 +58,7 @@ func (this *mySqlGenerator) getTableInfo(table string) (bool, []*fieldTplParams,
 		)
 		mustNoError(rows.Scan(&column, &dataType, &columnType, &isAutoIncrement, &comment))
 
-		f := &fieldTplParams{
+		f := &fieldTplParam{
 			Column:          column,
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       "any",
@@ -132,15 +132,17 @@ func (this *mySqlGenerator) getTableInfo(table string) (bool, []*fieldTplParams,
 }
 
 func newMySqlGenerator(c GenCfg) *mySqlGenerator {
-	m := &mySqlGenerator{}
-	m.generator__ = ExtendGenerator_(m, c)
+	this := &mySqlGenerator{}
+	this.generator__ = extendGenerator_(this, c)
 
-	database := ""
-	rows := mustReturn(m.db.Query("SELECT DATABASE()"))
-	if rows.Next() {
-		rows.Scan(&database)
+	if this.db != nil {
+		database := ""
+		rows := mustReturn(this.db.Query("SELECT DATABASE()"))
+		if rows.Next() {
+			rows.Scan(&database)
+		}
+		rows.Close()
+		this.database = database
 	}
-	rows.Close()
-	m.database = database
-	return m
+	return this
 }
