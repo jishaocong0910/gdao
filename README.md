@@ -181,7 +181,7 @@ type Account struct {
     <tbody>
         <tr>
             <td width="252px"><code>Db *sql.DB</code></td>
-            <td>可选，打开的<code>*sql.DB</code>变量。</td>
+            <td>指定数据库连接，为nil时使用默认数据库连接。</td>
         </tr>
         <tr>
             <td><code>AllowInvalidField bool</code></td>
@@ -282,23 +282,34 @@ func (d _AccountDao) ReduceBalance(id int32, balance int64) (bool, error) {
 }
 ```
 
-# 设置DB
+# 配置项
 
-必须设置`*sql.DB`才可以执行SQL，有以下方式：
+使用`gdao.Config`函数进行配置。
 
-1. 全局默认DB
-
-```go
-gdao.DEFAULT_DB = db
-```
-
-2. 创建DAO时设置
-
-```go
-UserDao := gdao.NewDao[User](gdao.NewDaoReq{DB: db})
-```
-
-优先级：2 > 1
+<table>
+    <thead>
+        <th>标签值</th>
+        <th>说明</th>
+    </thead>
+    <tbody>
+        <tr>
+            <td width="210px"><code>DefaultDB *sql.DB</code></td>
+            <td>默认数据库连接</td>
+        </tr>
+        <tr>
+            <td><code>Logger gdao.Logger</code></td>
+            <td>设置日志器，日志器须实现<code>gdao.Logger</code>。</td>
+        </tr>
+        <tr>
+            <td><code>SqlLogLevel gdao.SqlLogLevel</code></td>
+            <td>打印SQL的日志级别，枚举集合：<code>gdao.SqlLogLevel_</code>。SQL执行失败会打印error级别日志，不受此配置影响。</td>
+        </tr>
+        <tr>
+            <td><code>CompressSqlLog bool</code></td>
+            <td>是否压缩SQL。</td>
+        </tr>
+    </tbody>
+</table>
 
 # DAO执行方法
 
@@ -310,15 +321,15 @@ UserDao := gdao.NewDao[User](gdao.NewDaoReq{DB: db})
 
 *参数*
 
-| 字段                                  | 说明                                   |
-|-------------------------------------|--------------------------------------|
-| `Ctx context.Context`               | Context                              |
-| `Must bool`                         | 若为true，有error时将panic，否则返回error       |
-| `SqlLogLevel gdao.SqlLogLevel`      | 指定SQL日志级别，示例：`gdao.SqlLogLevel_.OFF` |
-| `Desc string`                       | 在日志中描述SQL                            |
-| `RowAs gdao.rowAs`                  | 指定当前为获取插入记录自增ID模式。                   |
-| `Entities []*T`                     | 实体参数，用于动态构建SQL，获取的自增ID会注入到这些实体。      |
-| `BuildSql func(b *gdao.Builder[T])` | 动态构建SQL函数                            |
+| 字段                                  | 说明                                 |
+|-------------------------------------|------------------------------------|
+| `Ctx context.Context`               | Context                            |
+| `Must bool`                         | 若为true，有error时将panic，否则返回error     |
+| `SqlLogLevel gdao.SqlLogLevel`      | 指定SQL日志级别，枚举集合：`gdao.SqlLogLevel_` |
+| `Desc string`                       | 在日志中描述SQL                          |
+| `RowAs gdao.rowAs`                  | 指定当前为获取插入记录自增ID模式。                 |
+| `Entities []*T`                     | 实体参数，用于动态构建SQL，获取的自增ID会注入到这些实体。    |
+| `BuildSql func(b *gdao.Builder[T])` | 动态构建SQL函数                          |
 
 *Example（MySQL驱动）*
 
@@ -387,10 +398,10 @@ func foo() {
 `Exec`方法用于支持`sql.Result#LastInsertId`方法的数据库驱动获取自增ID。尽管`sql.Result#LastInsertId`方法是Golang的标准，但不同数据库驱动实现的意义不同。`Exec`方法的`LastInsertIdAs`参数提供了以下模式，指定模式后会将`sql.Result#LastInsertId`方法的值注入到`Entities`参数中。
 
 
-| 可选值                               | 说明                                                                    |
-|-----------------------------------|-----------------------------------------------------------------------|
-| `gdao.LAST_INSERT_ID_AS_FIRST_ID` | 将`sql.Result#LastInsertId`方法的值作为第一个插入纪录的自增ID，适配此模式的典型数据库：**MySQL**。   |
-| `gdao.LAST_INSERT_ID_AS_LAST_ID`  | 将`sql.Result#LastInsertId`方法的值作为最后一个插入纪录的自增ID，适配此模式的典型数据库：**Sqlite**。 |
+| 可选值                             | 说明                                                                    |
+|---------------------------------|-----------------------------------------------------------------------|
+| `gdao.LastInsertIdAs_.FIRST_ID` | 将`sql.Result#LastInsertId`方法的值作为第一个插入纪录的自增ID，适配此模式的典型数据库：**MySQL**。   |
+| `gdao.LastInsertIdAs_.LAST_ID`  | 将`sql.Result#LastInsertId`方法的值作为最后一个插入纪录的自增ID，适配此模式的典型数据库：**Sqlite**。 |
 
 *Example（MySQL驱动）*
 
@@ -403,7 +414,7 @@ func foo() {
 
 	affected, err := UserDao.Exec(gdao.ExecReq[User]{
 		Entities:       users,
-		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
+		LastInsertIdAs: gdao.LastInsertIdAs_.FIRST_ID,
 		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
 			b.EachEntity(b.Sep(","), func(_ int, entity *User) {
@@ -434,7 +445,7 @@ func foo() {
 
 	affected, err := UserDao.Exec(gdao.ExecReq[User]{
 		Entities:       users,
-		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID,
+		LastInsertIdAs: gdao.LastInsertIdAs_.LAST_ID,
 		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
 			b.EachEntity(b.Sep(","), func(_ int, entity *User) {
@@ -459,8 +470,8 @@ func foo() {
 
 | 可选值                     | 说明                                           |
 |-------------------------|----------------------------------------------|
-| `gdao.ROW_AS_RETURNING` | 将查询结果作为每个实体的自增ID，适配此模式的典型数据库：**PostgreSQL**。 |
-| `gdao.ROW_AS_LAST_ID`   | 将查询结果作为最后一个自增ID，适配此模式的典型数据库：**SQL Server**。  |
+| `gdao.RowAs_.RETURNING` | 将查询结果作为每个实体的自增ID，适配此模式的典型数据库：**PostgreSQL**。 |
+| `gdao.RowAs_.LAST_ID`   | 将查询结果作为最后一个自增ID，适配此模式的典型数据库：**SQL Server**。  |
 
 *Example（PostgreSQL驱动）*
 
@@ -473,7 +484,7 @@ func foo() {
 
 	_, _, err := UserDao.Query(gdao.QueryReq[User]{
 		Entities: users,
-		RowAs:    gdao.ROW_AS_RETURNING,
+		RowAs:    gdao.RowAs_.RETURNING,
 		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("INSERT INTO user(").WriteColumns().Write(") VALUES")
 			b.EachEntity(b.Sep(","), func(_ int, entity *User) {
@@ -504,7 +515,7 @@ func foo() {
 
 	_, _, err := UserDao.Query(gdao.QueryReq[User]{
 		Entities: users,
-		RowAs:    gdao.ROW_AS_LAST_ID,
+		RowAs:    gdao.RowAs_.LAST_ID,
 		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("INSERT INTO user (").WriteColumns().Write(") VALUES")
 			b.EachEntity(b.Sep(","), func(_ int, entity *User) {
@@ -709,31 +720,6 @@ func foo(c context.Context) {
 #### WithDefaultTx
 
 指定默认的`*sql.DB`或`*sql.TxOptions`开启事务，若不指定`*sql.DB`默认使用`gao.DEFAULT_DB`开启事务。
-
-# 日志
-
-通过`gdao.LogConf`函数配置日志。
-
-<table>
-    <thead>
-        <th>标签值</th>
-        <th>说明</th>
-    </thead>
-    <tbody>
-        <tr>
-            <td width="270px"><code>log gdao.Logger</code></td>
-            <td>设置日志器，日志器须实现<code>gdao.Logger</code>。</td>
-        </tr>
-        <tr>
-            <td><code>sqlLogLevel gdao.SqlLogLevel</code></td>
-            <td>打印SQL的日志级别，可选值："debug"、"info"。SQL执行失败会打印error级别日志，不受此配置影响。</td>
-        </tr>
-        <tr>
-            <td><code>compressSql bool</code></td>
-            <td>是否压缩SQL。</td>
-        </tr>
-    </tbody>
-</table>
 
 # 代码生成器
 

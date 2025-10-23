@@ -231,7 +231,7 @@ func (d baseDao[T]) Insert(req InsertReq[T]) error {
 
 // InsertBatch saves records and return the auto generated keys.
 func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) error {
-	_, _, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Must: req.Must, SqlLogLevel: req.SqlLogLevel, Desc: req.Desc, RowAs: gdao.ROW_AS_RETURNING, Entities: req.Entities,
+	_, _, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Must: req.Must, SqlLogLevel: req.SqlLogLevel, Desc: req.Desc, RowAs: gdao.RowAs_.RETURNING, Entities: req.Entities,
 		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 			var setColumnNum, setNullColumnNum int
 			var allIgnoredColumns []string

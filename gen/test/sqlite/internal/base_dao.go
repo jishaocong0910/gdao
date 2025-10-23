@@ -231,7 +231,7 @@ func (d baseDao[T]) Insert(req InsertReq[T]) (int64, error) {
 
 // InsertBatch saves records and return the auto generated keys.
 func (d baseDao[T]) InsertBatch(req InsertBatchReq[T]) (int64, error) {
-	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, SqlLogLevel: req.SqlLogLevel, Desc: req.Desc, LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID, Entities: req.Entities,
+	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, SqlLogLevel: req.SqlLogLevel, Desc: req.Desc, LastInsertIdAs: gdao.LastInsertIdAs_.LAST_ID, Entities: req.Entities,
 		BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 			var setColumnNum, setNullColumnNum int
 			var allIgnoredColumns []string

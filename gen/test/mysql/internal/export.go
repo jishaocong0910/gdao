@@ -47,8 +47,8 @@ func (d Logger) Errorf(ctx context.Context, msg string, args ...interface{}) { /
 func MockBaseDao[T any](r *require.Assertions, table string) (*baseDao[T], sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao := newBaseDao[T](gdao.NewDaoReq{DB: db}, table)
-	gdao.LogCfg(Logger{}, "info", false)
+	dao := newBaseDao[T](gdao.NewDaoReq{}, table)
+	gdao.Config(gdao.Cfg{DefaultDB: db, Logger: Logger{}, SqlLogLevel: gdao.SqlLogLevel_.INFO})
 	return dao, mock
 }
 

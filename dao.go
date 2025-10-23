@@ -25,22 +25,6 @@ import (
 	"strings"
 )
 
-var DEFAULT_DB *sql.DB
-
-type lastInsertIdAs int
-
-const (
-	LAST_INSERT_ID_AS_FIRST_ID lastInsertIdAs = iota + 1
-	LAST_INSERT_ID_AS_LAST_ID
-)
-
-type rowAs int
-
-const (
-	ROW_AS_RETURNING rowAs = iota + 1
-	ROW_AS_LAST_ID
-)
-
 type NewDaoReq struct {
 	DB                *sql.DB
 	AllowInvalidField bool
@@ -52,7 +36,7 @@ type QueryReq[T any] struct {
 	Must        bool
 	SqlLogLevel SqlLogLevel
 	Desc        string
-	RowAs       rowAs
+	RowAs       RowAs
 	Entities    []*T
 	BuildSql    func(b *DaoSqlBuilder[T])
 }
@@ -62,7 +46,7 @@ type ExecReq[T any] struct {
 	Must           bool
 	SqlLogLevel    SqlLogLevel
 	Desc           string
-	LastInsertIdAs lastInsertIdAs
+	LastInsertIdAs LastInsertIdAs
 	Entities       []*T
 	BuildSql       func(b *DaoSqlBuilder[T])
 }
@@ -73,7 +57,7 @@ type baseDao struct {
 
 func (d baseDao) DB() *sql.DB {
 	if d.db == nil { // coverage-ignore
-		return DEFAULT_DB
+		return cfg.DefaultDB
 	}
 	return d.db
 }
@@ -108,8 +92,8 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	}
 	defer closeFunc()
 
-	switch req.RowAs {
-	case ROW_AS_RETURNING:
+	switch req.RowAs.String() {
+	case RowAs_.RETURNING.String():
 		var affected int64
 		for i := 0; rows.Next() && i < len(req.Entities); i++ {
 			entity := req.Entities[i]
@@ -130,7 +114,7 @@ func (d *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 			affected++
 		}
 		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, affected, -1, nil)
-	case ROW_AS_LAST_ID:
+	case RowAs_.LAST_ID.String():
 		var affected int64
 		var id *int64
 		if rows.Next() && len(columns) == 1 && len(d.autoIncrementColumns) == 1 {
@@ -201,8 +185,8 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 		return
 	}
 
-	switch req.LastInsertIdAs {
-	case LAST_INSERT_ID_AS_FIRST_ID:
+	switch req.LastInsertIdAs.String() {
+	case LastInsertIdAs_.FIRST_ID.String():
 		id, err := result.LastInsertId()
 		printWarn(req.Ctx, err)
 		if err == nil && len(req.Entities) > 0 && len(d.autoIncrementColumns) == 1 {
@@ -216,7 +200,7 @@ func (d *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 				field.Set(d.autoIncrementConvertor(id + int64(i)*d.autoIncrementStep))
 			}
 		}
-	case LAST_INSERT_ID_AS_LAST_ID:
+	case LastInsertIdAs_.LAST_ID.String():
 		id, err := result.LastInsertId()
 		printWarn(req.Ctx, err)
 		if err == nil && len(req.Entities) > 0 && len(d.autoIncrementColumns) == 1 {

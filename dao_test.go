@@ -66,7 +66,8 @@ type InvalidField4 struct {
 func mockUserDao(r *require.Assertions) (*gdao.Dao[User], sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao := gdao.NewDao[User](gdao.NewDaoReq{DB: db})
+	dao := gdao.NewDao[User](gdao.NewDaoReq{})
+	gdao.Config(gdao.Cfg{DefaultDB: db})
 	return dao, mock
 }
 
@@ -214,7 +215,7 @@ func TestDao_Query_RowAsReturning(t *testing.T) {
 		WillReturnRows(mock.NewRows([]string{"id"}).AddRow(2001).AddRow(2002))
 	_, _, err := dao.Query(gdao.QueryReq[Account]{
 		Entities: accounts,
-		RowAs:    gdao.ROW_AS_RETURNING,
+		RowAs:    gdao.RowAs_.RETURNING,
 		BuildSql: func(b *gdao.DaoSqlBuilder[Account]) {
 			b.Write("INSERT account")
 			b.Write("(user_id,status,balance) VALUES")
@@ -252,7 +253,7 @@ func TestDao_Query_RowAsLastId(t *testing.T) {
 		WillReturnRows(mock.NewRows([]string{"ID"}).AddRow(1234))
 	_, _, err := dao.Query(gdao.QueryReq[Account]{
 		Entities: accounts,
-		RowAs:    gdao.ROW_AS_LAST_ID,
+		RowAs:    gdao.RowAs_.LAST_ID,
 		BuildSql: func(b *gdao.DaoSqlBuilder[Account]) {
 			b.Write("INSERT account")
 			b.Write("(user_id,status,balance) VALUES")
@@ -357,7 +358,7 @@ func TestDao_Exec_LastInsertIdAsFirstId(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1001, 2))
 	affected, err := dao.Exec(gdao.ExecReq[User]{
 		Entities:       users,
-		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_FIRST_ID,
+		LastInsertIdAs: gdao.LastInsertIdAs_.FIRST_ID,
 		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("INSERT user")
 			b.Write("(")
@@ -403,7 +404,7 @@ func TestDao_Exec_LastInsertIdAsLastId(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1001, 2))
 	affected, err := dao.Exec(gdao.ExecReq[User]{
 		Entities:       users,
-		LastInsertIdAs: gdao.LAST_INSERT_ID_AS_LAST_ID,
+		LastInsertIdAs: gdao.LastInsertIdAs_.LAST_ID,
 		BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("INSERT user")
 			b.Write("(")
