@@ -19,10 +19,11 @@ package gdao_test
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jishaocong0910/gdao"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestTx(t *testing.T) {
@@ -44,7 +45,6 @@ func TestTx(t *testing.T) {
 	}
 	{
 		userDao, mock := mockUserDao(r)
-		gdao.DEFAULT_DB = userDao.DB()
 		mock.ExpectBegin()
 		mock.ExpectPrepare(`UPDATE user set status=1 WHERE id=\?`).ExpectExec().WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectCommit()
@@ -61,8 +61,7 @@ func TestTx(t *testing.T) {
 		r.NoError(mock.ExpectationsWereMet())
 	}
 	{
-		userDao, mock := mockUserDao(r)
-		gdao.DEFAULT_DB = userDao.DB()
+		_, mock := mockUserDao(r)
 		mock.ExpectBegin()
 		mock.ExpectRollback()
 		err := gdao.Tx(nil, func(ctx context.Context) error {
@@ -72,8 +71,7 @@ func TestTx(t *testing.T) {
 		r.NoError(mock.ExpectationsWereMet())
 	}
 	{
-		userDao, mock := mockUserDao(r)
-		gdao.DEFAULT_DB = userDao.DB()
+		_, mock := mockUserDao(r)
 		mock.ExpectBegin()
 		mock.ExpectRollback()
 		err := gdao.Tx(nil, func(ctx context.Context) error {
@@ -83,8 +81,7 @@ func TestTx(t *testing.T) {
 		r.NoError(mock.ExpectationsWereMet())
 	}
 	{
-		userDao, mock := mockUserDao(r)
-		gdao.DEFAULT_DB = userDao.DB()
+		_, mock := mockUserDao(r)
 		mock.ExpectBegin()
 		mock.ExpectRollback()
 		err := gdao.Tx(nil, func(ctx context.Context) error {

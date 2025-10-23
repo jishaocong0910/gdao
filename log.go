@@ -31,18 +31,8 @@ type Logger interface {
 	Errorf(ctx context.Context, msg string, args ...any)
 }
 
-func LogCfg(log Logger, sqlLogLevel string, compressSql bool) {
-	_log = log
-	_sqlLogLevel = SqlLogLevel_.OfStringIgnoreCase(sqlLogLevel)
-	_compressSql = compressSql
-}
-
-var _log Logger
-var _sqlLogLevel SqlLogLevel
-var _compressSql bool
-
 func formatSql(sql string) string {
-	if _compressSql {
+	if cfg.CompressSqlLog {
 		sql = strings.TrimSpace(sql)
 		var line strings.Builder
 		chars := []rune(sql)
@@ -64,7 +54,7 @@ func formatSql(sql string) string {
 
 func printSql(ctx context.Context, sqlLogLevel SqlLogLevel, desc string, sql string, args []any, affected, rowCounts int64, err error) {
 	if sqlLogLevel.IsUndefined() {
-		sqlLogLevel = _sqlLogLevel
+		sqlLogLevel = cfg.SqlLogLevel
 	}
 	if SqlLogLevel_.Not(sqlLogLevel, SqlLogLevel_.DEBUG, SqlLogLevel_.INFO) { // coverage-ignore
 		return
@@ -132,24 +122,24 @@ func printSql(ctx context.Context, sqlLogLevel SqlLogLevel, desc string, sql str
 }
 
 func printSqlLog(ctx context.Context, sqlLogLevel SqlLogLevel, hasError bool, msg string, args ...any) {
-	if _log == nil { // coverage-ignore
+	if cfg.Logger == nil { // coverage-ignore
 		return
 	}
 	if hasError {
-		_log.Errorf(ctx, msg, args...)
+		cfg.Logger.Errorf(ctx, msg, args...)
 	} else {
 		switch sqlLogLevel.String() {
 		case SqlLogLevel_.DEBUG.String():
-			_log.Debugf(ctx, msg, args...)
+			cfg.Logger.Debugf(ctx, msg, args...)
 		case SqlLogLevel_.INFO.String():
-			_log.Infof(ctx, msg, args...)
+			cfg.Logger.Infof(ctx, msg, args...)
 		}
 	}
 }
 
 func printWarn(ctx context.Context, err error) {
-	if _log == nil || err == nil { // coverage-ignore
+	if cfg.Logger == nil || err == nil { // coverage-ignore
 		return
 	}
-	_log.Warnf(ctx, fmt.Sprintf("%v", err))
+	cfg.Logger.Warnf(ctx, fmt.Sprintf("%v", err))
 }

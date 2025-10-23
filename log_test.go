@@ -54,7 +54,7 @@ func TestPrintSql(t *testing.T) {
 	r := require.New(t)
 	{
 		log := &MockLogger{}
-		gdao.LogCfg(log, "debug", false)
+		gdao.Config(gdao.Cfg{nil, log, gdao.SqlLogLevel_.DEBUG, false})
 		gdao.PrintSql(nil, gdao.SqlLogLevel_.Undefined(), "update a user", "UPDATE user SET status=?,phone=?,email=? WHERE level=?)", []any{2, nil, (*int)(nil), gdao.P("abc")}, 15, -1, errors.New("error"))
 		r.Equal(`Desc: %s, SQL: %s; args: %v, affected: %d, error: %+v`, log.msg)
 		r.Len(log.args, 5)
@@ -71,7 +71,7 @@ func TestPrintSql(t *testing.T) {
 	}
 	{
 		log := &MockLogger{}
-		gdao.LogCfg(log, "debug", true)
+		gdao.Config(gdao.Cfg{nil, log, gdao.SqlLogLevel_.DEBUG, true})
 		gdao.PrintSql(nil, gdao.SqlLogLevel_.Undefined(),
 			"", `  
 SELECT *
@@ -85,7 +85,7 @@ user`, nil, -1, 10, nil)
 func TestPrintWarn(t *testing.T) {
 	r := require.New(t)
 	log := &MockLogger{}
-	gdao.LogCfg(log, "debug", false)
+	gdao.Config(gdao.Cfg{nil, log, gdao.SqlLogLevel_.DEBUG, false})
 	gdao.PrintWarn(nil, errors.New("warn"))
 	r.Equal("warn", log.msg)
 }
