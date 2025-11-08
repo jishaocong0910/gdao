@@ -747,7 +747,7 @@ import (
 func main() {
 	gen.GetGenerator(gen.GenCfg{
 		DbType:  gen.DbType_.MYSQL,
-		Dsn:     "(dsn)",
+		Dsn:     "(dsn)", // 若只生成DAO时可不设置
 		OutPath: "demo", // 生成文件相对路径，绝对路径为"os.Getwd()/OutPath"。
 		TableCfg: gen.TableCfg{
 			Tables: gen.Tables{"user", "account"},

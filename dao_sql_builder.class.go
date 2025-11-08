@@ -67,7 +67,7 @@ func (this *DaoSqlBuilder[T]) Columns(onlyAssigned bool, ignoredColumns ...strin
 			v := reflect.ValueOf(entity).Elem()
 			ignoredColumnMap := this.toMap(ignoredColumns)
 			for _, column := range this.dao.columns {
-				fieldIndex := this.dao.columnToFieldIndexMap[column]
+				fieldIndex := this.dao.columnToFieldIndex[column]
 				field := v.Field(fieldIndex)
 				if field.IsNil() {
 					continue
@@ -103,7 +103,7 @@ func (this *DaoSqlBuilder[T]) ColumnValue(entity *T, column string) any {
 	if entity == nil {
 		return nil
 	}
-	fieldIndex, ok := this.dao.columnToFieldIndexMap[column]
+	fieldIndex, ok := this.dao.columnToFieldIndex[column]
 	if !ok {
 		return nil
 	}
@@ -133,7 +133,7 @@ func (this *DaoSqlBuilder[T]) EachColumn(entity *T, sep *separate, handle func(n
 	var n int
 	this.writePrefix(sep, n)
 	for _, column := range columns {
-		fieldIndex := this.dao.columnToFieldIndexMap[column]
+		fieldIndex := this.dao.columnToFieldIndex[column]
 		field := v.Field(fieldIndex)
 		var value any
 		if !field.IsNil() {

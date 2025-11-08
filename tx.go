@@ -49,7 +49,7 @@ func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOptio
 	if tx == nil {
 		var db *sql.DB
 		if o.db == nil { // coverage-ignore
-			db = cfg.DefaultDB
+			db = global.DefaultDB
 		}
 		if db == nil { // coverage-ignore
 			return errors.New(`cannot begin a transaction, no available *sql.DB`)

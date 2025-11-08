@@ -25,7 +25,7 @@ import (
 type GenCfg struct {
 	// 数据库类型
 	DbType dbType
-	// 数据库连接URL
+	// 数据库连接URL，空字符串时不会生成实体
 	Dsn string
 	// 生成文件相对路径，绝对路径为"os.Getwd()/OutPath"
 	OutPath string

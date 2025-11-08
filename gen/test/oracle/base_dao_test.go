@@ -55,7 +55,7 @@ func TestBaseDao_List(t *testing.T) {
 		list, err := d.List(dao.ListReq{
 			SelectColumns: dao.Columns("id", "name"),
 			Condition:     dao.And().Eq("status", 4),
-			OrderBy:       dao.OrderBy().Asc("name").Desc("address"),
+			OrderBy:       dao.Sort().Asc("name").Desc("address"),
 			Pagination:    dao.Page(3, 10),
 			ForUpdate:     true,
 		})
@@ -81,7 +81,7 @@ func TestBaseDao_Get(t *testing.T) {
 		get, err := d.Get(dao.GetReq{
 			SelectColumns: dao.Columns("id", "phone"),
 			Condition:     dao.And().Eq("status", 4),
-			OrderBy:       dao.OrderBy().Asc("name").Desc("id"),
+			OrderBy:       dao.Sort().Asc("name").Desc("id"),
 			ForUpdate:     true,
 		})
 
@@ -344,12 +344,12 @@ func TestCondition(t *testing.T) {
 
 		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
 			c0 := dao.And().Plain("0 = 0")
-			c1 := dao.NotAnd().Eq("c1", 1)
-			c2 := dao.NotAnd().Eq("c2", 2).Eq("c3", 3).Plain("1 = 1 and 2 = 2")
+			c1 := dao.Not().And().Eq("c1", 1)
+			c2 := dao.Not().And().Eq("c2", 2).Eq("c3", 3).Plain("1 = 1 and 2 = 2")
 			c3 := dao.Or().Eq("c4", 4)
 			c4 := dao.Or().Eq("c5", 5).Eq("c6", 6)
-			c5 := dao.NotOr().Eq("c7", 7)
-			c6 := dao.NotOr().Eq("c8", 8).Eq("c9", 9)
+			c5 := dao.Not().Or().Eq("c7", 7)
+			c6 := dao.Not().Or().Eq("c8", 8).Eq("c9", 9)
 			c := dao.And().Group(c0).Group(c1).Group(c2).Group(c3).Group(c4).Group(c5).Group(c6)
 			dao.WriteCondition(c, b)
 		}})

@@ -21,12 +21,12 @@ type ListReq struct {
 	Desc string
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition condition
-	// ORDER BY clause，create by function OrderBy.
-	OrderBy *orderBy
+	// conditions of the WHERE clause，create by function And, Or and Not.
+	Condition Condition
+	// ORDER BY clause，create by function Sort.
+	OrderBy *OrderBy
 	// paging query，create by function Page.
-	Pagination *pagination
+	Pagination *Pagination
 	// FOR UPDATE clause
 	ForUpdate bool
 }
@@ -42,10 +42,10 @@ type GetReq struct {
 	Desc string
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition condition
-	// ORDER BY clause，create by function OrderBy.
-	OrderBy *orderBy
+	// conditions of the WHERE clause，create by function And, Or and Not.
+	Condition Condition
+	// ORDER BY clause，create by function Sort.
+	OrderBy *OrderBy
 	// FOR UPDATE clause
 	ForUpdate bool
 }
@@ -107,8 +107,8 @@ type UpdateReq[T any] struct {
 	IgnoredColumns []string
 	// specify the non-nil fields in the entity used as conditions.
 	WhereColumns []string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr..
-	Condition condition
+	// conditions of the WHERE clause，create by function And, Or and Not..
+	Condition Condition
 }
 
 type UpdateBatchReq[T any] struct {
@@ -130,8 +130,8 @@ type UpdateBatchReq[T any] struct {
 	IgnoredColumns []string
 	// specify the column which used as a condition.
 	WhereColumn string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr..
-	Condition condition
+	// conditions of the WHERE clause，create by function And, Or and Not..
+	Condition Condition
 }
 
 type DeleteReq struct {
@@ -143,8 +143,8 @@ type DeleteReq struct {
 	SqlLogLevel gdao.SqlLogLevel
 	// dsescribe the SQL in the log
 	Desc string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition condition
+	// conditions of the WHERE clause，create by function And, Or and Not.
+	Condition Condition
 }
 
 type CountReq struct {
@@ -156,8 +156,8 @@ type CountReq struct {
 	SqlLogLevel gdao.SqlLogLevel
 	// dsescribe the SQL in the log
 	Desc string
-	// conditions of the WHERE clause，create by function And, Or, NotAnd and NotOr.
-	Condition condition
+	// conditions of the WHERE clause，create by function And, Or and Not.
+	Condition Condition
 }
 
 type baseDao[T any] struct {
@@ -170,7 +170,7 @@ type baseDao[T any] struct {
 func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 	_, list, err := d.Query(gdao.QueryReq[T]{Ctx: req.Ctx, Must: req.Must, SqlLogLevel: req.SqlLogLevel, Desc: req.Desc, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("SELECT ").WriteColumns(req.SelectColumns...).Write(" FROM ").Write(d.table)
-		if req.Condition != nil && !req.Condition.empty() {
+		if req.Condition != nil && req.Condition.len() > 0 {
 			b.Write(" WHERE ")
 			req.Condition.write(b.BaseSqlBuilder__)
 		}
@@ -323,7 +323,7 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 				}, req.WhereColumns...)
 			}
 			cond.addCondition(req.Condition)
-			if !cond.empty() {
+			if cond.len() > 0 {
 				b.Write(" WHERE ")
 				cond.write(b.BaseSqlBuilder__)
 			}
@@ -381,7 +381,7 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
 	return d.Exec(gdao.ExecReq[T]{Ctx: req.Ctx, Must: req.Must, SqlLogLevel: req.SqlLogLevel, Desc: req.Desc, BuildSql: func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("DELETE FROM ").Write(d.table)
-		if req.Condition != nil && !req.Condition.empty() {
+		if req.Condition != nil && req.Condition.len() > 0 {
 			b.Write(" WHERE ")
 			req.Condition.write(b.BaseSqlBuilder__)
 		}
@@ -392,7 +392,7 @@ func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
 func (d baseDao[T]) Count(req CountReq) (*gdao.Count, error) {
 	first, _, err := d.CountDao.Count(gdao.CountReq{Ctx: req.Ctx, Must: req.Must, SqlLogLevel: req.SqlLogLevel, Desc: req.Desc, BuildSql: func(b *gdao.CountBuilder) {
 		b.Write("SELECT COUNT(*) FROM ").Write(d.table)
-		if req.Condition != nil && !req.Condition.empty() {
+		if req.Condition != nil && req.Condition.len() > 0 {
 			b.Write(" WHERE ")
 			req.Condition.write(b.BaseSqlBuilder__)
 		}
@@ -420,17 +420,11 @@ func newTempSqlBuilder() *TempSqlBuilder {
 	return this
 }
 
-func parenthesizeGroup(c condition) {
-	if cg, ok := c.(*conditionGroup); ok {
-		if len(cg.cs) > 1 && cg.or {
-			cg.parenthesized = true
-		}
-	}
-}
-
-type condition interface {
+type Condition interface {
+	len() int
+	setNot()
+	setParenthesized()
 	write(b *gdao.BaseSqlBuilder__)
-	empty() bool
 }
 
 type baseCondition struct {
@@ -438,11 +432,19 @@ type baseCondition struct {
 	parenthesized bool
 }
 
-func (bc baseCondition) empty() bool {
-	return false
+func (bc *baseCondition) len() int {
+	return 1
 }
 
-func (bc baseCondition) doWrite(b *gdao.BaseSqlBuilder__, write func()) {
+func (bc *baseCondition) setNot() {
+	bc.not = true
+}
+
+func (bc *baseCondition) setParenthesized() {
+	bc.parenthesized = true
+}
+
+func (bc *baseCondition) doWrite(b *gdao.BaseSqlBuilder__, write func()) {
 	if bc.not {
 		b.Write("NOT ")
 	}
@@ -455,14 +457,29 @@ func (bc baseCondition) doWrite(b *gdao.BaseSqlBuilder__, write func()) {
 	}
 }
 
-type conditionGroup struct {
-	baseCondition
-	or bool
-	cs []condition
+type notConditionGroup struct {
 }
 
-func (cg *conditionGroup) empty() bool {
-	return cg == nil || len(cg.cs) == 0
+func (c notConditionGroup) And() *conditionGroup {
+	return &conditionGroup{baseCondition: baseCondition{not: true}, or: false}
+}
+
+func (c notConditionGroup) Or() *conditionGroup {
+	return &conditionGroup{baseCondition: baseCondition{not: true}, or: true}
+}
+
+type conditionGroup struct {
+	baseCondition
+	nextNot bool
+	or      bool
+	cs      []Condition
+}
+
+func (cg *conditionGroup) len() int {
+	if cg == nil {
+		return 0
+	}
+	return len(cg.cs)
 }
 
 func (cg *conditionGroup) write(b *gdao.BaseSqlBuilder__) {
@@ -480,18 +497,16 @@ func (cg *conditionGroup) write(b *gdao.BaseSqlBuilder__) {
 	})
 }
 
-func (cg *conditionGroup) addCondition(other condition) *conditionGroup {
-	if other != nil && !other.empty() {
-		if len(cg.cs) > 0 {
-			if cg.not == true {
-				cg.parenthesized = true
-			}
-			parenthesizeGroup(other)
-			if len(cg.cs) == 1 {
-				parenthesizeGroup(cg.cs[0])
-			}
+func (cg *conditionGroup) addCondition(c Condition) *conditionGroup {
+	if c != nil && c.len() > 0 {
+		if cg.nextNot {
+			c.setNot()
+			cg.nextNot = false
 		}
-		cg.cs = append(cg.cs, other)
+		if c.len() > 1 {
+			c.setParenthesized()
+		}
+		cg.cs = append(cg.cs, c)
 	}
 	return cg
 }
@@ -500,6 +515,11 @@ func (cg *conditionGroup) ToStrArgs() (string, []any) {
 	b := newTempSqlBuilder()
 	cg.write(b.BaseSqlBuilder__)
 	return b.Sql(), b.Args()
+}
+
+func (cg *conditionGroup) Not() *conditionGroup {
+	cg.nextNot = true
+	return cg
 }
 
 func (cg *conditionGroup) Group(other *conditionGroup) *conditionGroup {
@@ -645,16 +665,16 @@ func (c *conditionIsNull) write(b *gdao.BaseSqlBuilder__) {
 	})
 }
 
-type orderBy struct {
+type OrderBy struct {
 	items []orderByItem
 }
 
-func (o *orderBy) Asc(column string) *orderBy {
+func (o *OrderBy) Asc(column string) *OrderBy {
 	o.items = append(o.items, orderByItem{column: column, sequence: asc})
 	return o
 }
 
-func (o *orderBy) Desc(column string) *orderBy {
+func (o *OrderBy) Desc(column string) *OrderBy {
 	o.items = append(o.items, orderByItem{column: column, sequence: desc})
 	return o
 }
@@ -671,16 +691,16 @@ type orderByItem struct {
 	sequence orderBySequence
 }
 
-type pagination struct {
+type Pagination struct {
 	offset, pageSize int
 }
 
-func OrderBy() *orderBy {
-	return &orderBy{}
+func Sort() *OrderBy {
+	return &OrderBy{}
 }
 
-func Page(offset, pageSize int) *pagination {
-	return &pagination{offset: offset, pageSize: pageSize}
+func Page(offset, pageSize int) *Pagination {
+	return &Pagination{offset: offset, pageSize: pageSize}
 }
 
 func And() *conditionGroup {
@@ -691,12 +711,8 @@ func Or() *conditionGroup {
 	return &conditionGroup{or: true}
 }
 
-func NotAnd() *conditionGroup {
-	return &conditionGroup{baseCondition: baseCondition{not: true}, or: false}
-}
-
-func NotOr() *conditionGroup {
-	return &conditionGroup{baseCondition: baseCondition{not: true}, or: true}
+func Not() notConditionGroup {
+	return notConditionGroup{}
 }
 
 func Anys[T any](source ...T) (target []any) {
