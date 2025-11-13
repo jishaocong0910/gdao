@@ -324,7 +324,7 @@ func (d _AccountDao) ReduceBalance(id int32, balance int64) (bool, error) {
 | 字段                                  | 说明                                 |
 |-------------------------------------|------------------------------------|
 | `Ctx context.Context`               | Context                            |
-| `Must bool`                         | 若为true，有error时将panic，否则返回error     |
+| `Must bool`                         | 若为true，有error时将panic，否则返回error。    |
 | `SqlLogLevel gdao.SqlLogLevel`      | 指定SQL日志级别，枚举集合：`gdao.SqlLogLevel_` |
 | `Desc string`                       | 在日志中描述SQL                          |
 | `RowAs gdao.rowAs`                  | 指定当前为获取插入记录自增ID模式。                 |
@@ -365,7 +365,7 @@ func foo() error {
 | 字段                                   | 说明                                   |
 |--------------------------------------|--------------------------------------|
 | `Ctx context.Context`                | Context                              |
-| `Must bool`                          | 若为true，有error时将panic，否则返回error       |
+| `Must bool`                          | 若为true，有error时将panic，否则返回error。      |
 | `SqlLogLevel gdao.SqlLogLevel`       | 指定SQL日志级别，示例：`gdao.SqlLogLevel_.OFF` |
 | `Desc string`                        | 在日志中描述SQL                            |
 | `LastInsertIdAs gdao.lastInsertIdAs` | 指定当前为获取插入记录自增ID模式。                   |
@@ -720,6 +720,10 @@ func foo(c context.Context) {
 #### WithDefaultTx
 
 指定默认的`*sql.DB`或`*sql.TxOptions`开启事务，若不指定`*sql.DB`默认使用`gao.DEFAULT_DB`开启事务。
+
+#### WithMust
+
+若为true，有error时将panic，否则返回error。
 
 # 代码生成器
 
