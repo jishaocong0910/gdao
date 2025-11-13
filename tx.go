@@ -52,10 +52,13 @@ func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOptio
 			db = cfg.DefaultDB
 		}
 		if db == nil { // coverage-ignore
-			return errors.New(`cannot begin a transaction, no available *sql.DB`)
+			err := errors.New(`cannot begin a transaction, no available *sql.DB`)
+			checkMust(o.must, err)
+			return err
 		}
 		tx, err = db.BeginTx(ctx, o.opts)
 		if err != nil { // coverage-ignore
+			checkMust(o.must, err)
 			return err
 		}
 		ctx = SetTx(ctx, tx)
@@ -74,9 +77,9 @@ func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOptio
 		} else {
 			tx.Commit()
 		}
+		checkMust(o.must, err)
 	}()
 	err = do(ctx)
-	checkMust(o.must, err)
 	return err
 }
 
