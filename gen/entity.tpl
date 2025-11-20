@@ -2,6 +2,14 @@
 
 package {{.Package}}
 
+{{- if gt (len .Imports) 0}}
+import (
+    {{- range $i := .Imports}}
+    {{$i}}
+    {{- end}}
+)
+{{- end}}
+
 // {{.EntityName}}{{if ne .Comment "" }} {{.Comment}}{{end}}
 // table: {{.Table}}
 type {{.EntityName}} struct {

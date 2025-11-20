@@ -32,3 +32,16 @@ type _DbType struct {
 }
 
 var DbType_ = e.NewEnum[dbType](_DbType{})
+
+type mappingType struct {
+	*e.EnumElem__
+}
+
+type _mappingType struct {
+	*e.Enum__[mappingType]
+	base,
+	slice,
+	convert mappingType
+}
+
+var mappingType_ = e.NewEnum[mappingType](_mappingType{})

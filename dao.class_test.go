@@ -18,6 +18,8 @@ package gdao_test
 
 import (
 	"database/sql"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,6 +49,58 @@ type Account struct {
 	LicenceFile []uint8
 }
 
+type Product struct {
+	Id         *int64 `gdao:"auto"`
+	Tags       MyStringSlice
+	Status     *MyStatus
+	Properties *Properties
+	Attributes *Attributes
+}
+
+type Properties struct {
+	Unit   string `json:"unit"`
+	Weight int    `json:"weight"`
+}
+
+func (p Properties) GdaoValue() string {
+	str, _ := json.Marshal(p)
+	return string(str)
+}
+
+func (Properties) GdaoField(value string) *Properties {
+	var p *Properties
+	json.Unmarshal([]byte(value), &p)
+	return p
+}
+
+type Attributes struct {
+	Size  []int    `json:"size"`
+	Color []string `json:"color"`
+}
+
+func (a Attributes) GdaoValue() string {
+	str, _ := json.Marshal(a)
+	return string(str)
+}
+
+func (*Attributes) GdaoField(value string) *Attributes {
+	var a *Attributes
+	json.Unmarshal([]byte(value), &a)
+	return a
+}
+
+type MyStringSlice []string
+
+func (c MyStringSlice) GdaoValue() string {
+	return strings.Join(c, ",")
+}
+
+func (MyStringSlice) GdaoField(value string) MyStringSlice {
+	return strings.Split(value, ",")
+}
+
+type MyStatus int
+
 type InvalidField struct {
 	field *string `gdao:"column=field"`
 }
@@ -61,6 +115,21 @@ type InvalidField3 struct {
 
 type InvalidField4 struct {
 	Field []any `gdao:"column=field"`
+}
+
+type InvalidField5 struct {
+	Field *InvalidImplementConvert `gdao:"column=field"`
+}
+
+type InvalidImplementConvert struct {
+}
+
+func (InvalidImplementConvert) GdaoValue() int {
+	return 0
+}
+
+func (InvalidImplementConvert) GdaoField(int) InvalidImplementConvert {
+	return InvalidImplementConvert{}
 }
 
 func mockUserDao(r *require.Assertions) (*gdao.Dao[User], sqlmock.Sqlmock) {
@@ -78,15 +147,22 @@ func mockAccountDao(r *require.Assertions) (*gdao.Dao[Account], sqlmock.Sqlmock)
 	return dao, mock
 }
 
+func mockProductDao(r *require.Assertions) (*gdao.Dao[Product], sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	r.NoError(err)
+	dao := gdao.NewDao[Product](gdao.NewDaoReq{DB: db, ColumnMapper: gdao.NewNameMapper().LowerSnakeCase()})
+	return dao, mock
+}
+
 func TestNewDao(t *testing.T) {
 	r := require.New(t)
 	{
 		dao, _ := mockUserDao(r)
 		export := gdao.ExportDao(dao)
 		r.Equal("id, name, age, address, phone, email, status, level, create_at", export.ColumnsWithComma)
-		r.Contains(export.Columns, "id", "name", "age", "address", "phone", "email", "status", "level", "create_at")
-		r.Equal(9, len(export.ColumnToFieldIndexMap))
-		r.Contains(export.ColumnToFieldIndexMap, "id", "name", "age", "address", "phone", "email", "status", "level", "create_at")
+		r.Equal([]string{"id", "name", "age", "address", "phone", "email", "status", "level", "create_at"}, export.Columns)
+		r.Len(export.ColumnToFieldIndex, 9)
+		checkMapContains(r, export.ColumnToFieldIndex, "id", "name", "age", "address", "phone", "email", "status", "level", "create_at")
 		r.Contains(export.AutoIncrementColumns, "id")
 		r.Equal(int64(1), export.AutoIncrementStep)
 		r.NotNil(export.AutoIncrementConvertor)
@@ -95,11 +171,24 @@ func TestNewDao(t *testing.T) {
 		dao, _ := mockAccountDao(r)
 		export := gdao.ExportDao(dao)
 		r.Equal("id, other_id, user_id, status, balance, licence_file", export.ColumnsWithComma)
-		r.Contains(export.Columns, "id", "other_id", "user_id", "status", "balance", "licence_file")
-		r.Equal(6, len(export.ColumnToFieldIndexMap))
-		r.Contains(export.ColumnToFieldIndexMap, "id", "other_id", "user_id", "status", "balance", "licence_file")
+		r.Equal([]string{"id", "other_id", "user_id", "status", "balance", "licence_file"}, export.Columns)
+		r.Len(export.ColumnToFieldIndex, 6)
+		checkMapContains(r, export.ColumnToFieldIndex, "id", "other_id", "user_id", "status", "balance", "licence_file")
 		r.Contains(export.AutoIncrementColumns, "id")
 		r.Equal(int64(2), export.AutoIncrementStep)
+		r.NotNil(export.AutoIncrementConvertor)
+	}
+	{
+		dao, _ := mockProductDao(r)
+		export := gdao.ExportDao(dao)
+		r.Equal("id, tags, status, properties, attributes", export.ColumnsWithComma)
+		r.Equal([]string{"id", "tags", "status", "properties", "attributes"}, export.Columns)
+		r.Len(export.ColumnToFieldIndex, 5)
+		checkMapContains(r, export.ColumnToFieldIndex, "id", "tags", "status", "properties", "attributes")
+		r.Len(export.ColumnToFieldConvertor, 3)
+		checkMapContains(r, export.ColumnToFieldConvertor, "tags", "properties", "attributes")
+		r.Contains(export.AutoIncrementColumns, "id")
+		r.Equal(int64(1), export.AutoIncrementStep)
 		r.NotNil(export.AutoIncrementConvertor)
 	}
 }
@@ -425,10 +514,31 @@ func TestDao_Exec_LastInsertIdAsLastId(t *testing.T) {
 	r.Equal(int32(1001), *users[1].Id)
 }
 
+func TestDao_Query_FieldConvert(t *testing.T) {
+	r := require.New(t)
+	{
+		dao, mock := mockProductDao(r)
+		mock.ExpectPrepare(`SELECT \* FROM product WHERE status = \? AND tag = \?`).
+			ExpectQuery().WithArgs(MyStatus(2), "a,b,c").WillReturnRows(mock.NewRows([]string{"id", "tags", "status", "properties", "attributes"}).
+			AddRow(1, "a,b,c", 2, "{\"unit\": \"kg\",\"weight\": 10}", "{\"size\": [56, 57, 58],\"color\": [\"red\",\"green\",\"blue\"]}"))
+		product, _, err := dao.Query(gdao.QueryReq[Product]{
+			BuildSql: func(b *gdao.DaoSqlBuilder[Product]) {
+				b.Write("SELECT * FROM product WHERE status = ? AND tag = ?", MyStatus(2), MyStringSlice{"a", "b", "c"})
+			},
+		})
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+		r.Equal(int64(1), *product.Id)
+		r.Equal(MyStringSlice{"a", "b", "c"}, product.Tags)
+		r.Equal(Properties{Unit: "kg", Weight: 10}, *product.Properties)
+		r.Equal(Attributes{Size: []int{56, 57, 58}, Color: []string{"red", "green", "blue"}}, *product.Attributes)
+	}
+}
+
 func TestNewDaoPanic(t *testing.T) {
 	r := require.New(t)
 	{
-		r.PanicsWithValue("generics must be struct type", func() {
+		r.PanicsWithError("generics must be struct type", func() {
 			gdao.NewDao[*User](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {
@@ -436,7 +546,7 @@ func TestNewDaoPanic(t *testing.T) {
 		})
 	}
 	{
-		r.PanicsWithValue(`field "field" of "gdao_test.InvalidField" must be exported`, func() {
+		r.PanicsWithError(`field "field" of "gdao_test.InvalidField" must be exported`, func() {
 			gdao.NewDao[InvalidField](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {
@@ -444,7 +554,7 @@ func TestNewDaoPanic(t *testing.T) {
 		})
 	}
 	{
-		r.PanicsWithValue(`field "Field" of "gdao_test.InvalidField2" must be a pointer`, func() {
+		r.PanicsWithError(`field "Field" of "gdao_test.InvalidField2" is not supported type`, func() {
 			gdao.NewDao[InvalidField2](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {
@@ -452,7 +562,7 @@ func TestNewDaoPanic(t *testing.T) {
 		})
 	}
 	{
-		r.PanicsWithValue(`field "Field" of "gdao_test.InvalidField3" is not supported type`, func() {
+		r.PanicsWithError(`field "Field" of "gdao_test.InvalidField3" is not supported type`, func() {
 			gdao.NewDao[InvalidField3](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {
@@ -460,11 +570,19 @@ func TestNewDaoPanic(t *testing.T) {
 		})
 	}
 	{
-		r.PanicsWithValue(`field "Field" of "gdao_test.InvalidField4", its element type is not supported`, func() {
+		r.PanicsWithError(`field "Field" of "gdao_test.InvalidField4" is not supported type`, func() {
 			gdao.NewDao[InvalidField4](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {
 			gdao.NewDao[InvalidField4](gdao.NewDaoReq{DB: &sql.DB{}, AllowInvalidField: true})
+		})
+	}
+	{
+		r.PanicsWithError(`field "Field" of "gdao_test.InvalidField5" is invalid implementing gdao.Convert`, func() {
+			gdao.NewDao[InvalidField5](gdao.NewDaoReq{DB: &sql.DB{}})
+		})
+		r.NotPanics(func() {
+			gdao.NewDao[InvalidField5](gdao.NewDaoReq{DB: &sql.DB{}, AllowInvalidField: true})
 		})
 	}
 }
@@ -472,17 +590,23 @@ func TestNewDaoPanic(t *testing.T) {
 func TestLastInsertIdConvertors(t *testing.T) {
 	r := require.New(t)
 	id := int64(123)
-	r.Equal(123, gdao.LastInsertIdConvertors["int"](id).Elem().Interface())
-	r.Equal(int8(123), gdao.LastInsertIdConvertors["int8"](id).Elem().Interface())
-	r.Equal(int16(123), gdao.LastInsertIdConvertors["int16"](id).Elem().Interface())
-	r.Equal(int32(123), gdao.LastInsertIdConvertors["int32"](id).Elem().Interface())
-	r.Equal(int64(123), gdao.LastInsertIdConvertors["int64"](id).Elem().Interface())
-	r.Equal(uint(123), gdao.LastInsertIdConvertors["uint"](id).Elem().Interface())
-	r.Equal(uint8(123), gdao.LastInsertIdConvertors["uint8"](id).Elem().Interface())
-	r.Equal(uint16(123), gdao.LastInsertIdConvertors["uint16"](id).Elem().Interface())
-	r.Equal(uint32(123), gdao.LastInsertIdConvertors["uint32"](id).Elem().Interface())
-	r.Equal(uint64(123), gdao.LastInsertIdConvertors["uint64"](id).Elem().Interface())
-	r.Equal(float32(123), gdao.LastInsertIdConvertors["float32"](id).Elem().Interface())
-	r.Equal(float64(123), gdao.LastInsertIdConvertors["float64"](id).Elem().Interface())
-	r.Equal("123", gdao.LastInsertIdConvertors["string"](id).Elem().Interface())
+	r.Equal(123, gdao.ConvertLastInsertId("int", id))
+	r.Equal(int8(123), gdao.ConvertLastInsertId("int8", id))
+	r.Equal(int16(123), gdao.ConvertLastInsertId("int16", id))
+	r.Equal(int32(123), gdao.ConvertLastInsertId("int32", id))
+	r.Equal(int64(123), gdao.ConvertLastInsertId("int64", id))
+	r.Equal(uint(123), gdao.ConvertLastInsertId("uint", id))
+	r.Equal(uint8(123), gdao.ConvertLastInsertId("uint8", id))
+	r.Equal(uint16(123), gdao.ConvertLastInsertId("uint16", id))
+	r.Equal(uint32(123), gdao.ConvertLastInsertId("uint32", id))
+	r.Equal(uint64(123), gdao.ConvertLastInsertId("uint64", id))
+	r.Equal(float32(123), gdao.ConvertLastInsertId("float32", id))
+	r.Equal(float64(123), gdao.ConvertLastInsertId("float64", id))
+	r.Equal("123", gdao.ConvertLastInsertId("string", id))
+}
+
+func checkMapContains[K comparable, V any](r *require.Assertions, m map[K]V, key ...string) {
+	for _, k := range key {
+		r.Contains(m, k)
+	}
 }

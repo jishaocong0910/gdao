@@ -41,9 +41,14 @@ CREATE TABLE test_table
     `real`               real COMMENT 'real',
     `boolean`            boolean COMMENT 'boolean',
     `time`               time,
-    `other`              int,
-    `other2`            int,
-    `other3`            int,
-    `other4`            int,
-    `other5`            int
+    `other`             int,
+    `other2`             int,
+    `other3`             int,
+    `other4`             int,
+    `other5`             int,
+    `other6`             int,
+    `other7`             int,
+    `other8`             int,
+    `other9`             int,
+    `other10`             int
 ) COMMENT 'mysql';

@@ -18,6 +18,7 @@ package gen
 
 import (
 	_ "embed"
+	"errors"
 	_ "github.com/mattn/go-sqlite3"
 	"strings"
 )
@@ -37,7 +38,7 @@ func (this *sqliteGenerator) getBaseDaoTemplate() string {
 	return sqliteBaseDaoTpl
 }
 
-func (this *sqliteGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
+func (this *sqliteGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
 	var (
 		exists       bool
 		fields       []*fieldTplParam
@@ -45,11 +46,8 @@ func (this *sqliteGenerator) getTableInfo(table string) (bool, []*fieldTplParam,
 	)
 
 	exists, st := this.getSqlTokenizer(table)
-	if !exists { // coverage-ignore
-		return exists, fields, tableComment
-	}
-	if !(st.nextUntilDelimiterAndToken("(") && st.nextToken()) {
-		return exists, fields, tableComment
+	if !exists || !(st.nextUntilDelimiterAndToken("(") && st.nextToken()) { // coverage-ignore
+		return nil, "", errors.New("create table \"" + table + "\" is not exists")
 	}
 
 	for {
@@ -161,8 +159,7 @@ func (this *sqliteGenerator) getTableInfo(table string) (bool, []*fieldTplParam,
 		}
 	}
 	tableComment = this.nextComment(st)
-
-	return exists, fields, tableComment
+	return fields, tableComment, nil
 }
 
 func (this *sqliteGenerator) getSqlTokenizer(table string) (bool, *stringTokenizer) {
@@ -172,7 +169,7 @@ func (this *sqliteGenerator) getSqlTokenizer(table string) (bool, *stringTokeniz
 		return false, nil
 	}
 	var sql string
-	mustNoError(rows.Scan(&sql))
+	must(rows.Scan(&sql))
 	return true, newStringTokenizer(sql, []rune{' ', '\t', '\n', ',', '(', ')'})
 }
 

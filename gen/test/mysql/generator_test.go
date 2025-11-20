@@ -19,6 +19,10 @@ package mysql_test
 import (
 	"context"
 	"github.com/jishaocong0910/gdao/gen"
+	"github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg"
+	pkg2 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1"
+	pkg3 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1/pkg"
+	pkg4 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1/pkg1"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mysql"
@@ -58,17 +62,22 @@ func TestMySql(t *testing.T) {
 		Package: "dao",
 		TableCfg: gen.TableCfg{
 			Tables: gen.Tables{"test_table"},
-			MappingTypes: gen.MappingTypes{
-				"test_table": gen.Mapper{
-					"other":  "any",
-					"other2": "*rune",
-					"other3": "string",
-					"other4": "[]string",
+			Mappers: gen.Mappers{
+				"test_table": gen.Mappings{
+					"other2":  gen.Mapping[int64](),
+					"other3":  gen.MappingSlice[int32](),
+					"other4":  gen.MappingConvert[pkg.MyMap](),
+					"other5":  gen.MappingConvert[pkg.MySlice](),
+					"other6":  gen.MappingConvert[pkg.MyStruct](),
+					"other7":  gen.MappingConvert[*pkg.MyStruct2](),
+					"other8":  gen.MappingConvert[pkg2.MyStruct3](),
+					"other9":  gen.MappingConvert[pkg3.MyStruct4](),
+					"other10": gen.MappingConvert[pkg4.MyStruct5](),
 				},
 			},
-			IgnoreColumns: gen.IgnoreColumns{
+			Ignores: gen.Ignores{
 				"test_table": gen.Columns{
-					"other5",
+					"other",
 				},
 			},
 		},

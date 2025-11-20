@@ -16,12 +16,14 @@ limitations under the License.
 
 package gdao
 
+import "github.com/jishaocong0910/gdao/internal"
+
 type CountBuilder struct {
-	*BaseSqlBuilder__
+	*internal.BaseSqlBuilder__
 }
 
 func newCountSqlBuilder() *CountBuilder {
 	this := &CountBuilder{}
-	this.BaseSqlBuilder__ = ExtendBaseSqlBuilder(this)
+	this.BaseSqlBuilder__ = internal.ExtendBaseSqlBuilder(this)
 	return this
 }

@@ -18,6 +18,7 @@ package gen
 
 import (
 	_ "embed"
+	"errors"
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/lib/pq"
 	"strings"
@@ -40,7 +41,7 @@ func (g postgresGenerator) getBaseDaoTemplate() string {
 	return postgresBaseDaoTpl
 }
 
-func (g postgresGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
+func (g postgresGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
 	var (
 		exists       bool
 		fields       []*fieldTplParam
@@ -61,7 +62,7 @@ func (g postgresGenerator) getTableInfo(table string) (bool, []*fieldTplParam, s
 			fieldType       string
 			isAutoIncrement bool
 		)
-		mustNoError(rows.Scan(&column, &udtName, &isIdentity, &columnDefault, &attndims, &description))
+		must(rows.Scan(&column, &udtName, &isIdentity, &columnDefault, &attndims, &description))
 		if description == nil {
 			description = gdao.P("")
 		}
@@ -118,8 +119,10 @@ func (g postgresGenerator) getTableInfo(table string) (bool, []*fieldTplParam, s
 	if rows.Next() {
 		rows.Scan(&tableComment)
 	}
-
-	return exists, fields, tableComment
+	if !exists {
+		return nil, "", errors.New("create table \"" + table + "\" is not exists")
+	}
+	return fields, tableComment, nil
 }
 
 func newPostgresGenerator(c GenCfg) *postgresGenerator {

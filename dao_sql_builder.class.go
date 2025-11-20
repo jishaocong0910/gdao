@@ -17,12 +17,13 @@ limitations under the License.
 package gdao
 
 import (
+	"github.com/jishaocong0910/gdao/internal"
 	"reflect"
 	"strings"
 )
 
 type DaoSqlBuilder[T any] struct {
-	*BaseSqlBuilder__
+	*internal.BaseSqlBuilder__
 	dao      *Dao[T]
 	entities []*T
 }
@@ -67,7 +68,7 @@ func (this *DaoSqlBuilder[T]) Columns(onlyAssigned bool, ignoredColumns ...strin
 			v := reflect.ValueOf(entity).Elem()
 			ignoredColumnMap := this.toMap(ignoredColumns)
 			for _, column := range this.dao.columns {
-				fieldIndex := this.dao.columnToFieldIndexMap[column]
+				fieldIndex := this.dao.columnToFieldIndex[column]
 				field := v.Field(fieldIndex)
 				if field.IsNil() {
 					continue
@@ -103,7 +104,7 @@ func (this *DaoSqlBuilder[T]) ColumnValue(entity *T, column string) any {
 	if entity == nil {
 		return nil
 	}
-	fieldIndex, ok := this.dao.columnToFieldIndexMap[column]
+	fieldIndex, ok := this.dao.columnToFieldIndex[column]
 	if !ok {
 		return nil
 	}
@@ -115,37 +116,37 @@ func (this *DaoSqlBuilder[T]) ColumnValue(entity *T, column string) any {
 	return vf.Interface()
 }
 
-func (this *DaoSqlBuilder[T]) EachEntity(sep *separate, handle func(n int, entity *T)) *DaoSqlBuilder[T] {
+func (this *DaoSqlBuilder[T]) EachEntity(sep *internal.Separate, handle func(n int, entity *T)) *DaoSqlBuilder[T] {
 	var n int
-	this.writePrefix(sep, n)
+	this.WritePrefix(sep, n)
 	for _, entity := range this.entities {
 		n++
-		this.writePrefix(sep, n)
-		this.writeSep(sep, n)
+		this.WritePrefix(sep, n)
+		this.WriteSep(sep, n)
 		handle(n, entity)
 	}
-	this.writeSuffix(sep, n)
+	this.WriteSuffix(sep, n)
 	return this
 }
 
-func (this *DaoSqlBuilder[T]) EachColumn(entity *T, sep *separate, handle func(n int, column string, value any), columns ...string) {
+func (this *DaoSqlBuilder[T]) EachColumn(entity *T, sep *internal.Separate, handle func(n int, column string, value any), columns ...string) {
 	v := reflect.ValueOf(entity).Elem()
 	var n int
-	this.writePrefix(sep, n)
+	this.WritePrefix(sep, n)
 	for _, column := range columns {
-		fieldIndex := this.dao.columnToFieldIndexMap[column]
+		fieldIndex := this.dao.columnToFieldIndex[column]
 		field := v.Field(fieldIndex)
 		var value any
 		if !field.IsNil() {
 			value = field.Interface()
 		}
 		n++
-		this.writePrefix(sep, n)
-		this.writeSep(sep, n)
+		this.WritePrefix(sep, n)
+		this.WriteSep(sep, n)
 
 		handle(n, column, value)
 	}
-	this.writeSuffix(sep, n)
+	this.WriteSuffix(sep, n)
 	return
 }
 
@@ -160,13 +161,8 @@ func (this *DaoSqlBuilder[T]) toMap(s []string) map[string]struct{} {
 	return m
 }
 
-type separate struct {
-	prefix, separator, suffix string
-	writeFixIfEmpty           bool
-}
-
 func newDaoSqlBuilder[T any](d *Dao[T], entities []*T) *DaoSqlBuilder[T] {
 	this := &DaoSqlBuilder[T]{dao: d, entities: entities}
-	this.BaseSqlBuilder__ = ExtendBaseSqlBuilder(this)
+	this.BaseSqlBuilder__ = internal.ExtendBaseSqlBuilder(this)
 	return this
 }

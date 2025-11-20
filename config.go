@@ -1,10 +1,6 @@
 package gdao
 
-import (
-	"database/sql"
-)
-
-var cfg Cfg
+import "database/sql"
 
 type Cfg struct {
 	DefaultDB      *sql.DB
@@ -13,6 +9,8 @@ type Cfg struct {
 	CompressSqlLog bool
 }
 
-func Config(c Cfg) {
-	cfg = c
+var global Cfg
+
+func Config(cfg Cfg) {
+	global = cfg
 }

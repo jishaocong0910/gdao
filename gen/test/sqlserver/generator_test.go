@@ -77,7 +77,6 @@ func TestSqlServer(t *testing.T) {
 		DaoCfg: gen.DaoCfg{
 			GenDao:            true,
 			CoverBaseDao:      true,
-			GenCountDao:       true,
 			AllowInvalidField: true,
 		},
 	}).Gen()
@@ -85,7 +84,6 @@ func TestSqlServer(t *testing.T) {
 	defer os.Remove("testdata/test_table.go")
 	defer os.Remove("testdata/test_table_dao.go")
 	defer os.Remove("testdata/base_dao.go")
-	defer os.Remove("testdata/count_dao.go")
 
 	compareFile(r, "testdata/entity.golden", "testdata/test_table.go")
 	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")

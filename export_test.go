@@ -23,7 +23,8 @@ import (
 type DaoExport struct {
 	ColumnsWithComma       string
 	Columns                []string
-	ColumnToFieldIndexMap  map[string]int
+	ColumnToFieldIndex     map[string]int
+	ColumnToFieldConvertor map[string]fieldConvertor
 	AutoIncrementColumns   []string
 	AutoIncrementStep      int64
 	AutoIncrementConvertor func(id int64) reflect.Value
@@ -33,14 +34,17 @@ func ExportDao[T any](dao *Dao[T]) DaoExport {
 	return DaoExport{
 		ColumnsWithComma:       dao.commaColumns,
 		Columns:                dao.columns,
-		ColumnToFieldIndexMap:  dao.columnToFieldIndexMap,
+		ColumnToFieldIndex:     dao.columnToFieldIndex,
+		ColumnToFieldConvertor: dao.columnToFieldConvertor,
 		AutoIncrementColumns:   dao.autoIncrementColumns,
 		AutoIncrementStep:      dao.autoIncrementStep,
-		AutoIncrementConvertor: dao.autoIncrementConvertor,
+		AutoIncrementConvertor: dao.autoIncrementConvert,
 	}
 }
 
-var LastInsertIdConvertors = lastInsertIdConvertors
+func ConvertLastInsertId(typeName string, id int64) any {
+	return lastInsertIdConvertor_.OfString(typeName).convert(id).Elem().Interface()
+}
 
 var PrintSql = printSql
 var PrintWarn = printWarn
