@@ -55,25 +55,25 @@ func TestPostgres(t *testing.T) {
 	r.NoError(err)
 
 	gen.GetGenerator(gen.GenCfg{
-		DbType:  gen.DbType_.POSTGRES,
-		Dsn:     dsn,
-		OutPath: "testdata",
-		Package: "dao",
+		DbType:    gen.DbType_.POSTGRES,
+		Dsn:       dsn,
+		GoModPath: "../../..",
+		OutPath:   "gen/test/postgres/testdata",
 		TableCfg: gen.TableCfg{
 			Tables: gen.Tables{"test_table"},
 		},
 		DaoCfg: gen.DaoCfg{
-			GenDao:            true,
 			CoverBaseDao:      true,
 			AllowInvalidField: true,
 		},
 	}).Gen()
 
-	defer os.Remove("testdata/test_table.go")
+	defer os.Remove("testdata/entity/test_table.go")
+	defer os.Remove("testdata/entity")
 	defer os.Remove("testdata/test_table_dao.go")
 	defer os.Remove("testdata/base_dao.go")
 
-	compareFile(r, "testdata/entity.golden", "testdata/test_table.go")
+	compareFile(r, "testdata/entity.golden", "testdata/entity/test_table.go")
 	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 }
 

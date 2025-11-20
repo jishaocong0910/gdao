@@ -26,25 +26,25 @@ import (
 func TestSqlite(t *testing.T) {
 	r := require.New(t)
 	gen.GetGenerator(gen.GenCfg{
-		DbType:  gen.DbType_.SQLITE,
-		Dsn:     "testdata/sqlite.db",
-		OutPath: "testdata",
-		Package: "dao",
+		DbType:    gen.DbType_.SQLITE,
+		Dsn:       "testdata/sqlite.db",
+		GoModPath: "../../..",
+		OutPath:   "gen/test/sqlite/testdata",
 		TableCfg: gen.TableCfg{
 			Tables: gen.Tables{"test_table"},
 		},
 		DaoCfg: gen.DaoCfg{
-			GenDao:            true,
 			CoverBaseDao:      true,
 			AllowInvalidField: true,
 		},
 	}).Gen()
 
-	defer os.Remove("testdata/test_table.go")
+	defer os.Remove("testdata/entity/test_table.go")
+	defer os.Remove("testdata/entity")
 	defer os.Remove("testdata/test_table_dao.go")
 	defer os.Remove("testdata/base_dao.go")
 
-	compareFile(r, "testdata/entity.golden", "testdata/test_table.go")
+	compareFile(r, "testdata/entity.golden", "testdata/entity/test_table.go")
 	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 }
 

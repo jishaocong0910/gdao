@@ -56,10 +56,10 @@ func TestMySql(t *testing.T) {
 	r.NoError(err)
 
 	gen.GetGenerator(gen.GenCfg{
-		DbType:  gen.DbType_.MYSQL,
-		Dsn:     dsn,
-		OutPath: "testdata",
-		Package: "dao",
+		DbType:    gen.DbType_.MYSQL,
+		Dsn:       dsn,
+		GoModPath: "../../..",
+		OutPath:   "gen/test/mysql/testdata",
 		TableCfg: gen.TableCfg{
 			Tables: gen.Tables{"test_table"},
 			Mappers: gen.Mappers{
@@ -82,19 +82,19 @@ func TestMySql(t *testing.T) {
 			},
 		},
 		DaoCfg: gen.DaoCfg{
-			GenDao:            true,
 			CoverBaseDao:      true,
 			GenCountDao:       true,
 			AllowInvalidField: true,
 		},
 	}).Gen()
 
-	defer os.Remove("testdata/test_table.go")
+	defer os.Remove("testdata/entity/test_table.go")
+	defer os.Remove("testdata/entity")
 	defer os.Remove("testdata/test_table_dao.go")
 	defer os.Remove("testdata/base_dao.go")
 	defer os.Remove("testdata/count_dao.go")
 
-	compareFile(r, "testdata/entity.golden", "testdata/test_table.go")
+	compareFile(r, "testdata/entity.golden", "testdata/entity/test_table.go")
 	compareFile(r, "testdata/dao.golden", "testdata/test_table_dao.go")
 	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 	compareFile(r, "testdata/count_dao.golden", "testdata/count_dao.go")

@@ -39,10 +39,10 @@ func (this *mySqlGenerator) getBaseDaoTemplate() string {
 	return mysqlBaseDaoTpl
 }
 
-func (this *mySqlGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
+func (this *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists       bool
-		fields       []*fieldTplParam
+		fields       []fieldTplParam
 		tableComment string
 	)
 
@@ -51,6 +51,8 @@ func (this *mySqlGenerator) getTableInfo(table string) ([]*fieldTplParam, string
 	for rows.Next() {
 		exists = true
 		var (
+			fieldType string
+
 			column          string
 			dataType        string
 			columnType      string
@@ -59,66 +61,64 @@ func (this *mySqlGenerator) getTableInfo(table string) ([]*fieldTplParam, string
 		)
 		must(rows.Scan(&column, &dataType, &columnType, &isAutoIncrement, &comment))
 
-		f := &fieldTplParam{
-			Column:          column,
-			FieldName:       fieldNameMapper.Convert(column),
-			FieldType:       "any",
-			Comment:         comment,
-			IsAutoIncrement: isAutoIncrement,
-		}
-
 		dataType = strings.ToLower(dataType)
 		columnType = strings.ToLower(columnType)
 		switch dataType {
 		case "bit":
-			f.FieldType = "[]uint8"
+			fieldType = "[]uint8"
 		case "tinyint":
 			if strings.Contains(columnType, "unsigned") {
-				f.FieldType = "*uint8"
+				fieldType = "*uint8"
 			} else if strings.Contains(columnType, "tinyint(1)") {
-				f.FieldType = "*bool"
+				fieldType = "*bool"
 			} else {
-				f.FieldType = "*int8"
+				fieldType = "*int8"
 			}
 		case "smallint":
 			if strings.Contains(columnType, "unsigned") {
-				f.FieldType = "*uint16"
+				fieldType = "*uint16"
 			} else {
-				f.FieldType = "*int16"
+				fieldType = "*int16"
 			}
 		case "mediumint":
 			if strings.Contains(columnType, "unsigned") {
-				f.FieldType = "*uint32"
+				fieldType = "*uint32"
 			} else {
-				f.FieldType = "*int32"
+				fieldType = "*int32"
 			}
 		case "int":
 			if strings.Contains(columnType, "unsigned") {
-				f.FieldType = "*uint32"
+				fieldType = "*uint32"
 			} else {
-				f.FieldType = "*int32"
+				fieldType = "*int32"
 			}
 		case "bigint":
 			if strings.Contains(columnType, "unsigned") {
-				f.FieldType = "*uint64"
+				fieldType = "*uint64"
 			} else {
-				f.FieldType = "*int64"
+				fieldType = "*int64"
 			}
 		case "double", "decimal":
-			f.FieldType = "*float64"
+			fieldType = "*float64"
 		case "float":
-			f.FieldType = "*float32"
+			fieldType = "*float32"
 		case "varchar", "char", "text", "tinytext", "mediumtext", "longtext", "enum", "json", "set", "time":
-			f.FieldType = "*string"
+			fieldType = "*string"
 		case "datetime", "timestamp", "date":
-			f.FieldType = "*time.Time"
+			fieldType = "*time.Time"
 		case "year":
-			f.FieldType = "*int64"
+			fieldType = "*int64"
 		case "binary", "varbinary", "geometry", "blob", "tinyblob", "mediumblob", "longblob":
-			f.FieldType = "[]byte"
+			fieldType = "[]byte"
 		}
-		if f.FieldType != "any" {
-			f.Valid = true
+
+		f := fieldTplParam{
+			Column:          column,
+			FieldName:       fieldNameMapper.Convert(column),
+			FieldType:       fieldType,
+			Comment:         comment,
+			Valid:           fieldType != "any",
+			IsAutoIncrement: isAutoIncrement,
 		}
 		fields = append(fields, f)
 	}

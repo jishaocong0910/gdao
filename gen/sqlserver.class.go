@@ -39,10 +39,10 @@ func (g sqlServerGenerator) getBaseDaoTemplate() string {
 	return sqlserverBaseDaoTpl
 }
 
-func (g sqlServerGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
+func (g sqlServerGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists       bool
-		fields       []*fieldTplParam
+		fields       []fieldTplParam
 		tableComment string
 	)
 
@@ -51,10 +51,11 @@ func (g sqlServerGenerator) getTableInfo(table string) ([]*fieldTplParam, string
 	for rows.Next() {
 		exists = true
 		var (
+			fieldType string
+
 			column         string
 			dataType       string
 			comment        *string
-			fieldType      string
 			incrementValue *int
 		)
 		must(rows.Scan(&column, &incrementValue, &dataType, &comment))
@@ -90,7 +91,7 @@ func (g sqlServerGenerator) getTableInfo(table string) ([]*fieldTplParam, string
 			fieldType = "[]byte"
 		}
 
-		f := &fieldTplParam{
+		f := fieldTplParam{
 			Column:            column,
 			FieldName:         fieldNameMapper.Convert(column),
 			FieldType:         fieldType,

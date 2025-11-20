@@ -28,10 +28,10 @@ type GenCfg struct {
 	DbType dbType
 	// 数据库连接URL，空字符串时不会生成实体
 	Dsn string
-	// 生成文件相对路径，绝对路径为"os.Getwd()/OutPath"
+	// 相对 [os.Getwd] 的go.mod文件路径
+	GoModPath string
+	// 相对go.mod文件的生成文件路径，默认为“dao”
 	OutPath string
-	// 包名，默认为目录名
-	Package string
 	// 表配置
 	TableCfg TableCfg
 	// DAO配置
@@ -39,8 +39,6 @@ type GenCfg struct {
 }
 
 type DaoCfg struct {
-	// 是否生成DAO
-	GenDao bool
 	// 覆盖BaseDao
 	CoverBaseDao bool
 	// 是否生成CountDao
@@ -61,21 +59,26 @@ type TableCfg struct {
 }
 
 type baseDaoTplParam struct {
-	Package string
+	PkgName string
 }
 
 type entityTplParam struct {
+	Table      string
+	EntityName string
+	Fields     []fieldTplParam
+	Comment    string
+	Imports    []string
+
+	dao daoTplParam
+}
+
+type daoTplParam struct {
 	Table             string
-	EntityFileName    string
-	Package           string
-	EntityName        string
-	Fields            []*fieldTplParam
-	Comment           string
-	GenDao            bool
-	DaoFileName       string
+	PkgName           string
 	DaoName           string
+	EntityName        string
+	EntityPkgPath     string
 	AllowInvalidField bool
-	Imports           []string
 }
 
 type fieldTplParam struct {

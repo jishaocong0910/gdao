@@ -41,10 +41,10 @@ func (g postgresGenerator) getBaseDaoTemplate() string {
 	return postgresBaseDaoTpl
 }
 
-func (g postgresGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
+func (g postgresGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists       bool
-		fields       []*fieldTplParam
+		fields       []fieldTplParam
 		tableComment string
 	)
 
@@ -53,13 +53,14 @@ func (g postgresGenerator) getTableInfo(table string) ([]*fieldTplParam, string,
 	for rows.Next() {
 		exists = true
 		var (
+			fieldType string
+
 			column          string
 			udtName         string
 			isIdentity      string
 			columnDefault   *string
 			attndims        int
 			description     *string
-			fieldType       string
 			isAutoIncrement bool
 		)
 		must(rows.Scan(&column, &udtName, &isIdentity, &columnDefault, &attndims, &description))
@@ -103,7 +104,7 @@ func (g postgresGenerator) getTableInfo(table string) ([]*fieldTplParam, string,
 			fieldType = "[]" + fieldType
 		}
 
-		f := &fieldTplParam{
+		f := fieldTplParam{
 			Column:          column,
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,
