@@ -90,4 +90,15 @@ func TestTx(t *testing.T) {
 		r.EqualError(err, "1")
 		r.NoError(mock.ExpectationsWereMet())
 	}
+	{
+		_, mock := mockUserDao(r)
+		mock.ExpectBegin()
+		mock.ExpectRollback()
+		r.PanicsWithError(`test panic`, func() {
+			gdao.Tx(nil, func(ctx context.Context) error {
+				panic(errors.New("test panic"))
+			}, gdao.WithMust())
+		})
+	}
+
 }

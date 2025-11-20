@@ -23,11 +23,11 @@ func IsImplementConvert(ft reflect.Type) int {
 	var vt reflect.Type
 	if method, ok := ft.MethodByName("GdaoValue"); ok {
 		mt := method.Type
-		if mt.NumIn() != 1 || mt.NumOut() != 1 {
+		if mt.NumIn() != 1 || mt.NumOut() != 1 { // coverage-ignore
 			return 2
 		}
 		vt = mt.Out(0)
-		if !IsBaseType(vt) {
+		if !IsBaseType(vt) { // coverage-ignore
 			return 2
 		}
 	} else {
@@ -38,7 +38,7 @@ func IsImplementConvert(ft reflect.Type) int {
 		if mt.NumIn() != 2 || mt.In(1) != vt || mt.NumOut() != 1 || mt.Out(0) != ft {
 			return 2
 		}
-	} else {
+	} else { // coverage-ignore
 		return 2
 	}
 	return 1

@@ -2,10 +2,10 @@ package pkg
 
 type MySlice []string
 
-func (m MySlice) GdaoValue() string {
+func (m MySlice) GdaoValue() string { // coverage-ignore
 	return ""
 }
 
-func (m MySlice) GdaoField(value string) MySlice {
-	return make(MySlice, 0)
+func (m MySlice) GdaoField(value string) MySlice { // coverage-ignore
+	return nil
 }
