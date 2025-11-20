@@ -18,6 +18,7 @@ package gen
 
 import (
 	_ "embed"
+	"errors"
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/microsoft/go-mssqldb"
 	"strings"
@@ -38,7 +39,7 @@ func (g sqlServerGenerator) getBaseDaoTemplate() string {
 	return sqlserverBaseDaoTpl
 }
 
-func (g sqlServerGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
+func (g sqlServerGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
 	var (
 		exists       bool
 		fields       []*fieldTplParam
@@ -56,7 +57,7 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*fieldTplParam, 
 			fieldType      string
 			incrementValue *int
 		)
-		mustNoError(rows.Scan(&column, &incrementValue, &dataType, &comment))
+		must(rows.Scan(&column, &incrementValue, &dataType, &comment))
 		dataType = strings.ToLower(dataType)
 		if comment == nil {
 			comment = gdao.P("")
@@ -106,8 +107,10 @@ func (g sqlServerGenerator) getTableInfo(table string) (bool, []*fieldTplParam, 
 	if rows.Next() {
 		rows.Scan(&tableComment)
 	}
-
-	return exists, fields, tableComment
+	if !exists {
+		return nil, "", errors.New("create table \"" + table + "\" is not exists")
+	}
+	return fields, tableComment, nil
 }
 
 func newSqlServerGenerator(c GenCfg) *sqlServerGenerator {

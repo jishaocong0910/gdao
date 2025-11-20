@@ -1,6 +1,10 @@
 package gdao
 
-import e "github.com/jishaocong0910/enum"
+import (
+	e "github.com/jishaocong0910/enum"
+	"reflect"
+	"strconv"
+)
 
 type SqlLogLevel struct {
 	*e.EnumElem__
@@ -38,3 +42,31 @@ type _RowAs struct {
 }
 
 var RowAs_ = e.NewEnum[RowAs](_RowAs{})
+
+type lastInsertIdConvertor struct {
+	*e.EnumElem__
+	convert func(id int64) reflect.Value
+}
+
+type _lastInsertIdConvertor struct {
+	*e.Enum__[lastInsertIdConvertor]
+	int, int8, int16, int32, int64,
+	uint, uint8, uint16, uint32, uint64,
+	float32, float64, string lastInsertIdConvertor
+}
+
+var lastInsertIdConvertor_ = e.NewEnum[lastInsertIdConvertor](_lastInsertIdConvertor{
+	int:     lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int(id); return reflect.ValueOf(&i) }},
+	int8:    lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int8(id); return reflect.ValueOf(&i) }},
+	int16:   lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int16(id); return reflect.ValueOf(&i) }},
+	int32:   lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int32(id); return reflect.ValueOf(&i) }},
+	int64:   lastInsertIdConvertor{convert: func(id int64) reflect.Value { return reflect.ValueOf(&id) }},
+	uint:    lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint(id); return reflect.ValueOf(&u) }},
+	uint8:   lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint8(id); return reflect.ValueOf(&u) }},
+	uint16:  lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint16(id); return reflect.ValueOf(&u) }},
+	uint32:  lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint32(id); return reflect.ValueOf(&u) }},
+	uint64:  lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint64(id); return reflect.ValueOf(&u) }},
+	float32: lastInsertIdConvertor{convert: func(id int64) reflect.Value { f := float32(id); return reflect.ValueOf(&f) }},
+	float64: lastInsertIdConvertor{convert: func(id int64) reflect.Value { f := float64(id); return reflect.ValueOf(&f) }},
+	string:  lastInsertIdConvertor{convert: func(id int64) reflect.Value { s := strconv.FormatInt(id, 10); return reflect.ValueOf(&s) }},
+})

@@ -578,7 +578,7 @@ func TestNewDaoPanic(t *testing.T) {
 		})
 	}
 	{
-		r.PanicsWithError(`field "Field" of "gdao_test.InvalidField5" implementing gdao.Convert is invalid`, func() {
+		r.PanicsWithError(`field "Field" of "gdao_test.InvalidField5" is invalid implementing gdao.Convert`, func() {
 			gdao.NewDao[InvalidField5](gdao.NewDaoReq{DB: &sql.DB{}})
 		})
 		r.NotPanics(func() {
@@ -590,19 +590,19 @@ func TestNewDaoPanic(t *testing.T) {
 func TestLastInsertIdConvertors(t *testing.T) {
 	r := require.New(t)
 	id := int64(123)
-	r.Equal(123, gdao.LastInsertIdConvertors["int"](id).Elem().Interface())
-	r.Equal(int8(123), gdao.LastInsertIdConvertors["int8"](id).Elem().Interface())
-	r.Equal(int16(123), gdao.LastInsertIdConvertors["int16"](id).Elem().Interface())
-	r.Equal(int32(123), gdao.LastInsertIdConvertors["int32"](id).Elem().Interface())
-	r.Equal(int64(123), gdao.LastInsertIdConvertors["int64"](id).Elem().Interface())
-	r.Equal(uint(123), gdao.LastInsertIdConvertors["uint"](id).Elem().Interface())
-	r.Equal(uint8(123), gdao.LastInsertIdConvertors["uint8"](id).Elem().Interface())
-	r.Equal(uint16(123), gdao.LastInsertIdConvertors["uint16"](id).Elem().Interface())
-	r.Equal(uint32(123), gdao.LastInsertIdConvertors["uint32"](id).Elem().Interface())
-	r.Equal(uint64(123), gdao.LastInsertIdConvertors["uint64"](id).Elem().Interface())
-	r.Equal(float32(123), gdao.LastInsertIdConvertors["float32"](id).Elem().Interface())
-	r.Equal(float64(123), gdao.LastInsertIdConvertors["float64"](id).Elem().Interface())
-	r.Equal("123", gdao.LastInsertIdConvertors["string"](id).Elem().Interface())
+	r.Equal(123, gdao.ConvertLastInsertId("int", id))
+	r.Equal(int8(123), gdao.ConvertLastInsertId("int8", id))
+	r.Equal(int16(123), gdao.ConvertLastInsertId("int16", id))
+	r.Equal(int32(123), gdao.ConvertLastInsertId("int32", id))
+	r.Equal(int64(123), gdao.ConvertLastInsertId("int64", id))
+	r.Equal(uint(123), gdao.ConvertLastInsertId("uint", id))
+	r.Equal(uint8(123), gdao.ConvertLastInsertId("uint8", id))
+	r.Equal(uint16(123), gdao.ConvertLastInsertId("uint16", id))
+	r.Equal(uint32(123), gdao.ConvertLastInsertId("uint32", id))
+	r.Equal(uint64(123), gdao.ConvertLastInsertId("uint64", id))
+	r.Equal(float32(123), gdao.ConvertLastInsertId("float32", id))
+	r.Equal(float64(123), gdao.ConvertLastInsertId("float64", id))
+	r.Equal("123", gdao.ConvertLastInsertId("string", id))
 }
 
 func checkMapContains[K comparable, V any](r *require.Assertions, m map[K]V, key ...string) {

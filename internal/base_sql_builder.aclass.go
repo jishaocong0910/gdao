@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gdao
+package internal
 
 import (
 	"strconv"
@@ -81,30 +81,30 @@ func (this *BaseSqlBuilder__) Ok() bool {
 	return this.ok
 }
 
-func (this *BaseSqlBuilder__) Sep(separator string) *separate {
-	return &separate{separator: separator}
+func (this *BaseSqlBuilder__) Sep(separator string) *Separate {
+	return &Separate{separator: separator}
 }
 
-func (this *BaseSqlBuilder__) SepFix(prefix, separator, suffix string, writeFixIfEmpty bool) *separate {
-	return &separate{prefix: prefix, separator: separator, suffix: suffix, writeFixIfEmpty: writeFixIfEmpty}
+func (this *BaseSqlBuilder__) SepFix(prefix, separator, suffix string, writeFixIfEmpty bool) *Separate {
+	return &Separate{prefix: prefix, separator: separator, suffix: suffix, writeFixIfEmpty: writeFixIfEmpty}
 }
 
-func (this *BaseSqlBuilder__) Repeat(num int, sep *separate, filter func(i int) bool, handle func(n, i int)) {
+func (this *BaseSqlBuilder__) Repeat(num int, sep *Separate, filter func(i int) bool, handle func(n, i int)) {
 	var n int
-	this.writePrefix(sep, n)
+	this.WritePrefix(sep, n)
 	for i := 0; i < num; i++ {
 		if filter != nil && !filter(i) {
 			continue
 		}
 		n++
-		this.writePrefix(sep, n)
-		this.writeSep(sep, n)
+		this.WritePrefix(sep, n)
+		this.WriteSep(sep, n)
 		handle(n, i)
 	}
-	this.writeSuffix(sep, n)
+	this.WriteSuffix(sep, n)
 }
 
-func (this *BaseSqlBuilder__) writePrefix(s *separate, n int) *BaseSqlBuilder__ {
+func (this *BaseSqlBuilder__) WritePrefix(s *Separate, n int) *BaseSqlBuilder__ {
 	if s != nil {
 		if n == 0 && s.writeFixIfEmpty || n == 1 && !s.writeFixIfEmpty {
 			this.Write(s.prefix)
@@ -113,14 +113,14 @@ func (this *BaseSqlBuilder__) writePrefix(s *separate, n int) *BaseSqlBuilder__ 
 	return this
 }
 
-func (this *BaseSqlBuilder__) writeSep(s *separate, n int) *BaseSqlBuilder__ {
+func (this *BaseSqlBuilder__) WriteSep(s *Separate, n int) *BaseSqlBuilder__ {
 	if s != nil && n != 1 {
 		this.Write(s.separator)
 	}
 	return this
 }
 
-func (this *BaseSqlBuilder__) writeSuffix(s *separate, n int) *BaseSqlBuilder__ {
+func (this *BaseSqlBuilder__) WriteSuffix(s *Separate, n int) *BaseSqlBuilder__ {
 	if s != nil && n != 0 {
 		this.Write(s.suffix)
 	}

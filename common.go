@@ -12,12 +12,6 @@ func V[T any](t *T) T {
 	return v
 }
 
-var global Cfg
-
-func Config(cfg Cfg) {
-	global = cfg
-}
-
 func checkMust(must bool, err error) { // coverage-ignore
 	if must && err != nil {
 		panic(err)

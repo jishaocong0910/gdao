@@ -135,10 +135,3 @@ func (c *Count) BoolPtr() *bool {
 	b := *c.Value > 0
 	return &b
 }
-
-type Cfg struct {
-	DefaultDB      *sql.DB
-	Logger         Logger
-	SqlLogLevel    SqlLogLevel
-	CompressSqlLog bool
-}

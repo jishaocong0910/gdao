@@ -38,11 +38,13 @@ func ExportDao[T any](dao *Dao[T]) DaoExport {
 		ColumnToFieldConvertor: dao.columnToFieldConvertor,
 		AutoIncrementColumns:   dao.autoIncrementColumns,
 		AutoIncrementStep:      dao.autoIncrementStep,
-		AutoIncrementConvertor: dao.autoIncrementConvertor,
+		AutoIncrementConvertor: dao.autoIncrementConvert,
 	}
 }
 
-var LastInsertIdConvertors = lastInsertIdConvertors
+func ConvertLastInsertId(typeName string, id int64) any {
+	return lastInsertIdConvertor_.OfString(typeName).convert(id).Elem().Interface()
+}
 
 var PrintSql = printSql
 var PrintWarn = printWarn

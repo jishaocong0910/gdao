@@ -20,10 +20,13 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
+	"github.com/jishaocong0910/gdao/internal"
 	"golang.org/x/tools/imports"
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 )
@@ -32,7 +35,7 @@ type Generator_ interface {
 	generator_()
 	Gen()
 	getDriverName() string
-	getTableInfo(table string) (bool, []*fieldTplParam, string)
+	getTableInfo(table string) ([]*fieldTplParam, string, error)
 	getBaseDaoTemplate() string
 }
 
@@ -44,8 +47,6 @@ type generator__ struct {
 	daoTpl          *template.Template
 	countDaoTpl     *template.Template
 	entityTplParams []entityTplParam
-	// 记录表名为“count”（不区分大小写）的表，因为表名为count时会和生成CountDao冲突。
-	namedCountCiTable string
 }
 
 func (this *generator__) generator_() { // coverage-ignore
@@ -64,49 +65,19 @@ func (this *generator__) Gen() {
 func (this *generator__) queryEntityTplParams() {
 	if this.db != nil {
 		for _, table := range this.c.TableCfg.Tables {
-			if strings.EqualFold(table, "count") { // coverage-ignore
-				this.namedCountCiTable = table
-			}
 			// 获取表信息
-			exists, fields, comment := this.i.getTableInfo(table)
-			if !exists { // coverage-ignore
-				log.Printf("table \"%s\" is not exists", table)
+			fields, comment, err := this.i.getTableInfo(table)
+			if err != nil { // coverage-ignore
+				log.Println(err.Error())
 				continue
 			}
 			// 过滤字段
-			if columns, ok := this.c.TableCfg.IgnoreColumns[table]; ok {
-				var filtered []*fieldTplParam
-				for _, f := range fields {
-					isIgnored := false
-					for _, column := range columns {
-						if column == f.Column {
-							isIgnored = true
-						}
-					}
-					if !isIgnored {
-						filtered = append(filtered, f)
-					}
-				}
-				fields = filtered
-			}
-			// 强制指定表字段映射类型
-			if mappingTypes, ok := this.c.TableCfg.MappingTypes[table]; ok {
-				for column, fieldType := range mappingTypes {
-					for _, f := range fields {
-						if f.Column == column {
-							f.FieldType = fieldType
-							if strings.HasPrefix(f.FieldType, "[]") {
-								if _, ok := supportedFieldTypes[strings.TrimLeft(f.FieldType, "[]")]; !ok { // coverage-ignore
-									f.Valid = false
-								}
-							} else {
-								if _, ok := supportedFieldTypes[f.FieldType[1:]]; !ok {
-									f.Valid = false
-								}
-							}
-						}
-					}
-				}
+			fields = this.ignoreFields(table, fields)
+			// 自定义映射
+			imports, err := this.mappingFields(table, fields)
+			if err != nil {
+				log.Println(err.Error())
+				continue
 			}
 			// 创建实体模板参数
 			e := entityTplParam{
@@ -120,14 +91,124 @@ func (this *generator__) queryEntityTplParams() {
 				DaoFileName:       daoFileNameMapper.Convert(table),
 				DaoName:           daoNameMapper.Convert(table),
 				AllowInvalidField: this.c.DaoCfg.AllowInvalidField,
+				Imports:           imports,
 			}
 			this.entityTplParams = append(this.entityTplParams, e)
 		}
 	}
 }
 
+func (this *generator__) ignoreFields(table string, fields []*fieldTplParam) []*fieldTplParam {
+	ignoreColumns := this.c.TableCfg.Ignores[table]
+	if ignoreColumns != nil {
+		var temp []*fieldTplParam
+		for _, f := range fields {
+			isIgnored := false
+			for _, column := range ignoreColumns {
+				if column == f.Column {
+					isIgnored = true
+				}
+			}
+			if !isIgnored {
+				temp = append(temp, f)
+			}
+		}
+		fields = temp
+	}
+	return fields
+}
+
+func (this *generator__) mappingFields(table string, fields []*fieldTplParam) ([]string, error) {
+	mappings := this.c.TableCfg.Mappers[table]
+	if mappings == nil {
+		return nil, nil
+	}
+	pkgNameToPaths := make(map[string]string, len(mappings))
+
+	for _, f := range fields {
+		if m, ok := mappings[f.Column]; ok {
+			switch m.mt.String() {
+			case mappingType_.base.String():
+				f.FieldType = "*" + reflect.TypeOf(m.t).String()
+			case mappingType_.slice.String():
+				f.FieldType = "[]" + reflect.TypeOf(m.t).String()
+			case mappingType_.convert.String():
+				ft := reflect.TypeOf(m.t)
+				validConvertType := false
+				switch ft.Kind() {
+				case reflect.Pointer:
+					if ft.Elem().Kind() == reflect.Struct {
+						validConvertType = true
+					}
+				case reflect.Struct:
+					ft = reflect.New(ft).Type()
+					validConvertType = true
+				case reflect.Slice, reflect.Map:
+					validConvertType = true
+				}
+				if validConvertType && internal.IsImplementConvert(ft) == 1 {
+					pkgPath, pkgName, typeName := this.determineFieldType(ft, pkgNameToPaths)
+					f.FieldType = pkgName + "." + typeName
+					pkgNameToPaths[pkgName] = pkgPath
+				} else { // coverage-ignore
+					return nil, errors.New("the mapping of table \"" + table + "\"'s column \"" + f.Column + "\" is invalid implementing gdao.Convert")
+				}
+			}
+		}
+	}
+	var imports []string
+	for name, path := range pkgNameToPaths {
+		if name != path[strings.LastIndex(path, "/")+1:] {
+			imports = append(imports, name+" \""+path+"\"")
+		} else {
+			imports = append(imports, "\""+path+"\"")
+		}
+	}
+	return imports, nil
+}
+
+func (this *generator__) determineFieldType(ft reflect.Type, pkgNameToPaths map[string]string) (string, string, string) {
+	var pkgPath string
+	if ft.Kind() == reflect.Pointer {
+		pkgPath = ft.Elem().PkgPath()
+	} else {
+		pkgPath = ft.PkgPath()
+	}
+	arr := strings.SplitN(ft.String(), ".", 2)
+	pkgName := arr[0]
+	if pkgName[:1] == "*" {
+		pkgName = pkgName[1:]
+	}
+	typeName := arr[1]
+	pkgName = this.determinePkgName(pkgPath, pkgName, pkgNameToPaths, false)
+	return pkgPath, pkgName, typeName
+}
+
+func (this *generator__) determinePkgName(pkgPath, pkgName string, pkgNameToPaths map[string]string, conflict bool) string {
+	if conflict {
+		arr := pkgNameRegex.FindSubmatch([]byte(pkgName))
+		pkgName = string(arr[1])
+		num := string(arr[2])
+		if num != "" {
+			i, _ := strconv.ParseInt(num, 10, 32)
+			pkgName += strconv.Itoa(int(i + 1))
+		} else {
+			pkgName += "2"
+		}
+	}
+	if path, ok := pkgNameToPaths[pkgName]; ok {
+		if path == pkgPath {
+			return pkgName
+		} else {
+			return this.determinePkgName(pkgPath, pkgName, pkgNameToPaths, true)
+		}
+	} else {
+		return pkgName
+	}
+}
+
 func (this *generator__) createOutPath() {
-	mustNoError(os.MkdirAll(this.c.OutPath, os.ModePerm))
+	must(os.MkdirAll(this.c.OutPath, os.ModePerm))
 }
 
 func (this *generator__) genBaseDao() {
@@ -143,15 +224,17 @@ func (this *generator__) genBaseDao() {
 			log.Println("create base dao success")
 		}
 		if this.c.DaoCfg.GenCountDao {
-			if this.namedCountCiTable != "" { // coverage-ignore
-				log.Printf("create count dao fail because exists table named \"%s\"", this.namedCountCiTable)
-			} else {
-				err = this.createFile("count_dao.go", this.c.DaoCfg.CoverCountDao, this.countDaoTpl, b)
-				if err != nil { // coverage-ignore
-					log.Printf("create count dao fail: %+v\n", err)
-				} else {
-					log.Println("create count dao success")
+			for _, table := range this.c.TableCfg.Tables {
+				if strings.EqualFold(table, "count") { // coverage-ignore
+					log.Printf("create count dao fail because exists table named \"%s\"", table)
+					return
 				}
+			}
+			err = this.createFile("count_dao.go", this.c.DaoCfg.CoverCountDao, this.countDaoTpl, b)
+			if err != nil { // coverage-ignore
+				log.Printf("create count dao fail: %+v\n", err)
+			} else {
+				log.Println("create count dao success")
 			}
 		}
 	}
@@ -189,15 +272,15 @@ func (this *generator__) createFile(fileName string, cover bool, tpl *template.T
 	if err != nil { // coverage-ignore
 		return err
 	}
-	content, err := imports.Process("", buf.Bytes(), nil)
-	if err != nil { // coverage-ignore
-		return err
+	content, importErr := imports.Process("", buf.Bytes(), nil)
+	if importErr != nil { // coverage-ignore
+		content = buf.Bytes()
 	}
 	err = os.WriteFile(path, content, 0644)
 	if err != nil { // coverage-ignore
 		return err
 	}
-	return nil
+	return importErr
 }
 
 func extendGenerator_(i Generator_, c GenCfg) *generator__ {

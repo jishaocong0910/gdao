@@ -24,11 +24,11 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 	b := newCountSqlBuilder()
 	req.BuildSql(b)
 	if !b.Ok() { // coverage-ignore
-		return nil, nil, b.err
+		return nil, nil, b.Error()
 	}
-	rows, columns, closeFunc, err := d.query(req.Ctx, b.Sql(), b.args)
+	rows, columns, closeFunc, err := d.query(req.Ctx, b.Sql(), b.Args())
 	if err != nil { // coverage-ignore
-		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, -1, -1, err)
+		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.Args(), -1, -1, err)
 		checkMust(req.Must, err)
 		return nil, nil, err
 	}
@@ -64,7 +64,7 @@ func (d *CountDao) Count(req CountReq) (first *Count, list []*Count, err error) 
 	if len(list) > 0 {
 		first = list[0]
 	}
-	printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, -1, rowCounts, nil)
+	printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.Args(), -1, rowCounts, nil)
 	return
 }
 

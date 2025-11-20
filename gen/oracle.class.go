@@ -18,6 +18,7 @@ package gen
 
 import (
 	_ "embed"
+	"errors"
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/sijms/go-ora/v2"
 	"strings"
@@ -38,7 +39,7 @@ func (this *oracleGenerator) getBaseDaoTemplate() string {
 	return oracleBaseDaoTpl
 }
 
-func (this *oracleGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
+func (this *oracleGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
 	var (
 		exists       bool
 		fields       []*fieldTplParam
@@ -57,7 +58,7 @@ func (this *oracleGenerator) getTableInfo(table string) (bool, []*fieldTplParam,
 			charLength int
 			comment    *string
 		)
-		mustNoError(rows.Scan(&column, &dataType, &precision, &scale, &charLength, &comment))
+		must(rows.Scan(&column, &dataType, &precision, &scale, &charLength, &comment))
 		dataType = strings.ToUpper(dataType)
 		if strings.HasPrefix(dataType, "TIMESTAMP") {
 			dataType = "TIMESTAMP"
@@ -108,8 +109,10 @@ func (this *oracleGenerator) getTableInfo(table string) (bool, []*fieldTplParam,
 	if rows.Next() {
 		rows.Scan(&tableComment)
 	}
-
-	return exists, fields, tableComment
+	if !exists {
+		return nil, "", errors.New("create table \"" + table + "\" is not exists")
+	}
+	return fields, tableComment, nil
 }
 
 func newOracleGenerator(c GenCfg) *oracleGenerator {

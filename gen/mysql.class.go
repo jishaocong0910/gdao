@@ -18,6 +18,7 @@ package gen
 
 import (
 	_ "embed"
+	"errors"
 	_ "github.com/go-sql-driver/mysql"
 	"strings"
 )
@@ -38,7 +39,7 @@ func (this *mySqlGenerator) getBaseDaoTemplate() string {
 	return mysqlBaseDaoTpl
 }
 
-func (this *mySqlGenerator) getTableInfo(table string) (bool, []*fieldTplParam, string) {
+func (this *mySqlGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
 	var (
 		exists       bool
 		fields       []*fieldTplParam
@@ -56,7 +57,7 @@ func (this *mySqlGenerator) getTableInfo(table string) (bool, []*fieldTplParam, 
 			isAutoIncrement bool
 			comment         string
 		)
-		mustNoError(rows.Scan(&column, &dataType, &columnType, &isAutoIncrement, &comment))
+		must(rows.Scan(&column, &dataType, &columnType, &isAutoIncrement, &comment))
 
 		f := &fieldTplParam{
 			Column:          column,
@@ -127,8 +128,10 @@ func (this *mySqlGenerator) getTableInfo(table string) (bool, []*fieldTplParam, 
 	if rows.Next() {
 		rows.Scan(&tableComment)
 	}
-
-	return exists, fields, tableComment
+	if !exists {
+		return nil, "", errors.New("create table \"" + table + "\" is not exists")
+	}
+	return fields, tableComment, nil
 }
 
 func newMySqlGenerator(c GenCfg) *mySqlGenerator {

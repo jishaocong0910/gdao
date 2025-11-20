@@ -2,7 +2,14 @@
 
 package dao
 
-import "time"
+import (
+	"time"
+
+	"github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg"
+	pkg2 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1"
+	pkg3 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1/pkg"
+	pkg4 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1/pkg1"
+)
 
 // TestTable mysql
 // table: test_table
@@ -89,15 +96,22 @@ type TestTable struct {
 	Boolean *bool `gdao:"column=boolean"`
 	// Time
 	Time *string `gdao:"column=time"`
-	// Other
-	// gdao cannot solve this type!
-	Other any `gdao:"column=other"`
 	// Other2
-	// gdao cannot solve this type!
-	Other2 *rune `gdao:"column=other2"`
+	Other2 *int64 `gdao:"column=other2"`
 	// Other3
-	// gdao cannot solve this type!
-	Other3 string `gdao:"column=other3"`
+	Other3 []int32 `gdao:"column=other3"`
 	// Other4
-	Other4 []string `gdao:"column=other4"`
+	Other4 pkg.MyMap `gdao:"column=other4"`
+	// Other5
+	Other5 pkg.MySlice `gdao:"column=other5"`
+	// Other6
+	Other6 pkg.MyStruct `gdao:"column=other6"`
+	// Other7
+	Other7 pkg.MyStruct2 `gdao:"column=other7"`
+	// Other8
+	Other8 pkg2.MyStruct3 `gdao:"column=other8"`
+	// Other9
+	Other9 pkg3.MyStruct4 `gdao:"column=other9"`
+	// Other10
+	Other10 pkg4.MyStruct5 `gdao:"column=other10"`
 }

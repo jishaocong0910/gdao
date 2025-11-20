@@ -18,6 +18,7 @@ package gdao
 
 import (
 	"errors"
+	"github.com/jishaocong0910/gdao/internal"
 	"reflect"
 )
 
@@ -29,7 +30,7 @@ type Dao[T any] struct {
 	columnToFieldConvertor map[string]fieldConvertor
 	autoIncrementColumns   []string
 	autoIncrementStep      int64
-	autoIncrementConvertor func(id int64) reflect.Value
+	autoIncrementConvert   func(id int64) reflect.Value
 }
 
 func (this *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
@@ -44,9 +45,9 @@ func (this *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 	if !b.Ok() { // coverage-ignore
 		return
 	}
-	rows, columns, closeFunc, err := this.query(req.Ctx, b.Sql(), b.args)
+	rows, columns, closeFunc, err := this.query(req.Ctx, b.Sql(), b.Args())
 	if err != nil { // coverage-ignore
-		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, -1, -1, err)
+		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.Args(), -1, -1, err)
 		checkMust(req.Must, err)
 		return nil, nil, err
 	}
@@ -73,7 +74,7 @@ func (this *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 			}
 			affected++
 		}
-		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, affected, -1, nil)
+		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.Args(), affected, -1, nil)
 	case RowAs_.LAST_ID.String():
 		var affected int64
 		var id *int64
@@ -94,7 +95,7 @@ func (this *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 				}
 				v := reflect.ValueOf(entity).Elem()
 				field := v.Field(fieldIndex)
-				field.Set(this.autoIncrementConvertor(*id - int64(entityLength-1-i)*this.autoIncrementStep))
+				field.Set(this.autoIncrementConvert(*id - int64(entityLength-1-i)*this.autoIncrementStep))
 				affected++
 			}
 		} else {
@@ -105,7 +106,7 @@ func (this *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 				}
 			}
 		}
-		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, affected, -1, nil)
+		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.Args(), affected, -1, nil)
 	default:
 		var rowCounts int64
 		for rows.Next() {
@@ -125,7 +126,7 @@ func (this *Dao[T]) Query(req QueryReq[T]) (first *T, list []*T, err error) {
 		if len(list) > 0 {
 			first = list[0]
 		}
-		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, -1, rowCounts, nil)
+		printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.Args(), -1, rowCounts, nil)
 	}
 	return
 }
@@ -141,8 +142,8 @@ func (this *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 	if !b.Ok() { // coverage-ignore
 		return 0, nil
 	}
-	result, affected, err := this.exec(req.Ctx, b.Sql(), b.args)
-	printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.args, affected, -1, err)
+	result, affected, err := this.exec(req.Ctx, b.Sql(), b.Args())
+	printSql(req.Ctx, req.SqlLogLevel, req.Desc, b.Sql(), b.Args(), affected, -1, err)
 	if err != nil { // coverage-ignore
 		checkMust(req.Must, err)
 		return
@@ -160,7 +161,7 @@ func (this *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 				}
 				v := reflect.ValueOf(entity).Elem()
 				field := v.Field(fieldIndex)
-				field.Set(this.autoIncrementConvertor(id + int64(i)*this.autoIncrementStep))
+				field.Set(this.autoIncrementConvert(id + int64(i)*this.autoIncrementStep))
 			}
 		}
 	case LastInsertIdAs_.LAST_ID.String():
@@ -176,7 +177,7 @@ func (this *Dao[T]) Exec(req ExecReq[T]) (affected int64, err error) {
 				}
 				v := reflect.ValueOf(entity).Elem()
 				field := v.Field(fieldIndex)
-				field.Set(this.autoIncrementConvertor(id - int64(entityLength-1-i)*this.autoIncrementStep))
+				field.Set(this.autoIncrementConvert(id - int64(entityLength-1-i)*this.autoIncrementStep))
 			}
 		}
 	}
@@ -226,16 +227,18 @@ func (this *Dao[T]) registerEntity(req NewDaoReq) error {
 		}
 		if !tf.Anonymous {
 			ft := tf.Type
-			if fc, ok := checkImplementConvert(ft); ok {
-				if fc != nil {
-					this.registerField(tf, req.ColumnMapper, fc)
-					continue
+			switch internal.IsImplementConvert(ft) {
+			case 1:
+				fc := getFieldConvertor(ft)
+				this.registerField(tf, req.ColumnMapper, &fc)
+				continue
+			case 2:
+				if !req.AllowInvalidField {
+					return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" is invalid implementing gdao.Convert")
 				}
-			} else if !req.AllowInvalidField {
-				return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" implementing gdao.Convert is invalid")
 			}
 			if ft.Kind() == reflect.Pointer || ft.Kind() == reflect.Slice {
-				if checkSupportedFieldType(ft.Elem()) {
+				if internal.IsBaseType(ft.Elem()) {
 					this.registerField(tf, req.ColumnMapper, nil)
 					continue
 				}
@@ -270,10 +273,10 @@ func (this *Dao[T]) registerField(tf reflect.StructField, columnMapper *NameMapp
 	this.commaColumns += column
 	this.columnToFieldIndex[column] = tf.Index[0]
 	if t.isAutoIncrement {
-		if convertor, ok := lastInsertIdConvertors[tf.Type.Elem().String()]; ok {
+		if convertor := lastInsertIdConvertor_.OfString(tf.Type.Elem().String()); !convertor.IsUndefined() {
 			this.autoIncrementColumns = append(this.autoIncrementColumns, column)
 			this.autoIncrementStep = t.autoIncrementStep
-			this.autoIncrementConvertor = convertor
+			this.autoIncrementConvert = convertor.convert
 		}
 	}
 	if fieldConvertor != nil {
