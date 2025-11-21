@@ -39,9 +39,8 @@ func TestSqlite(t *testing.T) {
 		},
 	}).Gen()
 
-	defer os.Remove("testdata/entity/test_table.go")
-	defer os.Remove("testdata/entity")
-	defer os.Remove("testdata/test_table_dao.go")
+	defer os.RemoveAll("testdata/entity")
+	defer os.Remove("testdata/test_table.go")
 	defer os.Remove("testdata/base_dao.go")
 
 	compareFile(r, "testdata/entity.golden", "testdata/entity/test_table.go")

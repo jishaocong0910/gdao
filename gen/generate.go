@@ -112,9 +112,9 @@ var countDaoTpl string
 
 var entityNameMapper = gdao.NewNameMapper().UpperCamelCase()
 var fieldNameMapper = gdao.NewNameMapper().UpperCamelCase()
-var daoNameMapper = gdao.NewNameMapper().UpperCamelCase().AddSuffix("Dao")
+var daoNameMapper = gdao.NewNameMapper().UpperCamelCase()
 var entityFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
-var daoFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix("_dao.go")
+var daoFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
 
 var pkgNameRegex = regexp.MustCompile(`^([a-zA-Z]\w*[a-zA-Z_])(\d*)$`)
 
