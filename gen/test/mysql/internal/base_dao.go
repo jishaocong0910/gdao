@@ -24,7 +24,7 @@ type ListReq struct {
 	// conditions of the WHERE clause，create by function And, Or and Not.
 	Condition Condition
 	// ORDER BY clause，create by function Sort.
-	OrderBy *OrderBy
+	Sort *OrderBy
 	// paging query，create by function Page.
 	Pagination *Pagination
 	// FOR UPDATE clause
@@ -45,7 +45,7 @@ type GetReq struct {
 	// conditions of the WHERE clause，create by function And, Or and Not.
 	Condition Condition
 	// ORDER BY clause，create by function Sort.
-	OrderBy *OrderBy
+	Sort *OrderBy
 	// FOR UPDATE clause
 	ForUpdate bool
 }
@@ -182,9 +182,9 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 			b.Write(" WHERE ")
 			req.Condition.write(b.BaseSqlBuilder__)
 		}
-		if req.OrderBy != nil {
-			b.Repeat(len(req.OrderBy.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
-				item := req.OrderBy.items[i]
+		if req.Sort != nil {
+			b.Repeat(len(req.Sort.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
+				item := req.Sort.items[i]
 				b.Write(item.column).Write(" ")
 				b.Write(string(item.sequence))
 			})
@@ -213,7 +213,7 @@ func (d baseDao[T]) Get(req GetReq) (entity *T, err error) {
 		Desc:          req.Desc,
 		SelectColumns: req.SelectColumns,
 		Condition:     req.Condition,
-		OrderBy:       req.OrderBy,
+		Sort:          req.Sort,
 		Pagination:    Page(0, 1),
 		ForUpdate:     req.ForUpdate,
 	})
