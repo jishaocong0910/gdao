@@ -55,7 +55,7 @@ func TestBaseDao_List(t *testing.T) {
 		list, err := d.List(dao.ListReq{
 			SelectColumns: dao.Columns("id", "name"),
 			Condition:     dao.And().Eq("status", 4),
-			OrderBy:       dao.Sort().Asc("name").Desc("address"),
+			Sort:          dao.Sort().Asc("name").Desc("address"),
 			Pagination:    dao.Page(3, 10),
 			ForUpdate:     true,
 		})
@@ -81,7 +81,7 @@ func TestBaseDao_Get(t *testing.T) {
 		get, err := d.Get(dao.GetReq{
 			SelectColumns: dao.Columns("id", "phone"),
 			Condition:     dao.And().Eq("status", 4),
-			OrderBy:       dao.Sort().Asc("name").Desc("id"),
+			Sort:          dao.Sort().Asc("name").Desc("id"),
 			ForUpdate:     true,
 		})
 

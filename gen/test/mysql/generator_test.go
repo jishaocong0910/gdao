@@ -88,10 +88,10 @@ func TestMySql(t *testing.T) {
 		},
 	}).Gen()
 
-	//defer os.RemoveAll("testdata/entity")
-	//defer os.Remove("testdata/test_table.go")
-	//defer os.Remove("testdata/base_dao.go")
-	//defer os.Remove("testdata/count_dao.go")
+	defer os.RemoveAll("testdata/entity")
+	defer os.Remove("testdata/test_table.go")
+	defer os.Remove("testdata/base_dao.go")
+	defer os.Remove("testdata/count_dao.go")
 
 	compareFile(r, "testdata/entity.golden", "testdata/entity/test_table.go")
 	compareFile(r, "testdata/dao.golden", "testdata/test_table.go")
