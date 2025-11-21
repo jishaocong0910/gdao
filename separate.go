@@ -1,4 +1,4 @@
-package internal
+package gdao
 
 type Separate struct {
 	prefix, separator, suffix string

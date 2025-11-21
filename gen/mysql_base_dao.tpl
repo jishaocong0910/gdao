@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/jishaocong0910/gdao"
-	"github.com/jishaocong0910/gdao/internal"
 )
 
 type ListReq struct {
@@ -439,12 +438,12 @@ func newBaseDao[T any](req gdao.NewDaoReq, table string) *baseDao[T] {
 }
 
 type TempSqlBuilder struct {
-	*internal.BaseSqlBuilder__
+	*gdao.BaseSqlBuilder__
 }
 
 func newTempSqlBuilder() *TempSqlBuilder {
 	this := &TempSqlBuilder{}
-	this.BaseSqlBuilder__ = internal.ExtendBaseSqlBuilder(this)
+	this.BaseSqlBuilder__ = gdao.ExtendBaseSqlBuilder(this)
 	return this
 }
 
@@ -452,7 +451,7 @@ type Condition interface {
 	len() int
 	setNot()
 	setParenthesized()
-	write(b *internal.BaseSqlBuilder__)
+	write(b *gdao.BaseSqlBuilder__)
 }
 
 type baseCondition struct {
@@ -472,7 +471,7 @@ func (bc *baseCondition) setParenthesized() {
 	bc.parenthesized = true
 }
 
-func (bc *baseCondition) doWrite(b *internal.BaseSqlBuilder__, write func()) {
+func (bc *baseCondition) doWrite(b *gdao.BaseSqlBuilder__, write func()) {
 	if bc.not {
 		b.Write("NOT ")
 	}
@@ -510,7 +509,7 @@ func (cg *conditionGroup) len() int {
 	return len(cg.cs)
 }
 
-func (cg *conditionGroup) write(b *internal.BaseSqlBuilder__) {
+func (cg *conditionGroup) write(b *gdao.BaseSqlBuilder__) {
 	cg.doWrite(b, func() {
 		for i, cond := range cg.cs {
 			if i != 0 {
@@ -617,7 +616,7 @@ type conditionPlain struct {
 	args []any
 }
 
-func (c *conditionPlain) write(b *internal.BaseSqlBuilder__) {
+func (c *conditionPlain) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.sql, c.args...)
 	})
@@ -630,7 +629,7 @@ type conditionBinOp struct {
 	arg    any
 }
 
-func (c *conditionBinOp) write(b *internal.BaseSqlBuilder__) {
+func (c *conditionBinOp) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.column)
 		b.Write(" ")
@@ -646,7 +645,7 @@ type conditionIn struct {
 	args   []any
 }
 
-func (c *conditionIn) write(b *internal.BaseSqlBuilder__) {
+func (c *conditionIn) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.column)
 		b.Write(" IN(")
@@ -666,7 +665,7 @@ type conditionBetween struct {
 	min, max any
 }
 
-func (c *conditionBetween) write(b *internal.BaseSqlBuilder__) {
+func (c *conditionBetween) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.column)
 		b.Write(" BETWEEN ? AND ?", c.min, c.max)
@@ -679,7 +678,7 @@ type conditionIsNull struct {
 	column  string
 }
 
-func (c *conditionIsNull) write(b *internal.BaseSqlBuilder__) {
+func (c *conditionIsNull) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.column)
 		b.Write(" IS")
