@@ -38,10 +38,10 @@ func (this *sqliteGenerator) getBaseDaoTemplate() string {
 	return sqliteBaseDaoTpl
 }
 
-func (this *sqliteGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
+func (this *sqliteGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists       bool
-		fields       []*fieldTplParam
+		fields       []fieldTplParam
 		tableComment string
 	)
 
@@ -78,10 +78,11 @@ func (this *sqliteGenerator) getTableInfo(table string) ([]*fieldTplParam, strin
 		}
 
 		var (
+			fieldType string
+
 			column          string
 			dataType        string
 			isAutoIncrement bool
-			fieldType       string
 			comment         string
 		)
 		column = st.token
@@ -138,7 +139,7 @@ func (this *sqliteGenerator) getTableInfo(table string) ([]*fieldTplParam, strin
 			}
 		}
 
-		f := &fieldTplParam{
+		f := fieldTplParam{
 			Column:          column,
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,

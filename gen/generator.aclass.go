@@ -17,11 +17,13 @@ limitations under the License.
 package gen
 
 import (
+	"bufio"
 	"bytes"
 	"database/sql"
 	"errors"
 	"github.com/jishaocong0910/gdao/internal"
 	"golang.org/x/tools/imports"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -35,36 +37,93 @@ type Generator_ interface {
 	generator_()
 	Gen()
 	getDriverName() string
-	getTableInfo(table string) ([]*fieldTplParam, string, error)
+	getTableInfo(table string) ([]fieldTplParam, string, error)
 	getBaseDaoTemplate() string
 }
 
 type generator__ struct {
 	i               Generator_
-	c               GenCfg
+	cfg             GenCfg
 	db              *sql.DB
+	dir             string
+	entityDir       string
+	entityPkgPath   string
 	entityTpl       *template.Template
 	daoTpl          *template.Template
 	countDaoTpl     *template.Template
 	entityTplParams []entityTplParam
+	baseDaoTplParam baseDaoTplParam
 }
 
 func (this *generator__) generator_() { // coverage-ignore
 }
 
 func (this *generator__) Gen() {
+	err := this.checkDir()
+	if err != nil { // coverage-ignore
+		log.Printf("%v", err)
+		return
+	}
 	log.Println("start generating...")
-	log.Printf("full output path: %s", this.c.OutPath)
-	this.queryEntityTplParams()
-	this.createOutPath()
+	log.Printf("full output path: %s", this.dir)
+	this.queryTplParams()
 	this.genBaseDao()
 	this.genEntity()
 	log.Println("finish generating")
 }
 
-func (this *generator__) queryEntityTplParams() {
+func (this *generator__) checkDir() error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	file, err := os.Open(filepath.Join(wd, this.cfg.GoModPath, "go.mod"))
+	if err != nil {
+		return err
+	}
+	r := bufio.NewReader(file)
+	var moduleName string
+	for {
+		bytes, _, err := r.ReadLine()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		line := string(bytes)
+		spaceIdx := strings.Index(line, " ")
+		if spaceIdx == -1 {
+			continue
+		}
+		if line[:spaceIdx] == "module" {
+			moduleName = strings.TrimSpace(line[spaceIdx+1:])
+			break
+		}
+	}
+	if moduleName == "" {
+		return errors.New("module name is empty")
+	}
+	this.entityPkgPath = moduleName + "/" + this.cfg.OutPath + "/entity"
+
+	goModPath, _ := filepath.Split(file.Name())
+	this.dir = filepath.Join(goModPath, this.cfg.OutPath)
+	this.entityDir = filepath.Join(this.dir, "entity")
+	err = os.MkdirAll(this.dir, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(this.entityDir, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (this *generator__) queryTplParams() {
+	_, pkgName := filepath.Split(this.cfg.OutPath)
 	if this.db != nil {
-		for _, table := range this.c.TableCfg.Tables {
+		for _, table := range this.cfg.TableCfg.Tables {
 			// 获取表信息
 			fields, comment, err := this.i.getTableInfo(table)
 			if err != nil { // coverage-ignore
@@ -80,28 +139,34 @@ func (this *generator__) queryEntityTplParams() {
 				continue
 			}
 			// 创建实体模板参数
+			entityName := entityNameMapper.Convert(table)
 			e := entityTplParam{
-				Table:             table,
-				EntityFileName:    entityFileNameMapper.Convert(table),
-				Package:           this.c.Package,
-				EntityName:        entityNameMapper.Convert(table),
-				Fields:            fields,
-				Comment:           comment,
-				GenDao:            this.c.DaoCfg.GenDao,
-				DaoFileName:       daoFileNameMapper.Convert(table),
-				DaoName:           daoNameMapper.Convert(table),
-				AllowInvalidField: this.c.DaoCfg.AllowInvalidField,
-				Imports:           imports,
+				Table:      table,
+				EntityName: entityName,
+				Fields:     fields,
+				Comment:    comment,
+				Imports:    imports,
+				dao: daoTplParam{
+					Table:             table,
+					PkgName:           pkgName,
+					DaoName:           daoNameMapper.Convert(table),
+					EntityName:        entityName,
+					EntityPkgPath:     this.entityPkgPath,
+					AllowInvalidField: this.cfg.DaoCfg.AllowInvalidField,
+				},
 			}
 			this.entityTplParams = append(this.entityTplParams, e)
 		}
 	}
+	this.baseDaoTplParam = baseDaoTplParam{
+		PkgName: pkgName,
+	}
 }
 
-func (this *generator__) ignoreFields(table string, fields []*fieldTplParam) []*fieldTplParam {
-	ignoreColumns := this.c.TableCfg.Ignores[table]
+func (this *generator__) ignoreFields(table string, fields []fieldTplParam) []fieldTplParam {
+	ignoreColumns := this.cfg.TableCfg.Ignores[table]
 	if ignoreColumns != nil {
-		var temp []*fieldTplParam
+		var temp []fieldTplParam
 		for _, f := range fields {
 			isIgnored := false
 			for _, column := range ignoreColumns {
@@ -118,14 +183,15 @@ func (this *generator__) ignoreFields(table string, fields []*fieldTplParam) []*
 	return fields
 }
 
-func (this *generator__) mappingFields(table string, fields []*fieldTplParam) ([]string, error) {
-	mappings := this.c.TableCfg.Mappers[table]
+func (this *generator__) mappingFields(table string, fields []fieldTplParam) ([]string, error) {
+	mappings := this.cfg.TableCfg.Mappers[table]
 	if mappings == nil {
 		return nil, nil
 	}
 	pkgNameToPaths := make(map[string]string, len(mappings))
 
-	for _, f := range fields {
+	for i := 0; i < len(fields); i++ {
+		f := &fields[i]
 		if m, ok := mappings[f.Column]; ok {
 			switch m.mt.String() {
 			case mappingType_.base.String():
@@ -207,60 +273,49 @@ func (this *generator__) determinePkgName(pkgPath, pkgName string, pkgNameToPath
 	}
 }
 
-func (this *generator__) createOutPath() {
-	must(os.MkdirAll(this.c.OutPath, os.ModePerm))
-}
-
 func (this *generator__) genBaseDao() {
-	if this.c.DaoCfg.GenDao {
-		b := baseDaoTplParam{
-			Package: this.c.Package,
+	baseDaoTpl := mustReturn(template.New("").Parse(this.i.getBaseDaoTemplate()))
+	err := this.createFile(this.dir, "base_dao.go", this.cfg.DaoCfg.CoverBaseDao, baseDaoTpl, this.baseDaoTplParam)
+	if err != nil { // coverage-ignore
+		log.Printf("create base dao fail: %+v\n", err)
+	} else {
+		log.Println("create base dao success")
+	}
+	if this.cfg.DaoCfg.GenCountDao {
+		for _, table := range this.cfg.TableCfg.Tables {
+			if strings.EqualFold(table, "count") { // coverage-ignore
+				log.Printf("create count dao fail because exists table named \"%s\"", table)
+				return
+			}
 		}
-		baseDaoTpl := mustReturn(template.New("").Parse(this.i.getBaseDaoTemplate()))
-		err := this.createFile("base_dao.go", this.c.DaoCfg.CoverBaseDao, baseDaoTpl, b)
+		err = this.createFile(this.dir, "count_dao.go", this.cfg.DaoCfg.CoverCountDao, this.countDaoTpl, this.baseDaoTplParam)
 		if err != nil { // coverage-ignore
-			log.Printf("create base dao fail: %+v\n", err)
+			log.Printf("create count dao fail: %+v\n", err)
 		} else {
-			log.Println("create base dao success")
-		}
-		if this.c.DaoCfg.GenCountDao {
-			for _, table := range this.c.TableCfg.Tables {
-				if strings.EqualFold(table, "count") { // coverage-ignore
-					log.Printf("create count dao fail because exists table named \"%s\"", table)
-					return
-				}
-			}
-			err = this.createFile("count_dao.go", this.c.DaoCfg.CoverCountDao, this.countDaoTpl, b)
-			if err != nil { // coverage-ignore
-				log.Printf("create count dao fail: %+v\n", err)
-			} else {
-				log.Println("create count dao success")
-			}
+			log.Println("create count dao success")
 		}
 	}
 }
 
 func (this *generator__) genEntity() {
 	for _, e := range this.entityTplParams {
-		err := this.createFile(e.EntityFileName, true, this.entityTpl, e)
+		err := this.createFile(this.entityDir, entityFileNameMapper.Convert(e.Table), true, this.entityTpl, e)
 		if err != nil { // coverage-ignore
 			log.Printf("create entity of table \"%s\" fail, error: %+v\n", e.Table, err)
 		} else {
 			log.Printf("create entity of table \"%s\" success\n", e.Table)
 		}
-		if this.c.DaoCfg.GenDao {
-			err := this.createFile(e.DaoFileName, false, this.daoTpl, e)
-			if err != nil { // coverage-ignore
-				log.Printf("create dao of table \"%s\" fail, error: %+v\n", e.Table, err)
-			} else {
-				log.Printf("create dao of table \"%s\" success\n", e.Table)
-			}
+		err = this.createFile(this.dir, daoFileNameMapper.Convert(e.Table), false, this.daoTpl, e.dao)
+		if err != nil { // coverage-ignore
+			log.Printf("create dao of table \"%s\" fail, error: %+v\n", e.Table, err)
+		} else {
+			log.Printf("create dao of table \"%s\" success\n", e.Table)
 		}
 	}
 }
 
-func (this *generator__) createFile(fileName string, cover bool, tpl *template.Template, param any) error {
-	path := filepath.Join(this.c.OutPath, fileName)
+func (this *generator__) createFile(outPath, fileName string, cover bool, tpl *template.Template, param any) error {
+	path := filepath.Join(outPath, fileName)
 	if !cover {
 		_, err := os.Stat(path)
 		if err == nil { // coverage-ignore
@@ -283,26 +338,19 @@ func (this *generator__) createFile(fileName string, cover bool, tpl *template.T
 	return importErr
 }
 
-func extendGenerator_(i Generator_, c GenCfg) *generator__ {
-	fullOutPath := mustReturn(os.Getwd())
-	if c.OutPath != "" {
-		fullOutPath = filepath.Join(fullOutPath, c.OutPath)
-	}
-	c.OutPath = fullOutPath
-
-	if c.Package == "" { // coverage-ignore
-		_, p := filepath.Split(c.OutPath)
-		c.Package = p
+func extendGenerator_(i Generator_, cfg GenCfg) *generator__ {
+	if cfg.OutPath == "" {
+		cfg.OutPath = "dao"
 	}
 
 	var db *sql.DB
-	if c.Dsn != "" {
-		db = mustReturn(sql.Open(i.getDriverName(), c.Dsn))
+	if cfg.Dsn != "" {
+		db = mustReturn(sql.Open(i.getDriverName(), cfg.Dsn))
 	}
 
 	entityTpl := mustReturn(template.New("").Parse(entityTpl))
 	daoTpl := mustReturn(template.New("").Parse(daoTpl))
 	countDaoTpl := mustReturn(template.New("").Parse(countDaoTpl))
 
-	return &generator__{i: i, c: c, db: db, entityTpl: entityTpl, daoTpl: daoTpl, countDaoTpl: countDaoTpl}
+	return &generator__{i: i, cfg: cfg, db: db, entityTpl: entityTpl, daoTpl: daoTpl, countDaoTpl: countDaoTpl}
 }

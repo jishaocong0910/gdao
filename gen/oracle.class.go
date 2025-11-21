@@ -39,10 +39,10 @@ func (this *oracleGenerator) getBaseDaoTemplate() string {
 	return oracleBaseDaoTpl
 }
 
-func (this *oracleGenerator) getTableInfo(table string) ([]*fieldTplParam, string, error) {
+func (this *oracleGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists       bool
-		fields       []*fieldTplParam
+		fields       []fieldTplParam
 		tableComment string
 	)
 
@@ -51,6 +51,8 @@ func (this *oracleGenerator) getTableInfo(table string) ([]*fieldTplParam, strin
 	for rows.Next() {
 		exists = true
 		var (
+			fieldType string
+
 			column     string
 			dataType   string
 			precision  *int
@@ -67,39 +69,37 @@ func (this *oracleGenerator) getTableInfo(table string) ([]*fieldTplParam, strin
 			comment = gdao.P("")
 		}
 
-		f := &fieldTplParam{
-			Column:    column,
-			FieldName: fieldNameMapper.Convert(column),
-			FieldType: "any",
-			Comment:   *comment,
-		}
-
 		switch dataType {
 		case "CHAR", "VARCHAR2", "VARCHAR":
 			if charLength == 1 {
-				f.FieldType = "*bool"
+				fieldType = "*bool"
 			} else {
-				f.FieldType = "*string"
+				fieldType = "*string"
 			}
 		case "CLOB", "NCLOB", "NCHAR", "NVARCHAR2", "ROWID", "UROWID":
-			f.FieldType = "*string"
+			fieldType = "*string"
 		case "NUMBER":
 			if *scale == 0 {
-				f.FieldType = "*int64"
+				fieldType = "*int64"
 			} else {
-				f.FieldType = "*float64"
+				fieldType = "*float64"
 			}
 		case "FLOAT", "BINARY_DOUBLE":
-			f.FieldType = "*float64"
+			fieldType = "*float64"
 		case "BINARY_FLOAT":
-			f.FieldType = "*float32"
+			fieldType = "*float32"
 		case "DATE", "TIMESTAMP":
-			f.FieldType = "*time.Time"
+			fieldType = "*time.Time"
 		case "BLOB", "RAW", "LONG RAW":
-			f.FieldType = "[]byte"
+			fieldType = "[]byte"
 		}
-		if f.FieldType != "any" {
-			f.Valid = true
+
+		f := fieldTplParam{
+			Column:    column,
+			FieldName: fieldNameMapper.Convert(column),
+			FieldType: fieldType,
+			Comment:   *comment,
+			Valid:     fieldType != "any",
 		}
 		fields = append(fields, f)
 	}
