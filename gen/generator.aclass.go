@@ -275,10 +275,10 @@ func (this *generator__) determinePkgName(pkgPath, pkgName string, pkgNameToPath
 
 func (this *generator__) genBaseDao() {
 	baseDaoTpl := mustReturn(template.New("").Parse(this.i.getBaseDaoTemplate()))
-	err := this.createFile(this.dir, "base_dao.go", this.cfg.DaoCfg.CoverBaseDao, baseDaoTpl, this.baseDaoTplParam)
+	generated, err := this.createFile(this.dir, "base_dao.go", this.cfg.DaoCfg.CoverBaseDao, baseDaoTpl, this.baseDaoTplParam)
 	if err != nil { // coverage-ignore
 		log.Printf("create base dao fail: %+v\n", err)
-	} else {
+	} else if generated {
 		log.Println("create base dao success")
 	}
 	if this.cfg.DaoCfg.GenCountDao {
@@ -288,10 +288,10 @@ func (this *generator__) genBaseDao() {
 				return
 			}
 		}
-		err = this.createFile(this.dir, "count_dao.go", this.cfg.DaoCfg.CoverCountDao, this.countDaoTpl, this.baseDaoTplParam)
+		generated, err = this.createFile(this.dir, "count_dao.go", this.cfg.DaoCfg.CoverCountDao, this.countDaoTpl, this.baseDaoTplParam)
 		if err != nil { // coverage-ignore
 			log.Printf("create count dao fail: %+v\n", err)
-		} else {
+		} else if generated {
 			log.Println("create count dao success")
 		}
 	}
@@ -299,33 +299,33 @@ func (this *generator__) genBaseDao() {
 
 func (this *generator__) genEntity() {
 	for _, e := range this.entityTplParams {
-		err := this.createFile(this.entityDir, entityFileNameMapper.Convert(e.Table), true, this.entityTpl, e)
+		generated, err := this.createFile(this.entityDir, entityFileNameMapper.Convert(e.Table), true, this.entityTpl, e)
 		if err != nil { // coverage-ignore
 			log.Printf("create entity of table \"%s\" fail, error: %+v\n", e.Table, err)
-		} else {
+		} else if generated {
 			log.Printf("create entity of table \"%s\" success\n", e.Table)
 		}
-		err = this.createFile(this.dir, daoFileNameMapper.Convert(e.Table), false, this.daoTpl, e.dao)
+		generated, err = this.createFile(this.dir, daoFileNameMapper.Convert(e.Table), false, this.daoTpl, e.dao)
 		if err != nil { // coverage-ignore
 			log.Printf("create dao of table \"%s\" fail, error: %+v\n", e.Table, err)
-		} else {
+		} else if generated {
 			log.Printf("create dao of table \"%s\" success\n", e.Table)
 		}
 	}
 }
 
-func (this *generator__) createFile(outPath, fileName string, cover bool, tpl *template.Template, param any) error {
+func (this *generator__) createFile(outPath, fileName string, cover bool, tpl *template.Template, param any) (bool, error) {
 	path := filepath.Join(outPath, fileName)
 	if !cover {
 		_, err := os.Stat(path)
 		if err == nil { // coverage-ignore
-			return nil
+			return false, nil
 		}
 	}
 	var buf bytes.Buffer
 	err := tpl.Execute(&buf, param)
 	if err != nil { // coverage-ignore
-		return err
+		return false, err
 	}
 	content, importErr := imports.Process("", buf.Bytes(), nil)
 	if importErr != nil { // coverage-ignore
@@ -333,9 +333,9 @@ func (this *generator__) createFile(outPath, fileName string, cover bool, tpl *t
 	}
 	err = os.WriteFile(path, content, 0644)
 	if err != nil { // coverage-ignore
-		return err
+		return false, err
 	}
-	return importErr
+	return true, importErr
 }
 
 func extendGenerator_(i Generator_, cfg GenCfg) *generator__ {
