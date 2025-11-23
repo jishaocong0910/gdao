@@ -319,7 +319,7 @@ func (this *generator__) createFile(outPath, fileName string, cover bool, tpl *t
 	if !cover {
 		_, err := os.Stat(path)
 		if err == nil { // coverage-ignore
-			return errors.New("file already exists")
+			return nil
 		}
 	}
 	var buf bytes.Buffer
