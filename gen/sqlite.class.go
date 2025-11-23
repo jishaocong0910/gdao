@@ -47,7 +47,7 @@ func (this *sqliteGenerator) getTableInfo(table string) ([]fieldTplParam, string
 
 	exists, st := this.getSqlTokenizer(table)
 	if !exists || !(st.nextUntilDelimiterAndToken("(") && st.nextToken()) { // coverage-ignore
-		return nil, "", errors.New("create table \"" + table + "\" is not exists")
+		return nil, "", errors.New("\"" + table + "\" is not exists")
 	}
 
 	for {
