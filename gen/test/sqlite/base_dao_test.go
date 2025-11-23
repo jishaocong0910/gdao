@@ -56,7 +56,7 @@ func TestBaseDao_List(t *testing.T) {
 			SelectColumns: dao.Columns("id", "name"),
 			Condition:     dao.And().Eq("status", 4),
 			Sort:          dao.Sort().Asc("name").Desc("address"),
-			Pagination:    dao.Page(3, 10),
+			Page:          dao.Page(3, 10),
 			ForUpdate:     true,
 		})
 

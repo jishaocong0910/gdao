@@ -26,7 +26,7 @@ type ListReq struct {
 	// ORDER BY clause，create by function Sort.
 	Sort *OrderBy
 	// paging query，create by function Page.
-	Pagination *Pagination
+	Page *Pagination
 	// FOR UPDATE clause
 	ForUpdate bool
 }
@@ -181,13 +181,13 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 				b.Write(string(item.sequence))
 			})
 		}
-		if req.Pagination != nil {
-			if req.Pagination.offset > 0 {
+		if req.Page != nil {
+			if req.Page.offset > 0 {
 				b.Write(" OFFSET ")
-				b.Write(strconv.FormatInt(int64(req.Pagination.offset), 10))
+				b.Write(strconv.FormatInt(int64(req.Page.offset), 10))
 			}
 			b.Write(" FETCH NEXT ")
-			b.Write(strconv.FormatInt(int64(req.Pagination.pageSize), 10))
+			b.Write(strconv.FormatInt(int64(req.Page.pageSize), 10))
 			b.Write(" ROWS ONLY")
 		}
 		if req.ForUpdate {
@@ -207,7 +207,7 @@ func (d baseDao[T]) Get(req GetReq) (entity *T, err error) {
 		SelectColumns: req.SelectColumns,
 		Condition:     req.Condition,
 		Sort:          req.Sort,
-		Pagination:    Page(0, 1),
+		Page:          Page(0, 1),
 		ForUpdate:     req.ForUpdate,
 	})
 	if len(list) > 0 {
@@ -390,14 +390,14 @@ func (d baseDao[T]) Delete(req DeleteReq) (int64, error) {
 
 // Count return a count of the number of records returned
 func (d baseDao[T]) Count(req CountReq) (*gdao.Count, error) {
-	first, _, err := d.CountDao.Count(gdao.CountReq{Ctx: req.Ctx, Must: req.Must, SqlLogLevel: req.SqlLogLevel, Desc: req.Desc, BuildSql: func(b *gdao.CountBuilder) {
+	count, err := d.CountDao.Count(gdao.CountReq{Ctx: req.Ctx, Must: req.Must, SqlLogLevel: req.SqlLogLevel, Desc: req.Desc, BuildSql: func(b *gdao.CountBuilder) {
 		b.Write("SELECT COUNT(*) FROM ").Write(d.table)
 		if req.Condition != nil && req.Condition.len() > 0 {
 			b.Write(" WHERE ")
 			req.Condition.write(b.BaseSqlBuilder__)
 		}
 	}})
-	return first, err
+	return count, err
 }
 
 func newBaseDao[T any](req gdao.NewDaoReq, table string) *baseDao[T] {
