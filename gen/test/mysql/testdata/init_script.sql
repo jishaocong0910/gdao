@@ -2,7 +2,7 @@ CREATE TABLE test_table
 (
     `auto_increment`     bigint PRIMARY KEY AUTO_INCREMENT COMMENT 'bigint auto_increment',
     `bit`                bit,
-    `tinyint`            tinyint COMMENT 'tinyint',
+    `tinyint`            tinyint NOT NULL DEFAULT 1 COMMENT 'tinyint',
     `tinyint_unsigned`   tinyint UNSIGNED COMMENT 'tinyint unsigned',
     `tinyint_1`          tinyint(1) COMMENT 'tinyint(1)',
     `smallint`           smallint COMMENT 'smallint',

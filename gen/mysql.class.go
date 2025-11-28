@@ -46,7 +46,7 @@ func (this *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string,
 		tableComment string
 	)
 
-	rows := mustReturn(this.db.Query("SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, EXTRA = 'auto_increment', COLUMN_COMMENT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION", this.database, table))
+	rows := mustReturn(this.db.Query("SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, EXTRA = 'auto_increment', IS_NULLABLE = 'NO', COLUMN_DEFAULT IS NOT NULL, COLUMN_COMMENT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION", this.database, table))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
@@ -57,9 +57,11 @@ func (this *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string,
 			dataType        string
 			columnType      string
 			isAutoIncrement bool
+			isNotNull       bool
+			hasDefaultValue bool
 			comment         string
 		)
-		must(rows.Scan(&column, &dataType, &columnType, &isAutoIncrement, &comment))
+		must(rows.Scan(&column, &dataType, &columnType, &isAutoIncrement, &isNotNull, &hasDefaultValue, &comment))
 
 		dataType = strings.ToLower(dataType)
 		columnType = strings.ToLower(columnType)
@@ -116,9 +118,11 @@ func (this *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string,
 			Column:          column,
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,
+			IsAutoIncrement: isAutoIncrement,
+			IsNotNull:       isNotNull,
+			HasDefaultValue: hasDefaultValue,
 			Comment:         comment,
 			Valid:           fieldType != "any",
-			IsAutoIncrement: isAutoIncrement,
 		}
 		fields = append(fields, f)
 	}

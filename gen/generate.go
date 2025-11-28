@@ -86,6 +86,8 @@ type fieldTplParam struct {
 	FieldName         string
 	FieldType         string
 	IsAutoIncrement   bool
+	IsNotNull         bool
+	HasDefaultValue   bool
 	AutoIncrementStep int
 	Comment           string
 	Valid             bool

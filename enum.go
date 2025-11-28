@@ -6,18 +6,18 @@ import (
 	"strconv"
 )
 
-type SqlLogLevel struct {
+type LogLevel struct {
 	*e.EnumElem__
 }
 
-type _SqlLogLevel struct {
-	*e.Enum__[SqlLogLevel]
+type _LogLevel struct {
+	*e.Enum__[LogLevel]
 	OFF,
 	DEBUG,
-	INFO SqlLogLevel
+	INFO LogLevel
 }
 
-var SqlLogLevel_ = e.NewEnum[SqlLogLevel](_SqlLogLevel{})
+var LogLevel_ = e.NewEnum[LogLevel](_LogLevel{})
 
 type LastInsertIdAs struct {
 	*e.EnumElem__

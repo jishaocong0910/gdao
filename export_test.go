@@ -25,6 +25,7 @@ type DaoExport struct {
 	Columns                []string
 	ColumnToFieldIndex     map[string]int
 	ColumnToFieldConvertor map[string]fieldConvertor
+	FieldNameToColumn      map[string]string
 	AutoIncrementColumns   []string
 	AutoIncrementStep      int64
 	AutoIncrementConvertor func(id int64) reflect.Value
@@ -36,6 +37,7 @@ func ExportDao[T any](dao *Dao[T]) DaoExport {
 		Columns:                dao.columns,
 		ColumnToFieldIndex:     dao.columnToFieldIndex,
 		ColumnToFieldConvertor: dao.columnToFieldConvertor,
+		FieldNameToColumn:      dao.fieldNameToColumn,
 		AutoIncrementColumns:   dao.autoIncrementColumns,
 		AutoIncrementStep:      dao.autoIncrementStep,
 		AutoIncrementConvertor: dao.autoIncrementConvert,

@@ -7,7 +7,7 @@ import (
 	"{{.EntityPkgPath}}"
 )
 
-var {{.DaoName}} = _{{.DaoName}}{newBaseDao[entity.{{.EntityName}}](gdao.NewDaoReq{ {{- if .AllowInvalidField}}AllowInvalidField: true{{end}}}, "{{.Table}}")}
+var {{.DaoName}} = _{{.DaoName}}{BaseDaoBuilder[entity.{{.EntityName}}]().Table("{{.Table}}"){{- if .AllowInvalidField}}.AllowInvalidField(true){{end}}.Build()}
 
 type _{{.DaoName}} struct {
 	*baseDao[entity.{{.EntityName}}]

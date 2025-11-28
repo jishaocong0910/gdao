@@ -47,11 +47,11 @@ func (d Logger) Errorf(ctx context.Context, msg string, args ...interface{}) { /
 func MockBaseDao[T any](r *require.Assertions, table string) (*baseDao[T], sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao := newBaseDao[T](gdao.NewDaoReq{DB: db}, table)
-	gdao.Config(gdao.Cfg{DefaultDB: db, Logger: Logger{}, SqlLogLevel: gdao.SqlLogLevel_.INFO})
+	dao := BaseDaoBuilder[T]().Table(table).Build()
+	gdao.Config(gdao.Cfg{DefaultDB: db, Logger: Logger{}, LogLevel: gdao.LogLevel_.INFO})
 	return dao, mock
 }
 
 func WriteCondition[T any](c Cond, b *gdao.DaoSqlBuilder[T]) {
-	c.write(b.BaseSqlBuilder__)
+	c.write(nil, b.BaseSqlBuilder)
 }

@@ -41,7 +41,7 @@ type User struct {
 
 func TestNewBaseDaoPanic(t *testing.T) {
 	r := require.New(t)
-	r.PanicsWithValue(`parameter "table" must not be blank`, func() {
+	r.PanicsWithValue(`table must not be empty`, func() {
 		dao.MockBaseDao[User](r, "")
 	})
 }
@@ -53,13 +53,11 @@ func TestBaseDao_List(t *testing.T) {
 		mock.ExpectPrepare(`SELECT id, name FROM user WHERE status = \? ORDER BY name ASC, address DESC LIMIT 3, 10 FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy").AddRow(2, "nick"))
-		list, err := d.List(dao.ListReq{
-			SelectColumns: dao.Columns("id", "name"),
-			Condition:     dao.And().Eq("status", 4),
-			Sort:          dao.Sort().Asc("name").Desc("address"),
-			Page:          dao.Page(3, 10),
-			ForUpdate:     true,
-		})
+		list, err := d.List().Selects("id", "Name").Cond(dao.And().Eq("status", 4)).
+			Orderby(dao.OrderBy().Asc("name").Desc("address")).
+			Page(dao.Page(3, 10)).
+			ForUpdate(true).
+			Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -75,21 +73,28 @@ func TestBaseDao_Get(t *testing.T) {
 	r := require.New(t)
 	{
 		d, mock := dao.MockBaseDao[User](r, "user")
-		mock.ExpectPrepare(`SELECT id, phone FROM user WHERE status = \? ORDER BY name ASC, id DESC LIMIT 1 FOR UPDATE`).
+		mock.ExpectPrepare(`SELECT id, name FROM user WHERE status = \? ORDER BY name ASC, id DESC FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy"))
 
-		get, err := d.Get(dao.GetReq{
-			SelectColumns: dao.Columns("id", "phone"),
-			Condition:     dao.And().Eq("status", 4),
-			Sort:          dao.Sort().Asc("name").Desc("id"),
-			ForUpdate:     true,
-		})
+		get, err := d.Get().Selects("id", "name").Cond(dao.And().Eq("status", 4)).
+			Orderby(dao.OrderBy().Asc("name").Desc("id")).
+			ForUpdate(true).
+			Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
 		r.Equal(int32(1), *get.Id)
 		r.Equal("lucy", *get.Name)
+	}
+	{
+		d, mock := dao.MockBaseDao[User](r, "user")
+		mock.ExpectPrepare("").ExpectQuery().WillReturnRows(mock.NewRows([]string{"name"}).
+			AddRow("lucy").AddRow("jack"))
+
+		_, err := d.Get().Selects("name").CheckOne(true).Cond(dao.And().Eq("status", 1)).Do()
+
+		r.EqualError(err, "return more than one row")
 	}
 }
 
@@ -105,14 +110,10 @@ func TestBaseDao_Insert(t *testing.T) {
 			Phone: gdao.P("12345"),
 			Email: gdao.P("email"),
 		}
-		affected, err := d.Insert(dao.InsertReq[User]{
-			Entity:               u,
-			InsertAll:            true,
-			SetNullColumns:       []string{"level"},
-			IgnoredColumns:       dao.Columns("email"),
-			InsertIgnore:         true,
-			OnDuplicateKeyUpdate: dao.OnDuplKeyUpd().SetValue("phone", "phone").SetPlain("id", "id"),
-		})
+		affected, err := d.Insert().Entity(u).All(true).SetNulls("level").
+			Ignores("email").InsertIgnore(true).
+			OnDuplicateKeyUpdate(dao.OnDuplKeyUpd().SetValue("phone", "phone").SetPlain("id", "id")).
+			Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -137,9 +138,7 @@ func TestBaseDao_InsertBatch(t *testing.T) {
 		Phone: gdao.P("6789"),
 		Email: gdao.P("email22"),
 	}
-	affected, err := d.InsertBatch(dao.InsertBatchReq[User]{
-		Entities: dao.Entities(u, u2),
-	})
+	affected, err := d.InsertBatch().Entities(u, u2).Do()
 
 	r.NoError(err)
 	r.NoError(mock.ExpectationsWereMet())
@@ -161,13 +160,10 @@ func TestBaseDao_Update(t *testing.T) {
 			Status:  gdao.P[int8](2),
 			Level:   gdao.P[int32](10),
 		}
-		affected, err := d.Update(dao.UpdateReq[User]{
-			Entity:         u,
-			SetNullColumns: dao.Columns("email", "phone"),
-			IgnoredColumns: dao.Columns("address"),
-			WhereColumns:   dao.Columns("status", "level"),
-			Condition:      dao.And().Eq("age", 20),
-		})
+		affected, err := d.Update().Entity(u).SetNulls("email", "phone").
+			Ignores("address").Wheres("status", "level").
+			Cond(dao.And().Eq("age", 20)).
+			Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -184,11 +180,7 @@ func TestBaseDao_Update(t *testing.T) {
 			Address: gdao.P("addr"),
 			Level:   gdao.P[int32](10),
 		}
-		affected, err := d.Update(dao.UpdateReq[User]{
-			Entity:       u,
-			UpdateAll:    true,
-			WhereColumns: dao.Columns("id", "status"),
-		})
+		affected, err := d.Update().Entity(u).All(true).Wheres("id", "status").Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -200,8 +192,8 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 	r := require.New(t)
 	{
 		d, mock := dao.MockBaseDao[User](r, "user")
-		mock.ExpectPrepare(`UPDATE user SET name = CASE id WHEN \? THEN \? WHEN \? THEN \? WHEN \? THEN \? END, phone = CASE id WHEN \? THEN \? WHEN \? THEN \? WHEN \? THEN \? END, state = NULL, level = NULL WHERE id IN\(\?, \?, \?\)`).
-			ExpectExec().WithArgs(1, "name1", 2, "name2", 3, "name3", 1, "phone1", 2, "phone2", 3, "phone3", 1, 2, 3).WillReturnResult(sqlmock.NewResult(0, 3))
+		mock.ExpectPrepare(`UPDATE user SET name = CASE id WHEN \? THEN \? WHEN \? THEN \? WHEN \? THEN \? END, phone = CASE id WHEN \? THEN \? WHEN \? THEN \? WHEN \? THEN \? END, state = NULL, level = NULL WHERE id IN\(\?, \?, \?\) AND status = \?`).
+			ExpectExec().WithArgs(1, "name1", 2, "name2", 3, "name3", 1, "phone1", 2, "phone2", 3, "phone3", 1, 2, 3, 1).WillReturnResult(sqlmock.NewResult(0, 3))
 
 		u := &User{
 			Id:    gdao.P[int32](1),
@@ -221,12 +213,8 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 			Phone: gdao.P("phone3"),
 			Email: gdao.P("email3"),
 		}
-		affected, err := d.UpdateBatch(dao.UpdateBatchReq[User]{
-			Entities:       []*User{u, u2, u3},
-			SetNullColumns: dao.Columns("state", "level"),
-			IgnoredColumns: dao.Columns("email"),
-			WhereColumn:    "id",
-		})
+		affected, err := d.UpdateBatch().Entities(u, u2, u3).SetNulls("state", "level").
+			Ignores("email").Where("id").Cond(dao.And().Eq("Status", 1)).Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -255,11 +243,7 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 			Phone: gdao.P("phone3"),
 			Email: gdao.P("email3"),
 		}
-		affected, err := d.UpdateBatch(dao.UpdateBatchReq[User]{
-			Entities:    []*User{u, u2, u3},
-			UpdateAll:   true,
-			WhereColumn: "id",
-		})
+		affected, err := d.UpdateBatch().Entities(u, u2, u3).All(true).Where("id").Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -273,9 +257,7 @@ func TestBaseDao_Delete(t *testing.T) {
 	mock.ExpectPrepare(`DELETE FROM user WHERE status = \?`).
 		ExpectExec().WithArgs(1).WillReturnResult(sqlmock.NewResult(0, 3))
 
-	affected, err := d.Delete(dao.DeleteReq{
-		Condition: dao.And().Eq("status", 1),
-	})
+	affected, err := d.Delete().Cond(dao.And().Eq("status", 1)).Do()
 
 	r.NoError(err)
 	r.NoError(mock.ExpectationsWereMet())
@@ -290,9 +272,7 @@ func TestBaseDao_Count(t *testing.T) {
 		ExpectQuery().WithArgs(1).WillReturnRows(mock.NewRows([]string{"count"}).
 		AddRow(8))
 
-	count, err := d.Count(dao.CountReq{
-		Condition: dao.And().Eq("status", 1),
-	})
+	count, err := d.Count().Cond(dao.And().Eq("status", 1)).Do()
 
 	r.NoError(err)
 	r.NoError(mock.ExpectationsWereMet())
@@ -306,18 +286,18 @@ func TestCond(t *testing.T) {
 		mock.ExpectPrepare(`c1 = \? AND c2 = \?`).
 			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
 			c := dao.And().Eq("c1", 1).Group(nil)
 			c2 := dao.Or().Eq("c2", 2).Group(nil)
 			c = dao.And().Group(c).Group(c2)
 
-			str, args := c.ToStrArgs()
+			str, args := c.ToStrArgs(nil)
 			r.Equal("c1 = ? AND c2 = ?", str)
 			r.Len(args, 2)
 			r.Contains(args, 1)
 			r.Contains(args, 2)
 			dao.WriteCondition(c, b)
-		}})
+		}).Do()
 		r.NoError(err)
 	}
 	{
@@ -325,7 +305,7 @@ func TestCond(t *testing.T) {
 		mock.ExpectPrepare(`c1 = \? AND c2 <> \? AND c3 > \? AND c4 < \? AND c5 >= \? AND c6 <= \? AND c7 LIKE \? AND c8 LIKE \? AND c9 LIKE \? AND c10 IN\(\?, \?, \?\) AND c11 BETWEEN \? AND \? AND c12 IS NULL AND c13 IS NOT NULL`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, "%abc%", "abc%", "%abc", 1, 2, 3, 1, 3).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
 			c := dao.And().Eq("c1", 1).
 				Ne("c2", 2).
 				Gt("c3", 3).
@@ -340,7 +320,7 @@ func TestCond(t *testing.T) {
 				IsNull("c12").
 				IsNotNull("c13")
 			dao.WriteCondition(c, b)
-		}})
+		}).Do()
 		r.NoError(err)
 	}
 	{
@@ -348,7 +328,7 @@ func TestCond(t *testing.T) {
 		mock.ExpectPrepare(`0 = 0 AND NOT c1 = \? AND NOT \(c2 = \? AND c3 = \? AND 1 = 1 and 2 = 2\) AND c4 = \? AND NOT \(c5 = \? OR NOT c6 = \?\) AND NOT c7 = \? AND NOT \(c8 = \? OR c9 = \?\)`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, 7, 8, 9).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
 			c0 := dao.And().Plain("0 = 0")
 			c1 := dao.Not().And().Eq("c1", 1)
 			c2 := dao.Not().And().Eq("c2", 2).Eq("c3", 3).Plain("1 = 1 and 2 = 2")
@@ -358,7 +338,7 @@ func TestCond(t *testing.T) {
 			c6 := dao.Not().Or().Eq("c8", 8).Eq("c9", 9)
 			c := dao.And().Group(c0).Group(c1).Group(c2).Group(c3).Not().Group(c4).Group(c5).Group(c6)
 			dao.WriteCondition(c, b)
-		}})
+		}).Do()
 		r.NoError(err)
 	}
 	{
@@ -366,13 +346,13 @@ func TestCond(t *testing.T) {
 		mock.ExpectPrepare(`\(c1 = \? OR c2 = \?\) AND c3 = \? AND c4 = \?`).
 			ExpectQuery().WithArgs(1, 2, 3, 4).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
 			c1 := dao.Or().Eq("c1", 1).Eq("c2", 2)
 			c2 := dao.Or().Eq("c3", 3)
 			c3 := dao.Or().Eq("c4", 4)
 			c := dao.And().Group(c1).Group(c2).Group(c3)
 			dao.WriteCondition(c, b)
-		}})
+		}).Do()
 		r.NoError(err)
 	}
 }
@@ -384,7 +364,7 @@ func TestCondOpt(t *testing.T) {
 		mock.ExpectPrepare(`1 = 1`).
 			ExpectQuery().WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
 			c := dao.And().Plain("1 = 1").
 				Eq("c1", nil, dao.WithIfPresent()).
 				Eq("c1", 1, dao.WithIfPredicate(func() bool { return false })).
@@ -411,7 +391,7 @@ func TestCondOpt(t *testing.T) {
 				Between("c1", nil, nil, dao.WithIfPresent()).
 				Between("c1", 1, 1, dao.WithIfPredicate(func() bool { return false }))
 			dao.WriteCondition(c, b)
-		}})
+		}).Do()
 		r.NoError(err)
 	}
 }

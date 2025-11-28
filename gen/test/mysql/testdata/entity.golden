@@ -15,10 +15,12 @@ import (
 // table: test_table
 type TestTable struct {
 	// AutoIncrement bigint auto_increment
+	// not_null
 	AutoIncrement *int64 `gdao:"column=auto_increment;auto"`
 	// Bit
 	Bit []uint8 `gdao:"column=bit"`
 	// Tinyint tinyint
+	// not_null has_default_value
 	Tinyint *int8 `gdao:"column=tinyint"`
 	// TinyintUnsigned tinyint unsigned
 	TinyintUnsigned *uint8 `gdao:"column=tinyint_unsigned"`

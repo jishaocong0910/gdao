@@ -15,8 +15,11 @@ import (
 type {{.EntityName}} struct {
 {{- range $f := .Fields}}
 	// {{$f.FieldName}}{{if ne $f.Comment ""}} {{$f.Comment}}{{end}}
+	{{- if or $f.IsNotNull $f.HasDefaultValue}}
+	//{{if $f.IsNotNull}} not_null{{end}}{{if $f.HasDefaultValue}} has_default_value{{end}}
+	{{- end}}
 	{{- if not $f.Valid}}
-	// gdao cannot solve this type!
+	// GDAO cannot solve this type!
 	{{- end}}
 	{{$f.FieldName}} {{$f.FieldType}} `gdao:"column={{$f.Column}}{{if $f.IsAutoIncrement}};auto{{end}}{{if gt $f.AutoIncrementStep 0}}={{$f.AutoIncrementStep}}{{end}}"`
 {{- end}}
