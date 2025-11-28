@@ -19,15 +19,16 @@ package oracle_test
 import (
 	"context"
 	"database/sql"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/jishaocong0910/gdao/gen"
 	go_ora "github.com/sijms/go-ora/v2"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"os"
-	"strings"
-	"testing"
-	"time"
 )
 
 func TestOracle(t *testing.T) {

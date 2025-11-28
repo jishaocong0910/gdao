@@ -36,7 +36,7 @@ func TestCountDao_Count(t *testing.T) {
 		dao, mock := mockCountDao(r)
 		mock.ExpectPrepare(`SELECT count\(\*\) FROM user`).ExpectQuery().WillReturnRows(mock.NewRows([]string{"c"}).AddRow(20))
 
-		count, _, err := dao.Count(gdao.CountReq{BuildSql: func(b *gdao.CountBuilder) {
+		count, err := dao.Count(gdao.CountReq{BuildSql: func(b *gdao.CountBuilder) {
 			b.Write("SELECT count(*) FROM user")
 		}})
 		r.NoError(err)
@@ -45,16 +45,23 @@ func TestCountDao_Count(t *testing.T) {
 	}
 	{
 		dao, mock := mockCountDao(r)
+		mock.ExpectPrepare(`SELECT count\(\*\) count FROM user GROUP BY id`).ExpectQuery().WillReturnRows(mock.NewRows([]string{"count"}).AddRow(12).AddRow(20))
+
+		_, err := dao.Count(gdao.CountReq{BuildSql: func(b *gdao.CountBuilder) {
+			b.Write("SELECT count(*) count FROM user GROUP BY id")
+		}})
+		r.NoError(mock.ExpectationsWereMet())
+		r.Error(err, "returns more than one row")
+	}
+	{
+		dao, mock := mockCountDao(r)
 		mock.ExpectPrepare(`SELECT id, count\(\*\) count FROM user GROUP BY id`).ExpectQuery().WillReturnRows(mock.NewRows([]string{"id", "count"}).AddRow(1, 12).AddRow(2, 20))
 
-		_, list, err := dao.Count(gdao.CountReq{BuildSql: func(b *gdao.CountBuilder) {
+		_, err := dao.Count(gdao.CountReq{BuildSql: func(b *gdao.CountBuilder) {
 			b.Write("SELECT id, count(*) count FROM user GROUP BY id")
 		}})
-		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
-		r.Len(list, 2)
-		r.Equal(12, list[0].Int())
-		r.Equal(20, list[1].Int())
+		r.Error(err, "returns more than one column")
 	}
 }
 

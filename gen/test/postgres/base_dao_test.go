@@ -17,9 +17,10 @@ limitations under the License.
 package postgres_test
 
 import (
-	dao "github.com/jishaocong0910/gdao/gen/test/postgres/internal"
 	"testing"
 	"time"
+
+	dao "github.com/jishaocong0910/gdao/gen/test/postgres/internal"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jishaocong0910/gdao"
@@ -56,7 +57,7 @@ func TestBaseDao_List(t *testing.T) {
 			SelectColumns: dao.Columns("id", "name"),
 			Condition:     dao.And().Eq("status", 4),
 			Sort:          dao.Sort().Asc("name").Desc("address"),
-			Pagination:    dao.Page(3, 10),
+			Page:          dao.Page(3, 10),
 			ForUpdate:     true,
 		})
 
@@ -330,7 +331,7 @@ func TestCondition(t *testing.T) {
 				Like("c7", "abc").
 				LikeLeft("c8", "abc").
 				LikeRight("c9", "abc").
-				In("c10", dao.Anys([]int{1, 2, 3}...)).
+				In("c10", dao.InArgs([]int{1, 2, 3}...)).
 				Between("c11", 1, 3).
 				IsNull("c12").
 				IsNotNull("c13")
@@ -340,7 +341,7 @@ func TestCondition(t *testing.T) {
 	}
 	{
 		d, mock := dao.MockBaseDao[User](r, "user")
-		mock.ExpectPrepare(`0 = 0 AND NOT c1 = \$1 AND NOT \(c2 = \$2 AND c3 = \$3 AND 1 = 1 and 2 = 2\) AND c4 = \$4 AND \(c5 = \$5 OR c6 = \$6\) AND NOT c7 = \$7 AND NOT \(c8 = \$8 OR c9 = \$9\)`).
+		mock.ExpectPrepare(`0 = 0 AND NOT c1 = \$1 AND NOT \(c2 = \$2 AND c3 = \$3 AND 1 = 1 and 2 = 2\) AND c4 = \$4 AND NOT \(c5 = \$5 OR NOT c6 = \$6\) AND NOT c7 = \$7 AND NOT \(c8 = \$8 OR c9 = \$9\)`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, 7, 8, 9).WillReturnRows(mock.NewRows(nil))
 
 		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
@@ -348,10 +349,10 @@ func TestCondition(t *testing.T) {
 			c1 := dao.Not().And().Eq("c1", 1)
 			c2 := dao.Not().And().Eq("c2", 2).Eq("c3", 3).Plain("1 = 1 and 2 = 2")
 			c3 := dao.Or().Eq("c4", 4)
-			c4 := dao.Or().Eq("c5", 5).Eq("c6", 6)
+			c4 := dao.Or().Eq("c5", 5).Not().Eq("c6", 6)
 			c5 := dao.Not().Or().Eq("c7", 7)
 			c6 := dao.Not().Or().Eq("c8", 8).Eq("c9", 9)
-			c := dao.And().Group(c0).Group(c1).Group(c2).Group(c3).Group(c4).Group(c5).Group(c6)
+			c := dao.And().Group(c0).Group(c1).Group(c2).Group(c3).Not().Group(c4).Group(c5).Group(c6)
 			dao.WriteCondition(c, b)
 		}})
 		r.NoError(err)
@@ -366,6 +367,45 @@ func TestCondition(t *testing.T) {
 			c2 := dao.Or().Eq("c3", 3)
 			c3 := dao.Or().Eq("c4", 4)
 			c := dao.And().Group(c1).Group(c2).Group(c3)
+			dao.WriteCondition(c, b)
+		}})
+		r.NoError(err)
+	}
+}
+
+func TestCondOpt(t *testing.T) {
+	r := require.New(t)
+	{
+		d, mock := dao.MockBaseDao[User](r, "user")
+		mock.ExpectPrepare(`1 = 1`).
+			ExpectQuery().WillReturnRows(mock.NewRows(nil))
+
+		_, _, err := d.Query(gdao.QueryReq[User]{BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+			c := dao.And().Plain("1 = 1").
+				Eq("c1", nil, dao.WithIfPresent()).
+				Eq("c1", 1, dao.WithIfPredicate(func() bool { return false })).
+				Ne("c1", nil, dao.WithIfPresent()).
+				Ne("c1", 1, dao.WithIfPredicate(func() bool { return false })).
+				Gt("c1", nil, dao.WithIfPresent()).
+				Gt("c1", 1, dao.WithIfPredicate(func() bool { return false })).
+				Lt("c1", nil, dao.WithIfPresent()).
+				Lt("c1", 1, dao.WithIfPredicate(func() bool { return false })).
+				Ge("c1", nil, dao.WithIfPresent()).
+				Ge("c1", 1, dao.WithIfPredicate(func() bool { return false })).
+				Le("c1", nil, dao.WithIfPresent()).
+				Le("c1", 1, dao.WithIfPredicate(func() bool { return false })).
+				Like("c1", "", dao.WithIfPresent()).
+				Like("c1", "1", dao.WithIfPredicate(func() bool { return false })).
+				LikeLeft("c1", "", dao.WithIfPresent()).
+				LikeLeft("c1", "1", dao.WithIfPredicate(func() bool { return false })).
+				LikeRight("c1", "", dao.WithIfPresent()).
+				LikeRight("c1", "1", dao.WithIfPredicate(func() bool { return false })).
+				In("c1", nil, dao.WithIfPresent()).
+				In("c1", dao.InArgs(1, 2), dao.WithIfPredicate(func() bool { return false })).
+				Between("c1", nil, 1, dao.WithIfPresent()).
+				Between("c1", 1, nil, dao.WithIfPresent()).
+				Between("c1", nil, nil, dao.WithIfPresent()).
+				Between("c1", 1, 1, dao.WithIfPredicate(func() bool { return false }))
 			dao.WriteCondition(c, b)
 		}})
 		r.NoError(err)

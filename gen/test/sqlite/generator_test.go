@@ -17,10 +17,11 @@ limitations under the License.
 package sqlite
 
 import (
-	"github.com/jishaocong0910/gdao/gen"
-	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
+
+	"github.com/jishaocong0910/gdao/gen"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSqlite(t *testing.T) {

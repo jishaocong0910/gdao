@@ -18,15 +18,16 @@ package postgres
 
 import (
 	"context"
+	"log"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/jishaocong0910/gdao/gen"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"log"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestPostgres(t *testing.T) {
