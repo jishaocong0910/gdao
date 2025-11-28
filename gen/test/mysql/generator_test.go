@@ -18,6 +18,11 @@ package mysql_test
 
 import (
 	"context"
+	"log"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/jishaocong0910/gdao/gen"
 	"github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg"
 	pkg2 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1"
@@ -27,10 +32,6 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mysql"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"log"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestMySql(t *testing.T) {

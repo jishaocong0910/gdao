@@ -17,12 +17,12 @@ type ListReq struct {
 	Must bool
 	// specify the SQL log level
 	SqlLogLevel gdao.SqlLogLevel
-	// dsescribe the SQL in the log
+	// describe the SQL in the log
 	Desc string
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	Condition Condition
+	Condition Cond
 	// ORDER BY clause，create by function Sort.
 	Sort *OrderBy
 	// paging query，create by function Page.
@@ -38,12 +38,12 @@ type GetReq struct {
 	Must bool
 	// specify the SQL log level
 	SqlLogLevel gdao.SqlLogLevel
-	// dsescribe the SQL in the log
+	// describe the SQL in the log
 	Desc string
 	// specify the columns which in the select column list, default is all columns.
 	SelectColumns []string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	Condition Condition
+	Condition Cond
 	// ORDER BY clause，create by function Sort.
 	Sort *OrderBy
 	// FOR UPDATE clause
@@ -57,7 +57,7 @@ type InsertReq[T any] struct {
 	Must bool
 	// specify the SQL log level
 	SqlLogLevel gdao.SqlLogLevel
-	// dsescribe the SQL in the log
+	// describe the SQL in the log
 	Desc string
 	// the non-nil fields will be saved, and the auto generated keys will be set in it.
 	Entity *T
@@ -76,7 +76,7 @@ type InsertBatchReq[T any] struct {
 	Must bool
 	// specify the SQL log level
 	SqlLogLevel gdao.SqlLogLevel
-	// dsescribe the SQL in the log
+	// describe the SQL in the log
 	Desc string
 	// each element corresponds to a record to be saved, and the auto generated keys will be set in them.
 	Entities []*T
@@ -95,7 +95,7 @@ type UpdateReq[T any] struct {
 	Must bool
 	// specify the SQL log level
 	SqlLogLevel gdao.SqlLogLevel
-	// dsescribe the SQL in the log
+	// describe the SQL in the log
 	Desc string
 	// uses to update values or as the WHERE clause conditions.
 	Entity *T
@@ -108,7 +108,7 @@ type UpdateReq[T any] struct {
 	// specify the non-nil fields in the entity used as conditions.
 	WhereColumns []string
 	// conditions of the WHERE clause，create by function And, Or and Not..
-	Condition Condition
+	Condition Cond
 }
 
 type UpdateBatchReq[T any] struct {
@@ -118,7 +118,7 @@ type UpdateBatchReq[T any] struct {
 	Must bool
 	// specify the SQL log level
 	SqlLogLevel gdao.SqlLogLevel
-	// dsescribe the SQL in the log
+	// describe the SQL in the log
 	Desc string
 	// each element corresponds to a record to be updated.
 	Entities []*T
@@ -131,7 +131,7 @@ type UpdateBatchReq[T any] struct {
 	// specify the column which used as a condition.
 	WhereColumn string
 	// conditions of the WHERE clause，create by function And, Or and Not..
-	Condition Condition
+	Condition Cond
 }
 
 type DeleteReq struct {
@@ -141,10 +141,10 @@ type DeleteReq struct {
 	Must bool
 	// specify the SQL log level
 	SqlLogLevel gdao.SqlLogLevel
-	// dsescribe the SQL in the log
+	// describe the SQL in the log
 	Desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	Condition Condition
+	Condition Cond
 }
 
 type CountReq struct {
@@ -154,10 +154,10 @@ type CountReq struct {
 	Must bool
 	// specify the SQL log level
 	SqlLogLevel gdao.SqlLogLevel
-	// dsescribe the SQL in the log
+	// describe the SQL in the log
 	Desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	Condition Condition
+	Condition Cond
 }
 
 type baseDao[T any] struct {
@@ -178,7 +178,7 @@ func (d baseDao[T]) List(req ListReq) ([]*T, error) {
 			b.Repeat(len(req.Sort.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
 				item := req.Sort.items[i]
 				b.Write(item.column).Write(" ")
-				b.Write(string(item.sequence))
+				b.Write(string(item.seq))
 			})
 		}
 		if req.Page != nil {
@@ -321,7 +321,7 @@ func (d baseDao[T]) Update(req UpdateReq[T]) (int64, error) {
 					}
 				}, req.WhereColumns...)
 			}
-			cond.addCondition(req.Condition)
+			cond.addCond(req.Condition)
 			if cond.len() > 0 {
 				b.Write(" WHERE ")
 				cond.write(b.BaseSqlBuilder__)
@@ -370,8 +370,8 @@ func (d baseDao[T]) UpdateBatch(req UpdateBatchReq[T]) (int64, error) {
 		b.EachEntity(nil, func(_ int, entity *T) {
 			whereColumnValues = append(whereColumnValues, b.ColumnValue(entity, req.WhereColumn))
 		})
-		cond.In(req.WhereColumn, Anys(whereColumnValues...))
-		cond.addCondition(req.Condition)
+		cond.In(req.WhereColumn, InArgs(whereColumnValues...))
+		cond.addCond(req.Condition)
 		cond.write(b.BaseSqlBuilder__)
 	}})
 }
@@ -409,41 +409,35 @@ func newBaseDao[T any](req gdao.NewDaoReq, table string) *baseDao[T] {
 	return &baseDao[T]{Dao: dao, CountDao: countDao, table: table}
 }
 
-type TempSqlBuilder struct {
-	*gdao.BaseSqlBuilder__
-}
+//=============================================================
+//======================== Condition  =========================
+//=============================================================
 
-func newTempSqlBuilder() *TempSqlBuilder {
-	this := &TempSqlBuilder{}
-	this.BaseSqlBuilder__ = gdao.ExtendBaseSqlBuilder(this)
-	return this
-}
-
-type Condition interface {
+type Cond interface {
 	len() int
 	setNot()
 	setParenthesized()
 	write(b *gdao.BaseSqlBuilder__)
 }
 
-type baseCondition struct {
+type baseCond struct {
 	not           bool
 	parenthesized bool
 }
 
-func (bc *baseCondition) len() int {
+func (bc *baseCond) len() int {
 	return 1
 }
 
-func (bc *baseCondition) setNot() {
+func (bc *baseCond) setNot() {
 	bc.not = true
 }
 
-func (bc *baseCondition) setParenthesized() {
+func (bc *baseCond) setParenthesized() {
 	bc.parenthesized = true
 }
 
-func (bc *baseCondition) doWrite(b *gdao.BaseSqlBuilder__, write func()) {
+func (bc *baseCond) doWrite(b *gdao.BaseSqlBuilder__, write func()) {
 	if bc.not {
 		b.Write("NOT ")
 	}
@@ -456,36 +450,36 @@ func (bc *baseCondition) doWrite(b *gdao.BaseSqlBuilder__, write func()) {
 	}
 }
 
-type notConditionGroup struct {
+type notConds struct {
 }
 
-func (c notConditionGroup) And() *conditionGroup {
-	return &conditionGroup{baseCondition: baseCondition{not: true}, or: false}
+func (c notConds) And() *conds {
+	return &conds{baseCond: baseCond{not: true}, or: false}
 }
 
-func (c notConditionGroup) Or() *conditionGroup {
-	return &conditionGroup{baseCondition: baseCondition{not: true}, or: true}
+func (c notConds) Or() *conds {
+	return &conds{baseCond: baseCond{not: true}, or: true}
 }
 
-type conditionGroup struct {
-	baseCondition
+type conds struct {
+	baseCond
 	nextNot bool
 	or      bool
-	cs      []Condition
+	cs      []Cond
 }
 
-func (cg *conditionGroup) len() int {
-	if cg == nil {
+func (cs *conds) len() int {
+	if cs == nil {
 		return 0
 	}
-	return len(cg.cs)
+	return len(cs.cs)
 }
 
-func (cg *conditionGroup) write(b *gdao.BaseSqlBuilder__) {
-	cg.doWrite(b, func() {
-		for i, cond := range cg.cs {
+func (cs *conds) write(b *gdao.BaseSqlBuilder__) {
+	cs.doWrite(b, func() {
+		for i, cond := range cs.cs {
 			if i != 0 {
-				if cg.or {
+				if cs.or {
 					b.Write(" OR ")
 				} else {
 					b.Write(" AND ")
@@ -496,112 +490,218 @@ func (cg *conditionGroup) write(b *gdao.BaseSqlBuilder__) {
 	})
 }
 
-func (cg *conditionGroup) addCondition(c Condition) *conditionGroup {
+func (cs *conds) addCond(c Cond) *conds {
 	if c != nil && c.len() > 0 {
-		if cg.nextNot {
+		if cs.nextNot {
 			c.setNot()
-			cg.nextNot = false
+			cs.nextNot = false
 		}
 		if c.len() > 1 {
 			c.setParenthesized()
 		}
-		cg.cs = append(cg.cs, c)
+		cs.cs = append(cs.cs, c)
 	}
-	return cg
+	return cs
 }
 
-func (cg *conditionGroup) ToStrArgs() (string, []any) {
+func (cs *conds) ToStrArgs() (string, []any) {
 	b := newTempSqlBuilder()
-	cg.write(b.BaseSqlBuilder__)
+	cs.write(b.BaseSqlBuilder__)
 	return b.Sql(), b.Args()
 }
 
-func (cg *conditionGroup) Not() *conditionGroup {
-	cg.nextNot = true
-	return cg
+func (cs *conds) Not() *conds {
+	cs.nextNot = true
+	return cs
 }
 
-func (cg *conditionGroup) Group(other *conditionGroup) *conditionGroup {
-	return cg.addCondition(other)
+func (cs *conds) Group(other *conds) *conds {
+	return cs.addCond(other)
 }
 
-func (cg *conditionGroup) Plain(sql string, args ...any) *conditionGroup {
-	return cg.addCondition(&conditionPlain{sql: sql, args: args})
+func (cs *conds) Plain(sql string, args ...any) *conds {
+	return cs.addCond(&condPlain{sql: sql, args: args})
 }
 
-func (cg *conditionGroup) Eq(column string, arg any) *conditionGroup {
-	return cg.addCondition(&conditionBinOp{column: column, op: "=", arg: arg})
+func (cs *conds) Eq(column string, arg any, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && arg == nil {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBinOp{column: column, op: "=", arg: arg})
 }
 
-func (cg *conditionGroup) Ne(column string, arg any) *conditionGroup {
-	return cg.addCondition(&conditionBinOp{column: column, op: "<>", arg: arg})
+func (cs *conds) Ne(column string, arg any, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && arg == nil {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBinOp{column: column, op: "<>", arg: arg})
 }
 
-func (cg *conditionGroup) Gt(column string, arg any) *conditionGroup {
-	return cg.addCondition(&conditionBinOp{column: column, op: ">", arg: arg})
+func (cs *conds) Gt(column string, arg any, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && arg == nil {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBinOp{column: column, op: ">", arg: arg})
 }
 
-func (cg *conditionGroup) Lt(column string, arg any) *conditionGroup {
-	return cg.addCondition(&conditionBinOp{column: column, op: "<", arg: arg})
+func (cs *conds) Lt(column string, arg any, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && arg == nil {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBinOp{column: column, op: "<", arg: arg})
 }
 
-func (cg *conditionGroup) Ge(column string, arg any) *conditionGroup {
-	return cg.addCondition(&conditionBinOp{column: column, op: ">=", arg: arg})
+func (cs *conds) Ge(column string, arg any, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && arg == nil {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBinOp{column: column, op: ">=", arg: arg})
 }
 
-func (cg *conditionGroup) Le(column string, arg any) *conditionGroup {
-	return cg.addCondition(&conditionBinOp{column: column, op: "<=", arg: arg})
+func (cs *conds) Le(column string, arg any, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && arg == nil {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBinOp{column: column, op: "<=", arg: arg})
 }
 
-func (cg *conditionGroup) Like(column string, arg string) *conditionGroup {
-	return cg.addCondition(&conditionBinOp{column: column, op: "LIKE", arg: "%" + arg + "%"})
+func (cs *conds) Like(column string, arg string, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && arg == "" {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBinOp{column: column, op: "LIKE", arg: "%" + arg + "%"})
 }
 
-func (cg *conditionGroup) LikeLeft(column string, arg string) *conditionGroup {
-	return cg.addCondition(&conditionBinOp{column: column, op: "LIKE", arg: arg + "%"})
+func (cs *conds) LikeLeft(column string, arg string, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && arg == "" {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBinOp{column: column, op: "LIKE", arg: arg + "%"})
 }
 
-func (cg *conditionGroup) LikeRight(column string, arg string) *conditionGroup {
-	return cg.addCondition(&conditionBinOp{column: column, op: "LIKE", arg: "%" + arg})
+func (cs *conds) LikeRight(column string, arg string, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && arg == "" {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBinOp{column: column, op: "LIKE", arg: "%" + arg})
 }
 
-// you can use Anys to convert non-any type slice to an any type slice.
-func (cg *conditionGroup) In(column string, args []any) *conditionGroup {
-	return cg.addCondition(&conditionIn{column: column, args: args})
+func (cs *conds) In(column string, args inArgs, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && len(args) == 0 {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condIn{column: column, args: args})
 }
 
-func (cg *conditionGroup) Between(column string, min, max any) *conditionGroup {
-	return cg.addCondition(&conditionBetween{column: column, min: min, max: max})
+func (cs *conds) Between(column string, min, max any, opts ...CondOpt) *conds {
+	opt := cs.getOpt(opts...)
+	if opt.ifPresent && (min == nil || max == nil) {
+		return cs
+	}
+	if opt.ifPredicate != nil {
+		if !opt.ifPredicate() {
+			return cs
+		}
+	}
+	return cs.addCond(&condBetween{column: column, min: min, max: max})
 }
 
-func (cg *conditionGroup) IsNull(column string) *conditionGroup {
-	return cg.addCondition(&conditionIsNull{column: column})
+func (cs *conds) IsNull(column string) *conds {
+	return cs.addCond(&condIsNull{column: column})
 }
 
-func (cg *conditionGroup) IsNotNull(column string) *conditionGroup {
-	return cg.addCondition(&conditionIsNull{column: column, notNull: true})
+func (cs *conds) IsNotNull(column string) *conds {
+	return cs.addCond(&condIsNull{column: column, notNull: true})
 }
 
-type conditionPlain struct {
-	baseCondition
+func (cs *conds) getOpt(opts ...CondOpt) condOpt {
+	co := condOpt{}
+	for _, opt := range opts {
+		opt(&co)
+	}
+	return co
+}
+
+type condPlain struct {
+	baseCond
 	sql  string
 	args []any
 }
 
-func (c *conditionPlain) write(b *gdao.BaseSqlBuilder__) {
+func (c *condPlain) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.sql, c.args...)
 	})
 }
 
-type conditionBinOp struct {
-	baseCondition
+type condBinOp struct {
+	baseCond
 	column string
 	op     string
 	arg    any
 }
 
-func (c *conditionBinOp) write(b *gdao.BaseSqlBuilder__) {
+func (c *condBinOp) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.column)
 		b.Write(" ")
@@ -611,13 +711,13 @@ func (c *conditionBinOp) write(b *gdao.BaseSqlBuilder__) {
 	})
 }
 
-type conditionIn struct {
-	baseCondition
+type condIn struct {
+	baseCond
 	column string
 	args   []any
 }
 
-func (c *conditionIn) write(b *gdao.BaseSqlBuilder__) {
+func (c *condIn) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.column)
 		b.Write(" IN(")
@@ -631,26 +731,26 @@ func (c *conditionIn) write(b *gdao.BaseSqlBuilder__) {
 	})
 }
 
-type conditionBetween struct {
-	baseCondition
+type condBetween struct {
+	baseCond
 	column   string
 	min, max any
 }
 
-func (c *conditionBetween) write(b *gdao.BaseSqlBuilder__) {
+func (c *condBetween) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.column)
 		b.Write(" BETWEEN ? AND ?", c.min, c.max)
 	})
 }
 
-type conditionIsNull struct {
-	baseCondition
+type condIsNull struct {
+	baseCond
 	notNull bool
 	column  string
 }
 
-func (c *conditionIsNull) write(b *gdao.BaseSqlBuilder__) {
+func (c *condIsNull) write(b *gdao.BaseSqlBuilder__) {
 	c.doWrite(b, func() {
 		b.Write(c.column)
 		b.Write(" IS")
@@ -661,30 +761,67 @@ func (c *conditionIsNull) write(b *gdao.BaseSqlBuilder__) {
 	})
 }
 
+type TempSqlBuilder struct {
+	*gdao.BaseSqlBuilder__
+}
+
+func newTempSqlBuilder() *TempSqlBuilder {
+	this := &TempSqlBuilder{}
+	this.BaseSqlBuilder__ = gdao.ExtendBaseSqlBuilder(this)
+	return this
+}
+
+//=============================================================
+//===================== Condition Options =====================
+//=============================================================
+
+type condOpt struct {
+	ifPresent   bool
+	ifPredicate func() bool
+}
+
+type CondOpt func(*condOpt)
+
+func WithIfPresent() CondOpt {
+	return func(opt *condOpt) {
+		opt.ifPresent = true
+	}
+}
+
+func WithIfPredicate(predicate func() bool) CondOpt {
+	return func(opt *condOpt) {
+		opt.ifPredicate = predicate
+	}
+}
+
+//=============================================================
+//======================= SQL Modifier ========================
+//=============================================================
+
 type OrderBy struct {
 	items []orderByItem
 }
 
 func (o *OrderBy) Asc(column string) *OrderBy {
-	o.items = append(o.items, orderByItem{column: column, sequence: asc})
+	o.items = append(o.items, orderByItem{column: column, seq: asc})
 	return o
 }
 
 func (o *OrderBy) Desc(column string) *OrderBy {
-	o.items = append(o.items, orderByItem{column: column, sequence: desc})
+	o.items = append(o.items, orderByItem{column: column, seq: desc})
 	return o
 }
 
-type orderBySequence string
+type orderBySeq string
 
 const (
-	asc  orderBySequence = "ASC"
-	desc                 = "DESC"
+	asc  orderBySeq = "ASC"
+	desc            = "DESC"
 )
 
 type orderByItem struct {
-	column   string
-	sequence orderBySequence
+	column string
+	seq    orderBySeq
 }
 
 type Pagination struct {
@@ -699,23 +836,30 @@ func Page(offset, pageSize int) *Pagination {
 	return &Pagination{offset: offset, pageSize: pageSize}
 }
 
-func And() *conditionGroup {
-	return &conditionGroup{or: false}
+func And() *conds {
+	return &conds{or: false}
 }
 
-func Or() *conditionGroup {
-	return &conditionGroup{or: true}
+func Or() *conds {
+	return &conds{or: true}
 }
 
-func Not() notConditionGroup {
-	return notConditionGroup{}
+func Not() notConds {
+	return notConds{}
 }
 
-func Anys[T any](source ...T) (target []any) {
+//=============================================================
+//======================= Handy Function ======================
+//=============================================================
+
+type inArgs []any
+
+func InArgs[T any](source ...T) inArgs {
+	var target inArgs
 	for _, s := range source {
 		target = append(target, s)
 	}
-	return
+	return target
 }
 
 func Entities[T any](entities ...*T) []*T {

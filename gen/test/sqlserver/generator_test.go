@@ -19,16 +19,17 @@ package sqlserver
 import (
 	"context"
 	"database/sql"
-	"github.com/jishaocong0910/gdao/gen"
-	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/mssql"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"log"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jishaocong0910/gdao/gen"
+	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/mssql"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 // 由于容器镜像只支持Intel芯片，此用例只能在Intel芯片执行
