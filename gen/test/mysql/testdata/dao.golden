@@ -3,11 +3,10 @@
 package testdata
 
 import (
-	"github.com/jishaocong0910/gdao"
 	"github.com/jishaocong0910/gdao/gen/test/mysql/testdata/entity"
 )
 
-var TestTable = _TestTable{newBaseDao[entity.TestTable](gdao.NewDaoReq{AllowInvalidField: true}, "test_table")}
+var TestTable = _TestTable{BaseDaoBuilder[entity.TestTable]().Table("test_table").AllowInvalidField(true).Build()}
 
 type _TestTable struct {
 	*baseDao[entity.TestTable]

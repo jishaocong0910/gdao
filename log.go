@@ -52,11 +52,11 @@ func formatSql(sql string) string {
 	return sql
 }
 
-func printSql(ctx context.Context, sqlLogLevel SqlLogLevel, desc string, sql string, args []any, affected, rowCounts int64, err error) {
-	if sqlLogLevel.IsUndefined() {
-		sqlLogLevel = global.SqlLogLevel
+func printSql(ctx context.Context, logLevel LogLevel, desc string, sql string, args []any, affected, rowCounts int64, err error) {
+	if logLevel.IsUndefined() {
+		logLevel = global.LogLevel
 	}
-	if SqlLogLevel_.Not(sqlLogLevel, SqlLogLevel_.DEBUG, SqlLogLevel_.INFO) { // coverage-ignore
+	if LogLevel_.Not(logLevel, LogLevel_.DEBUG, LogLevel_.INFO) { // coverage-ignore
 		return
 	}
 	var msg strings.Builder
@@ -118,20 +118,20 @@ func printSql(ctx context.Context, sqlLogLevel SqlLogLevel, desc string, sql str
 		msgArgs = append(msgArgs, err)
 	}
 
-	printSqlLog(ctx, sqlLogLevel, err != nil, msg.String(), msgArgs...)
+	printSqlLog(ctx, logLevel, err != nil, msg.String(), msgArgs...)
 }
 
-func printSqlLog(ctx context.Context, sqlLogLevel SqlLogLevel, hasError bool, msg string, args ...any) {
+func printSqlLog(ctx context.Context, logLevel LogLevel, hasError bool, msg string, args ...any) {
 	if global.Logger == nil { // coverage-ignore
 		return
 	}
 	if hasError {
 		global.Logger.Errorf(ctx, msg, args...)
 	} else {
-		switch sqlLogLevel.String() {
-		case SqlLogLevel_.DEBUG.String():
+		switch logLevel.String() {
+		case LogLevel_.DEBUG.String():
 			global.Logger.Debugf(ctx, msg, args...)
-		case SqlLogLevel_.INFO.String():
+		case LogLevel_.INFO.String():
 			global.Logger.Infof(ctx, msg, args...)
 		}
 	}

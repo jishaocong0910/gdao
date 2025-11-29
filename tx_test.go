@@ -35,9 +35,9 @@ func TestTx(t *testing.T) {
 		mock.ExpectCommit()
 		tx, err := userDao.DB().Begin()
 		r.NoError(err)
-		affected, err := userDao.Exec(gdao.ExecReq[User]{Ctx: gdao.SetTx(nil, tx), BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
+		affected, err := userDao.Exec().Ctx(gdao.SetTx(nil, tx)).BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("UPDATE user set status=1 WHERE id=?", 1)
-		}})
+		}).Do()
 		tx.Commit()
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -49,12 +49,9 @@ func TestTx(t *testing.T) {
 		mock.ExpectPrepare(`UPDATE user set status=1 WHERE id=\?`).ExpectExec().WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectCommit()
 		err := gdao.Tx(nil, func(ctx context.Context) error {
-			_, err := userDao.Exec(gdao.ExecReq[User]{
-				Ctx: ctx,
-				BuildSql: func(b *gdao.DaoSqlBuilder[User]) {
-					b.Write("UPDATE user set status=1 WHERE id=?", 1)
-				},
-			})
+			_, err := userDao.Exec().Ctx(ctx).BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
+				b.Write("UPDATE user set status=1 WHERE id=?", 1)
+			}).Do()
 			return err
 		})
 		r.NoError(err)
