@@ -1234,7 +1234,7 @@ func (o *orderBy) Desc(column string) *orderBy {
 func (o *orderBy) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
 	b.Repeat(len(o.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
 		item := o.items[i]
-		b.Write(item.column).Write(" ")
+		b.Write(mapColumn(nameMap, item.column)).Write(" ")
 		b.Write(string(item.seq))
 	})
 }
