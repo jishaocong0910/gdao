@@ -24,7 +24,7 @@ type list[T any] struct {
 	// describe the sql in the log
 	desc string
 	// specify the columns which in the select column list, default is all columns.
-	selects []string
+	sel []string
 	// conditions of the where clause，create by function And, Or and Not.
 	condition Cond
 	// ORDER BY clause，create by function OrderBy.
@@ -55,8 +55,8 @@ func (l *list[T]) Desc(desc string) *list[T] {
 	return l
 }
 
-func (l *list[T]) Selects(selects ...string) *list[T] {
-	l.selects = mapColumns(l.dao.NameMap(), selects)
+func (l *list[T]) Select(sel ...string) *list[T] {
+	l.sel = mapColumns(l.dao.NameMap(), sel)
 	return l
 }
 
@@ -82,7 +82,7 @@ func (l *list[T]) ForUpdate(forUpdate bool) *list[T] {
 
 func (l *list[T]) Do() ([]*T, error) {
 	_, list, err := l.dao.Query().Ctx(l.ctx).Must(l.must).LogLevel(l.logLevel).Desc(l.desc).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
-		b.Write("SELECT ").WriteColumns(l.selects...).Write(" FROM ").Write(l.dao.table)
+		b.Write("SELECT ").WriteColumns(l.sel...).Write(" FROM ").Write(l.dao.table)
 		if l.condition != nil && l.condition.len() > 0 {
 			b.Write(" WHERE ")
 			l.condition.write(l.dao.NameMap(), b.BaseSqlBuilder)
@@ -117,7 +117,7 @@ type get[T any] struct {
 	// describe the SQL in the log
 	desc string
 	// specify the columns which in the select column list, default is all columns.
-	selects []string
+	sel []string
 	// conditions of the WHERE clause，create by function And, Or and Not.
 	condition Cond
 	// ORDER BY clause，create by function OrderBy.
@@ -148,8 +148,8 @@ func (g *get[T]) Desc(desc string) *get[T] { // coverage-ignore
 	return g
 }
 
-func (g *get[T]) Selects(selects ...string) *get[T] {
-	g.selects = mapColumns(g.dao.NameMap(), selects)
+func (g *get[T]) Select(sel ...string) *get[T] {
+	g.sel = mapColumns(g.dao.NameMap(), sel)
 	return g
 }
 
@@ -175,7 +175,7 @@ func (g *get[T]) CheckOne(checkOne bool) *get[T] {
 
 func (g *get[T]) Do() (*T, error) {
 	list, err := g.dao.List().Ctx(g.ctx).Must(g.must).LogLevel(g.logLevel).Desc(g.desc).
-		Selects(g.selects...).Condition(g.condition).Orderby(g.orderBy).ForUpdate(g.forUpdate).Do()
+		Select(g.sel...).Condition(g.condition).Orderby(g.orderBy).ForUpdate(g.forUpdate).Do()
 	if len(list) == 0 { // coverage-ignore
 		return nil, err
 	}
@@ -204,9 +204,9 @@ type insert[T any] struct {
 	// if true, all fields will be saved, otherwise, save non-nil fields.
 	all bool
 	// specify the columns which set a null value
-	setNulls []string
+	setNull []string
 	// specify the columns which don't be set
-	ignores []string
+	ignore []string
 }
 
 func (i *insert[T]) Ctx(ctx context.Context) *insert[T] { // coverage-ignore
@@ -239,19 +239,19 @@ func (i *insert[T]) All(all bool) *insert[T] {
 	return i
 }
 
-func (i *insert[T]) SetNulls(setNulls ...string) *insert[T] {
-	i.setNulls = mapColumns(i.dao.NameMap(), setNulls)
+func (i *insert[T]) SetNull(setNull ...string) *insert[T] {
+	i.setNull = mapColumns(i.dao.NameMap(), setNull)
 	return i
 }
 
-func (i *insert[T]) Ignores(ignores ...string) *insert[T] {
-	i.ignores = mapColumns(i.dao.NameMap(), ignores)
+func (i *insert[T]) Ignore(ignore ...string) *insert[T] {
+	i.ignore = mapColumns(i.dao.NameMap(), ignore)
 	return i
 }
 
 func (i *insert[T]) Do() error {
 	return i.dao.InsertBatch().Ctx(i.ctx).Must(i.must).LogLevel(i.logLevel).Desc(i.desc).Entities(i.entity).All(i.all).
-		SetNulls(i.setNulls...).Ignores(i.ignores...).Do()
+		SetNull(i.setNull...).Ignore(i.ignore...).Do()
 }
 
 type insertBatch[T any] struct {
@@ -270,9 +270,9 @@ type insertBatch[T any] struct {
 	// if true, all fields will be saved, otherwise, save non-nil fields.
 	all bool
 	// specify the columns which set a null value
-	setNulls []string
+	setNull []string
 	// specify the columns which don't be set
-	ignores []string
+	ignore []string
 }
 
 func (ib *insertBatch[T]) Ctx(ctx context.Context) *insertBatch[T] {
@@ -305,13 +305,13 @@ func (ib *insertBatch[T]) All(all bool) *insertBatch[T] {
 	return ib
 }
 
-func (ib *insertBatch[T]) SetNulls(setNulls ...string) *insertBatch[T] {
-	ib.setNulls = mapColumns(ib.dao.NameMap(), setNulls)
+func (ib *insertBatch[T]) SetNull(setNull ...string) *insertBatch[T] {
+	ib.setNull = mapColumns(ib.dao.NameMap(), setNull)
 	return ib
 }
 
-func (ib *insertBatch[T]) Ignores(ignores ...string) *insertBatch[T] {
-	ib.ignores = mapColumns(ib.dao.NameMap(), ignores)
+func (ib *insertBatch[T]) Ignore(ignore ...string) *insertBatch[T] {
+	ib.ignore = mapColumns(ib.dao.NameMap(), ignore)
 	return ib
 }
 
@@ -319,24 +319,24 @@ func (ib *insertBatch[T]) Do() error {
 	_, _, err := ib.dao.Query().Ctx(ib.ctx).Must(ib.must).LogLevel(ib.logLevel).Desc(ib.desc).RowAs(gdao.RowAs_.RETURNING).
 		Entities(ib.entities...).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
-		var allIgnores []string
-		allIgnores = append(allIgnores, ib.setNulls...)
-		allIgnores = append(allIgnores, ib.ignores...)
-		allIgnores = append(allIgnores, b.AutoColumns()...)
+		var allIgnore []string
+		allIgnore = append(allIgnore, ib.setNull...)
+		allIgnore = append(allIgnore, ib.ignore...)
+		allIgnore = append(allIgnore, b.AutoColumns()...)
 
 		b.Write("INSERT INTO ").Write(ib.dao.table)
-		columns := b.Columns(!ib.all, allIgnores...)
+		columns := b.Columns(!ib.all, allIgnore...)
 		b.Repeat(len(columns), b.SepFix("(", ", ", "", true), nil, func(_, i int) {
 			setColumnNum++
 			b.Write(columns[i])
 		})
-		if len(ib.setNulls) > 0 {
+		if len(ib.setNull) > 0 {
 			if setColumnNum > 0 {
 				b.Write(", ")
 			}
-			b.Repeat(len(ib.setNulls), b.Sep(", "), nil, func(_, i int) {
+			b.Repeat(len(ib.setNull), b.Sep(", "), nil, func(_, i int) {
 				setNullColumnNum++
-				b.Write(ib.setNulls[i])
+				b.Write(ib.setNull[i])
 			})
 		}
 		b.Write(")")
@@ -349,11 +349,11 @@ func (ib *insertBatch[T]) Do() error {
 					b.Write("NULL")
 				}
 			}, columns...)
-			if len(ib.setNulls) > 0 {
+			if len(ib.setNull) > 0 {
 				if setColumnNum > 0 {
 					b.Write(", ")
 				}
-				b.Repeat(len(ib.setNulls), b.Sep(", "), nil, func(_, i int) {
+				b.Repeat(len(ib.setNull), b.Sep(", "), nil, func(_, i int) {
 					b.Write("NULL")
 				})
 			}
@@ -382,11 +382,11 @@ type update[T any] struct {
 	// if true, all fields will be updated, otherwise, update non-nil fields.
 	all bool
 	// specify the columns which set a null value
-	setNulls []string
+	setNull []string
 	// specify the columns which don't be set
-	ignores []string
+	ignore []string
 	// specify the non-nil fields in the entity used as conditions.
-	wheres []string
+	where []string
 	// conditions of the WHERE clause，create by function And, Or and Not..
 	condition Cond
 }
@@ -421,18 +421,18 @@ func (u *update[T]) All(all bool) *update[T] {
 	return u
 }
 
-func (u *update[T]) SetNulls(setNulls ...string) *update[T] {
-	u.setNulls = mapColumns(u.dao.NameMap(), setNulls)
+func (u *update[T]) SetNull(setNull ...string) *update[T] {
+	u.setNull = mapColumns(u.dao.NameMap(), setNull)
 	return u
 }
 
-func (u *update[T]) Ignores(ignores ...string) *update[T] {
-	u.ignores = mapColumns(u.dao.NameMap(), ignores)
+func (u *update[T]) Ignore(ignore ...string) *update[T] {
+	u.ignore = mapColumns(u.dao.NameMap(), ignore)
 	return u
 }
 
-func (u *update[T]) Wheres(wheres ...string) *update[T] {
-	u.wheres = mapColumns(u.dao.NameMap(), wheres)
+func (u *update[T]) Where(where ...string) *update[T] {
+	u.where = mapColumns(u.dao.NameMap(), where)
 	return u
 }
 
@@ -444,13 +444,13 @@ func (u *update[T]) Cond(cond Cond) *update[T] {
 func (u *update[T]) Do() (int64, error) {
 	return u.dao.Exec().Ctx(u.ctx).Must(u.must).LogLevel(u.logLevel).Desc(u.desc).Entities(u.entity).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
-		var allIgnores []string
-		allIgnores = append(allIgnores, u.setNulls...)
-		allIgnores = append(allIgnores, u.ignores...)
-		allIgnores = append(allIgnores, u.wheres...)
+		var allIgnore []string
+		allIgnore = append(allIgnore, u.setNull...)
+		allIgnore = append(allIgnore, u.ignore...)
+		allIgnore = append(allIgnore, u.where...)
 
 		b.Write("UPDATE ").Write(u.dao.table).Write(" SET ")
-		columns := b.Columns(!u.all, allIgnores...)
+		columns := b.Columns(!u.all, allIgnore...)
 		b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
 			setColumnNum++
 			b.Write(column).Write(" = ")
@@ -460,24 +460,24 @@ func (u *update[T]) Do() (int64, error) {
 				b.Write("NULL")
 			}
 		}, columns...)
-		if len(u.setNulls) > 0 {
+		if len(u.setNull) > 0 {
 			if setColumnNum > 0 {
 				b.Write(", ")
 			}
-			b.Repeat(len(u.setNulls), b.Sep(", "), nil, func(_, i int) {
+			b.Repeat(len(u.setNull), b.Sep(", "), nil, func(_, i int) {
 				setNullColumnNum++
-				b.Write(u.setNulls[i]).Write(" = NULL")
+				b.Write(u.setNull[i]).Write(" = NULL")
 			})
 		}
 		cond := And()
-		if len(u.wheres) > 0 {
+		if len(u.where) > 0 {
 			b.EachColumn(b.Entity(), nil, func(_ int, column string, value any) {
 				if value == nil {
 					cond.IsNull(column)
 				} else {
 					cond.Eq(column, value)
 				}
-			}, u.wheres...)
+			}, u.where...)
 		}
 		cond.addCond(u.condition)
 		if cond.len() > 0 {
@@ -503,9 +503,9 @@ type updateBatch[T any] struct {
 	// if true, all fields will be updated, otherwise, update non-nil fields.
 	all bool
 	// specify the columns which set a null value
-	setNulls []string
+	setNull []string
 	// specify the columns which don't be set
-	ignores []string
+	ignore []string
 	// specify the column which used as a condition.
 	where string
 	// conditions of the WHERE clause，create by function And, Or and Not..
@@ -542,13 +542,13 @@ func (u *updateBatch[T]) All(all bool) *updateBatch[T] {
 	return u
 }
 
-func (u *updateBatch[T]) SetNulls(setNulls ...string) *updateBatch[T] {
-	u.setNulls = mapColumns(u.dao.NameMap(), setNulls)
+func (u *updateBatch[T]) SetNull(setNull ...string) *updateBatch[T] {
+	u.setNull = mapColumns(u.dao.NameMap(), setNull)
 	return u
 }
 
-func (u *updateBatch[T]) Ignores(ignores ...string) *updateBatch[T] {
-	u.ignores = mapColumns(u.dao.NameMap(), ignores)
+func (u *updateBatch[T]) Ignore(ignore ...string) *updateBatch[T] {
+	u.ignore = mapColumns(u.dao.NameMap(), ignore)
 	return u
 }
 
@@ -565,13 +565,13 @@ func (u *updateBatch[T]) Cond(cond Cond) *updateBatch[T] {
 func (u *updateBatch[T]) Do() (int64, error) {
 	return u.dao.Exec().Ctx(u.ctx).Must(u.must).LogLevel(u.logLevel).Desc(u.desc).Entities(u.entities...).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
-		var allIgnores []string
-		allIgnores = append(allIgnores, u.setNulls...)
-		allIgnores = append(allIgnores, u.ignores...)
-		allIgnores = append(allIgnores, u.where)
+		var allIgnore []string
+		allIgnore = append(allIgnore, u.setNull...)
+		allIgnore = append(allIgnore, u.ignore...)
+		allIgnore = append(allIgnore, u.where)
 
 		b.Write("UPDATE ").Write(u.dao.table).Write(" SET ")
-		columns := b.Columns(!u.all, allIgnores...)
+		columns := b.Columns(!u.all, allIgnore...)
 		b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
 			setColumnNum++
 			b.Write(column).Write(" = CASE ").Write(u.where)
@@ -585,13 +585,13 @@ func (u *updateBatch[T]) Do() (int64, error) {
 			})
 			b.Write(" END")
 		}, columns...)
-		if len(u.setNulls) > 0 {
+		if len(u.setNull) > 0 {
 			if setColumnNum > 0 {
 				b.Write(", ")
 			}
-			b.Repeat(len(u.setNulls), b.Sep(", "), nil, func(_, i int) {
+			b.Repeat(len(u.setNull), b.Sep(", "), nil, func(_, i int) {
 				setNullColumnNum++
-				b.Write(u.setNulls[i]).Write(" = NULL")
+				b.Write(u.setNull[i]).Write(" = NULL")
 			})
 		}
 

@@ -53,7 +53,7 @@ func TestBaseDao_List(t *testing.T) {
 		mock.ExpectPrepare(`SELECT id, name FROM user WHERE status = \? ORDER BY name ASC, address DESC LIMIT 10 OFFSET 3 FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy").AddRow(2, "nick"))
-		list, err := d.List().Selects("id", "Name").Condition(dao.And().Eq("status", 4)).
+		list, err := d.List().Select("id", "Name").Condition(dao.And().Eq("status", 4)).
 			Orderby(dao.OrderBy().Asc("name").Desc("address")).
 			Page(dao.Page(3, 10)).
 			ForUpdate(true).
@@ -77,7 +77,7 @@ func TestBaseDao_Get(t *testing.T) {
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy"))
 
-		get, err := d.Get().Selects("id", "name").Condition(dao.And().Eq("status", 4)).
+		get, err := d.Get().Select("id", "name").Condition(dao.And().Eq("status", 4)).
 			Orderby(dao.OrderBy().Asc("name").Desc("id")).
 			ForUpdate(true).
 			Do()
@@ -92,7 +92,7 @@ func TestBaseDao_Get(t *testing.T) {
 		mock.ExpectPrepare("").ExpectQuery().WillReturnRows(mock.NewRows([]string{"name"}).
 			AddRow("lucy").AddRow("jack"))
 
-		_, err := d.Get().Selects("name").CheckOne(true).Condition(dao.And().Eq("status", 1)).Do()
+		_, err := d.Get().Select("name").CheckOne(true).Condition(dao.And().Eq("status", 1)).Do()
 
 		r.EqualError(err, "return more than one row")
 	}
@@ -110,8 +110,8 @@ func TestBaseDao_Insert(t *testing.T) {
 			Phone: gdao.P("12345"),
 			Email: gdao.P("email"),
 		}
-		affected, err := d.Insert().Entity(u).All(true).SetNulls("level").
-			Ignores("email").Do()
+		affected, err := d.Insert().Entity(u).All(true).SetNull("level").
+			Ignore("email").Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -158,8 +158,8 @@ func TestBaseDao_Update(t *testing.T) {
 			Status:  gdao.P[int8](2),
 			Level:   gdao.P[int32](10),
 		}
-		affected, err := d.Update().Entity(u).SetNulls("email", "phone").
-			Ignores("address").Wheres("status", "level").
+		affected, err := d.Update().Entity(u).SetNull("email", "phone").
+			Ignore("address").Where("status", "level").
 			Condition(dao.And().Eq("age", 20)).
 			Do()
 
@@ -178,7 +178,7 @@ func TestBaseDao_Update(t *testing.T) {
 			Address: gdao.P("addr"),
 			Level:   gdao.P[int32](10),
 		}
-		affected, err := d.Update().Entity(u).All(true).Wheres("id", "status").Do()
+		affected, err := d.Update().Entity(u).All(true).Where("id", "status").Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -211,8 +211,8 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 			Phone: gdao.P("phone3"),
 			Email: gdao.P("email3"),
 		}
-		affected, err := d.UpdateBatch().Entities(u, u2, u3).SetNulls("state", "level").
-			Ignores("email").Where("id").Condition(dao.And().Eq("Status", 1)).Do()
+		affected, err := d.UpdateBatch().Entities(u, u2, u3).SetNull("state", "level").
+			Ignore("email").Where("id").Condition(dao.And().Eq("Status", 1)).Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
