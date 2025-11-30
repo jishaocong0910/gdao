@@ -53,7 +53,7 @@ func TestBaseDao_List(t *testing.T) {
 		mock.ExpectPrepare(`SELECT id, name FROM user WHERE status = \? ORDER BY name ASC, address DESC LIMIT 10 OFFSET 3 FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy").AddRow(2, "nick"))
-		list, err := d.List().Selects("id", "Name").Cond(dao.And().Eq("status", 4)).
+		list, err := d.List().Selects("id", "Name").Condition(dao.And().Eq("status", 4)).
 			Orderby(dao.OrderBy().Asc("name").Desc("address")).
 			Page(dao.Page(3, 10)).
 			ForUpdate(true).
@@ -77,7 +77,7 @@ func TestBaseDao_Get(t *testing.T) {
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy"))
 
-		get, err := d.Get().Selects("id", "name").Cond(dao.And().Eq("status", 4)).
+		get, err := d.Get().Selects("id", "name").Condition(dao.And().Eq("status", 4)).
 			Orderby(dao.OrderBy().Asc("name").Desc("id")).
 			ForUpdate(true).
 			Do()
@@ -92,7 +92,7 @@ func TestBaseDao_Get(t *testing.T) {
 		mock.ExpectPrepare("").ExpectQuery().WillReturnRows(mock.NewRows([]string{"name"}).
 			AddRow("lucy").AddRow("jack"))
 
-		_, err := d.Get().Selects("name").CheckOne(true).Cond(dao.And().Eq("status", 1)).Do()
+		_, err := d.Get().Selects("name").CheckOne(true).Condition(dao.And().Eq("status", 1)).Do()
 
 		r.EqualError(err, "return more than one row")
 	}
@@ -160,7 +160,7 @@ func TestBaseDao_Update(t *testing.T) {
 		}
 		affected, err := d.Update().Entity(u).SetNulls("email", "phone").
 			Ignores("address").Wheres("status", "level").
-			Cond(dao.And().Eq("age", 20)).
+			Condition(dao.And().Eq("age", 20)).
 			Do()
 
 		r.NoError(err)
@@ -212,7 +212,7 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 			Email: gdao.P("email3"),
 		}
 		affected, err := d.UpdateBatch().Entities(u, u2, u3).SetNulls("state", "level").
-			Ignores("email").Where("id").Cond(dao.And().Eq("Status", 1)).Do()
+			Ignores("email").Where("id").Condition(dao.And().Eq("Status", 1)).Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -255,7 +255,7 @@ func TestBaseDao_Delete(t *testing.T) {
 	mock.ExpectPrepare(`DELETE FROM user WHERE status = \?`).
 		ExpectExec().WithArgs(1).WillReturnResult(sqlmock.NewResult(0, 3))
 
-	affected, err := d.Delete().Cond(dao.And().Eq("status", 1)).Do()
+	affected, err := d.Delete().Condition(dao.And().Eq("status", 1)).Do()
 
 	r.NoError(err)
 	r.NoError(mock.ExpectationsWereMet())
@@ -270,7 +270,7 @@ func TestBaseDao_Count(t *testing.T) {
 		ExpectQuery().WithArgs(1).WillReturnRows(mock.NewRows([]string{"count"}).
 		AddRow(8))
 
-	count, err := d.Count().Cond(dao.And().Eq("status", 1)).Do()
+	count, err := d.Count().Condition(dao.And().Eq("status", 1)).Do()
 
 	r.NoError(err)
 	r.NoError(mock.ExpectationsWereMet())

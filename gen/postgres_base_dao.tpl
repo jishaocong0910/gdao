@@ -26,7 +26,7 @@ type list[T any] struct {
 	// specify the columns which in the select column list, default is all columns.
 	selects []string
 	// conditions of the where clause，create by function And, Or and Not.
-	cond Cond
+	condition Cond
 	// ORDER BY clause，create by function OrderBy.
 	orderBy *orderBy
 	// paging query，create by function Page.
@@ -60,8 +60,8 @@ func (l *list[T]) Selects(selects ...string) *list[T] {
 	return l
 }
 
-func (l *list[T]) Cond(cond Cond) *list[T] {
-	l.cond = cond
+func (l *list[T]) Condition(cond Cond) *list[T] {
+	l.condition = cond
 	return l
 }
 
@@ -83,9 +83,9 @@ func (l *list[T]) ForUpdate(forUpdate bool) *list[T] {
 func (l *list[T]) Do() ([]*T, error) {
 	_, list, err := l.dao.Query().Ctx(l.ctx).Must(l.must).LogLevel(l.logLevel).Desc(l.desc).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("SELECT ").WriteColumns(l.selects...).Write(" FROM ").Write(l.dao.table)
-		if l.cond != nil && l.cond.len() > 0 {
+		if l.condition != nil && l.condition.len() > 0 {
 			b.Write(" WHERE ")
-			l.cond.write(l.dao.NameMap(), b.BaseSqlBuilder)
+			l.condition.write(l.dao.NameMap(), b.BaseSqlBuilder)
 		}
 		if l.orderBy != nil {
 			l.orderBy.write(l.dao.NameMap(), b.BaseSqlBuilder)
@@ -119,7 +119,7 @@ type get[T any] struct {
 	// specify the columns which in the select column list, default is all columns.
 	selects []string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	cond Cond
+	condition Cond
 	// ORDER BY clause，create by function OrderBy.
 	orderBy *orderBy
 	// FOR UPDATE clause
@@ -153,8 +153,8 @@ func (g *get[T]) Selects(selects ...string) *get[T] {
 	return g
 }
 
-func (g *get[T]) Cond(cond Cond) *get[T] {
-	g.cond = cond
+func (g *get[T]) Condition(cond Cond) *get[T] {
+	g.condition = cond
 	return g
 }
 
@@ -175,7 +175,7 @@ func (g *get[T]) CheckOne(checkOne bool) *get[T] {
 
 func (g *get[T]) Do() (*T, error) {
 	list, err := g.dao.List().Ctx(g.ctx).Must(g.must).LogLevel(g.logLevel).Desc(g.desc).
-		Selects(g.selects...).Cond(g.cond).Orderby(g.orderBy).ForUpdate(g.forUpdate).Do()
+		Selects(g.selects...).Condition(g.condition).Orderby(g.orderBy).ForUpdate(g.forUpdate).Do()
 	if len(list) == 0 { // coverage-ignore
 		return nil, err
 	}
@@ -388,7 +388,7 @@ type update[T any] struct {
 	// specify the non-nil fields in the entity used as conditions.
 	wheres []string
 	// conditions of the WHERE clause，create by function And, Or and Not..
-	cond Cond
+	condition Cond
 }
 
 func (u *update[T]) Ctx(ctx context.Context) *update[T] { // coverage-ignore
@@ -437,7 +437,7 @@ func (u *update[T]) Wheres(wheres ...string) *update[T] {
 }
 
 func (u *update[T]) Cond(cond Cond) *update[T] {
-	u.cond = cond
+	u.condition = cond
 	return u
 }
 
@@ -479,7 +479,7 @@ func (u *update[T]) Do() (int64, error) {
 				}
 			}, u.wheres...)
 		}
-		cond.addCond(u.cond)
+		cond.addCond(u.condition)
 		if cond.len() > 0 {
 			b.Write(" WHERE ")
 			cond.write(u.dao.NameMap(), b.BaseSqlBuilder)
@@ -509,7 +509,7 @@ type updateBatch[T any] struct {
 	// specify the column which used as a condition.
 	where string
 	// conditions of the WHERE clause，create by function And, Or and Not..
-	cond Cond
+	condition Cond
 }
 
 func (u *updateBatch[T]) Ctx(ctx context.Context) *updateBatch[T] { // coverage-ignore
@@ -558,7 +558,7 @@ func (u *updateBatch[T]) Where(where string) *updateBatch[T] {
 }
 
 func (u *updateBatch[T]) Cond(cond Cond) *updateBatch[T] {
-	u.cond = cond
+	u.condition = cond
 	return u
 }
 
@@ -602,7 +602,7 @@ func (u *updateBatch[T]) Do() (int64, error) {
 			whereColumnValues = append(whereColumnValues, b.ColumnValue(entity, u.where))
 		})
 		cond.In(u.where, InArgs(whereColumnValues...))
-		cond.addCond(u.cond)
+		cond.addCond(u.condition)
 		cond.write(u.dao.NameMap(), b.BaseSqlBuilder)
 	}).Do()
 }
@@ -619,7 +619,7 @@ type delete[T any] struct {
 	// describe the SQL in the log
 	desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	cond Cond
+	condition Cond
 }
 
 func (d *delete[T]) Ctx(ctx context.Context) *delete[T] { // coverage-ignore
@@ -643,16 +643,16 @@ func (d *delete[T]) Desc(desc string) *delete[T] { // coverage-ignore
 }
 
 func (d *delete[T]) Cond(cond Cond) *delete[T] {
-	d.cond = cond
+	d.condition = cond
 	return d
 }
 
 func (d *delete[T]) Do() (int64, error) {
 	return d.dao.Exec().Ctx(d.ctx).Must(d.must).LogLevel(d.logLevel).Desc(d.desc).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("DELETE FROM ").Write(d.dao.table)
-		if d.cond != nil && d.cond.len() > 0 {
+		if d.condition != nil && d.condition.len() > 0 {
 			b.Write(" WHERE ")
-			d.cond.write(d.dao.NameMap(), b.BaseSqlBuilder)
+			d.condition.write(d.dao.NameMap(), b.BaseSqlBuilder)
 		}
 	}).Do()
 }
@@ -669,7 +669,7 @@ type count[T any] struct {
 	// describe the SQL in the log
 	desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	cond Cond
+	condition Cond
 }
 
 func (c *count[T]) Ctx(ctx context.Context) *count[T] { // coverage-ignore
@@ -692,17 +692,17 @@ func (c *count[T]) Desc(desc string) *count[T] { // coverage-ignore
 	return c
 }
 
-func (c *count[T]) Cond(cond Cond) *count[T] {
-	c.cond = cond
+func (c *count[T]) Condition(cond Cond) *count[T] {
+	c.condition = cond
 	return c
 }
 
 func (c *count[T]) Do() (*gdao.Count, error) {
 	return c.dao.CountDao.Count().Ctx(c.ctx).Must(c.must).LogLevel(c.logLevel).Desc(c.desc).BuildSql(func(b *gdao.CountBuilder) {
 		b.Write("SELECT COUNT(*) FROM ").Write(c.dao.table)
-		if c.cond != nil && c.cond.len() > 0 {
+		if c.condition != nil && c.condition.len() > 0 {
 			b.Write(" WHERE ")
-			c.cond.write(c.dao.NameMap(), b.BaseSqlBuilder)
+			c.condition.write(c.dao.NameMap(), b.BaseSqlBuilder)
 		}
 	}).Do()
 }
