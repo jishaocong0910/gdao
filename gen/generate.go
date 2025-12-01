@@ -1,18 +1,18 @@
 /*
-Copyright 2024-present jishaocong0910
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ * Copyright 2024-present jishaocong0910
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package gen
 
@@ -52,7 +52,7 @@ type DaoCfg struct {
 type TableCfg struct {
 	// 需要生成的表
 	Tables Tables
-	// 指定表字段映射实体字段类型，使用函数 [Mapping] 或 [MappingConvert] 指定
+	// 指定表字段映射实体字段类型，使用函数 [Mapping]、[MappingSlice] 或 [MappingConvert] 指定
 	Mappers Mappers
 	// 指定表忽略的字段，key为表名，value为列名
 	Ignores Ignores

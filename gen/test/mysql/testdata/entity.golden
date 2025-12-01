@@ -14,106 +14,95 @@ import (
 // TestTable mysql
 // table: test_table
 type TestTable struct {
-	// AutoIncrement bigint auto_increment
+	// bigint auto_increment
 	// not_null
-	AutoIncrement *int64 `gdao:"column=auto_increment;auto"`
-	// Bit
-	Bit []uint8 `gdao:"column=bit"`
-	// Tinyint tinyint
+	AutoIncrement *int64  `gdao:"column=auto_increment;auto"`
+	Bit           []uint8 `gdao:"column=bit"`
+	// tinyint
 	// not_null has_default_value
 	Tinyint *int8 `gdao:"column=tinyint"`
-	// TinyintUnsigned tinyint unsigned
+	// tinyint unsigned
 	TinyintUnsigned *uint8 `gdao:"column=tinyint_unsigned"`
-	// Tinyint1 tinyint(1)
+	// tinyint(1)
 	Tinyint1 *bool `gdao:"column=tinyint_1"`
-	// Smallint smallint
+	// smallint
 	Smallint *int16 `gdao:"column=smallint"`
-	// SmallintUnsigned smallint unsigned
+	// smallint unsigned
 	SmallintUnsigned *uint16 `gdao:"column=smallint_unsigned"`
-	// Mediumint mediumint
+	// mediumint
 	Mediumint *int32 `gdao:"column=mediumint"`
-	// MediumintUnsigned mediumint unsigned
+	// mediumint unsigned
 	MediumintUnsigned *uint32 `gdao:"column=mediumint_unsigned"`
-	// Int int
+	// int
 	Int *int32 `gdao:"column=int"`
-	// IntUnsigned int unsigned
+	// int unsigned
 	IntUnsigned *uint32 `gdao:"column=int_unsigned"`
-	// Bigint bigint
+	// bigint
 	Bigint *int64 `gdao:"column=bigint"`
-	// BigintUnsigned bigint unsigned
+	// bigint unsigned
 	BigintUnsigned *uint64 `gdao:"column=bigint_unsigned"`
-	// Double double
+	// double
 	Double *float64 `gdao:"column=double"`
-	// Decimal decimal
+	// decimal
 	Decimal *float64 `gdao:"column=decimal"`
-	// Varchar varchar(255)
+	// varchar(255)
 	Varchar *string `gdao:"column=varchar"`
-	// Char char
+	// char
 	Char *string `gdao:"column=char"`
-	// Text text
+	// text
 	Text *string `gdao:"column=text"`
-	// Tinytext tinytext
+	// tinytext
 	Tinytext *string `gdao:"column=tinytext"`
-	// Mediumtext mediumtext
+	// mediumtext
 	Mediumtext *string `gdao:"column=mediumtext"`
-	// Longtext longtext
+	// longtext
 	Longtext *string `gdao:"column=longtext"`
-	// Enum enum('a','b','c')
+	// enum('a','b','c')
 	Enum *string `gdao:"column=enum"`
-	// Json json
+	// json
 	Json *string `gdao:"column=json"`
-	// Set set('a','b','c')
+	// set('a','b','c')
 	Set *string `gdao:"column=set"`
-	// Date date
+	// date
 	Date *time.Time `gdao:"column=date"`
-	// Datetime datetime(3)
+	// datetime(3)
 	Datetime *time.Time `gdao:"column=datetime"`
-	// Timestamp timestamp
+	// timestamp
 	Timestamp *time.Time `gdao:"column=timestamp"`
-	// Year year
+	// year
 	Year *int64 `gdao:"column=year"`
-	// Binary binary
+	// binary
 	Binary []byte `gdao:"column=binary"`
-	// Varbinary varbinary(255)
+	// varbinary(255)
 	Varbinary []byte `gdao:"column=varbinary"`
-	// Geometry geometry
+	// geometry
 	Geometry []byte `gdao:"column=geometry"`
-	// Blob blob
+	// blob
 	Blob []byte `gdao:"column=blob"`
-	// Tinyblob tinyblob
+	// tinyblob
 	Tinyblob []byte `gdao:"column=tinyblob"`
-	// Mediumblob mediumblob
+	// mediumblob
 	Mediumblob []byte `gdao:"column=mediumblob"`
-	// Longblob longblob
+	// longblob
 	Longblob []byte `gdao:"column=longblob"`
-	// Numeric numeric
+	// numeric
 	Numeric *float64 `gdao:"column=numeric"`
-	// Integer integer
+	// integer
 	Integer *int32 `gdao:"column=integer"`
-	// Float float
+	// float
 	Float *float32 `gdao:"column=float"`
-	// Real real
+	// real
 	Real *float64 `gdao:"column=real"`
-	// Boolean boolean
-	Boolean *bool `gdao:"column=boolean"`
-	// Time
-	Time *string `gdao:"column=time"`
-	// Other2
-	Other2 *int64 `gdao:"column=other2"`
-	// Other3
-	Other3 []int32 `gdao:"column=other3"`
-	// Other4
-	Other4 pkg.MyMap `gdao:"column=other4"`
-	// Other5
-	Other5 pkg.MySlice `gdao:"column=other5"`
-	// Other6
-	Other6 pkg.MyStruct `gdao:"column=other6"`
-	// Other7
-	Other7 pkg.MyStruct2 `gdao:"column=other7"`
-	// Other8
-	Other8 pkg2.MyStruct3 `gdao:"column=other8"`
-	// Other9
-	Other9 pkg3.MyStruct4 `gdao:"column=other9"`
-	// Other10
+	// boolean
+	Boolean *bool          `gdao:"column=boolean"`
+	Time    *string        `gdao:"column=time"`
+	Other2  *int64         `gdao:"column=other2"`
+	Other3  []int32        `gdao:"column=other3"`
+	Other4  pkg.MyMap      `gdao:"column=other4"`
+	Other5  pkg.MySlice    `gdao:"column=other5"`
+	Other6  pkg.MyStruct   `gdao:"column=other6"`
+	Other7  pkg.MyStruct2  `gdao:"column=other7"`
+	Other8  pkg2.MyStruct3 `gdao:"column=other8"`
+	Other9  pkg3.MyStruct4 `gdao:"column=other9"`
 	Other10 pkg4.MyStruct5 `gdao:"column=other10"`
 }

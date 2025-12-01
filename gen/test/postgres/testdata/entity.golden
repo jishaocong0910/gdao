@@ -7,90 +7,89 @@ import "time"
 // TestTable postgres
 // table: test_table
 type TestTable struct {
-	// Smallserial smallserial
+	// smallserial
 	Smallserial *int16 `gdao:"column=smallserial;auto"`
-	// Serial serial
+	// serial
 	Serial *int32 `gdao:"column=serial;auto"`
-	// Bigserial bigserial
+	// bigserial
 	Bigserial *int64 `gdao:"column=bigserial;auto"`
-	// Bigint
-	Bigint *int64 `gdao:"column=bigint;auto"`
-	// Bit bit
+	Bigint    *int64 `gdao:"column=bigint;auto"`
+	// bit
 	Bit *string `gdao:"column=bit"`
-	// BitArying bit arying
+	// bit arying
 	BitArying *string `gdao:"column=bit_arying"`
-	// Boolean boolean
+	// boolean
 	Boolean []bool `gdao:"column=boolean"`
-	// Box box
+	// box
 	Box *string `gdao:"column=box"`
-	// Bytea bytea
+	// bytea
 	Bytea []byte `gdao:"column=bytea"`
-	// Character character
+	// character
 	Character *string `gdao:"column=character"`
-	// CharacterVarying character varying
+	// character varying
 	CharacterVarying *string `gdao:"column=character_varying"`
-	// Cidr cidr
+	// cidr
 	Cidr *string `gdao:"column=cidr"`
-	// Circle circle
+	// circle
 	Circle *string `gdao:"column=circle"`
-	// Date date
+	// date
 	Date *time.Time `gdao:"column=date"`
-	// DoublePrecision double precision
+	// double precision
 	DoublePrecision *float64 `gdao:"column=double_precision"`
-	// Inet inet
+	// inet
 	Inet *string `gdao:"column=inet"`
-	// Integer integer
+	// integer
 	Integer *int32 `gdao:"column=integer"`
-	// Interval interval
+	// interval
 	Interval *string `gdao:"column=interval"`
-	// Json json
+	// json
 	Json *string `gdao:"column=json"`
-	// Jsonb jsonb
+	// jsonb
 	Jsonb *string `gdao:"column=jsonb"`
-	// Line line
+	// line
 	Line *string `gdao:"column=line"`
-	// Lseg lseg
+	// lseg
 	Lseg *string `gdao:"column=lseg"`
-	// Macaddr macaddr
+	// macaddr
 	Macaddr *string `gdao:"column=macaddr"`
-	// Macaddr8 macaddr8
+	// macaddr8
 	Macaddr8 *string `gdao:"column=macaddr8"`
-	// Money money
+	// money
 	Money *float64 `gdao:"column=money"`
-	// Numeric numeric
+	// numeric
 	Numeric *float64 `gdao:"column=numeric"`
-	// Path path
+	// path
 	Path *string `gdao:"column=path"`
-	// PgLsn pg_lsn
+	// pg_lsn
 	PgLsn *string `gdao:"column=pg_lsn"`
-	// PgSnapshot pg_snapshot
+	// pg_snapshot
 	PgSnapshot *string `gdao:"column=pg_snapshot"`
-	// Point point
+	// point
 	Point *string `gdao:"column=point"`
-	// Polygon polygon
+	// polygon
 	Polygon *string `gdao:"column=polygon"`
-	// Real real
+	// real
 	Real *float32 `gdao:"column=real"`
-	// Smallint smallint
+	// smallint
 	Smallint *int16 `gdao:"column=smallint"`
-	// Text text
+	// text
 	Text *string `gdao:"column=text"`
-	// Time time
+	// time
 	Time *time.Time `gdao:"column=time"`
-	// TimeWithTimeZone time with time zone
+	// time with time zone
 	TimeWithTimeZone *time.Time `gdao:"column=time_with_time_zone"`
-	// Timestamp timestamp
+	// timestamp
 	Timestamp *time.Time `gdao:"column=timestamp"`
-	// TimestampWithTimeZone timestamp with time zone
+	// timestamp with time zone
 	TimestampWithTimeZone *time.Time `gdao:"column=timestamp_with_time_zone"`
-	// Tsquery tsquery
+	// tsquery
 	Tsquery *string `gdao:"column=tsquery"`
-	// Tsvector tsvector
+	// tsvector
 	Tsvector *string `gdao:"column=tsvector"`
-	// TxidSnapshot txid_snapshot
+	// txid_snapshot
 	TxidSnapshot *string `gdao:"column=txid_snapshot"`
-	// Uuid uuid
+	// uuid
 	Uuid *string `gdao:"column=uuid"`
-	// Xml xml
+	// xml
 	Xml *string `gdao:"column=xml"`
 }
