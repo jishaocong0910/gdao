@@ -7,60 +7,58 @@ import "time"
 // TestTable oracle
 // table: TEST_TABLE
 type TestTable struct {
-	// Char
 	Char *string `gdao:"column=char"`
-	// Char2 char_2
+	// char_2
 	Char2 *bool `gdao:"column=char_2"`
-	// Char3 char_3
+	// char_3
 	Char3 *bool `gdao:"column=char_3"`
-	// Varchar2 varchar2
+	// varchar2
 	Varchar2 *string `gdao:"column=varchar2"`
-	// Varchar22 varchar2_2
+	// varchar2_2
 	Varchar22 *bool `gdao:"column=varchar2_2"`
-	// Varchar23 varchar2_3
+	// varchar2_3
 	Varchar23 *bool `gdao:"column=varchar2_3"`
-	// Varchar1 varchar1
+	// varchar1
 	Varchar1 *string `gdao:"column=varchar1"`
-	// Varchar12 varchar1_2
+	// varchar1_2
 	Varchar12 *bool `gdao:"column=varchar1_2"`
-	// Varchar13 varchar1_3
+	// varchar1_3
 	Varchar13 *string `gdao:"column=varchar1_3"`
-	// Clob clob
+	// clob
 	Clob *string `gdao:"column=clob"`
-	// Nclob nclob
+	// nclob
 	Nclob *string `gdao:"column=nclob"`
-	// Nchar nchar
+	// nchar
 	Nchar *string `gdao:"column=nchar"`
-	// Nvarchar2 nvarchar2
+	// nvarchar2
 	Nvarchar2 *string `gdao:"column=nvarchar2"`
-	// Number number
+	// number
 	Number *int64 `gdao:"column=number"`
-	// Number2 number_2
+	// number_2
 	Number2 *int64 `gdao:"column=number_2"`
-	// Number3 number_3
+	// number_3
 	Number3 *float64 `gdao:"column=number_3"`
-	// Float float
+	// float
 	Float *float64 `gdao:"column=float"`
-	// BinaryFloat binary_float
+	// binary_float
 	BinaryFloat *float32 `gdao:"column=binary_float"`
-	// BinaryDouble binary_double
+	// binary_double
 	BinaryDouble *float64 `gdao:"column=binary_double"`
-	// Date date
+	// date
 	Date *time.Time `gdao:"column=date"`
-	// Timestamp timestamp
+	// timestamp
 	Timestamp *time.Time `gdao:"column=timestamp"`
-	// TimestampWithTimeZone timestamp_with_time_zone
+	// timestamp_with_time_zone
 	TimestampWithTimeZone *time.Time `gdao:"column=timestamp_with_time_zone"`
-	// TimestampWithLocalTimeZone timestamp_with_local_time_zone
+	// timestamp_with_local_time_zone
 	TimestampWithLocalTimeZone *time.Time `gdao:"column=timestamp_with_local_time_zone"`
-	// Blob blob
+	// blob
 	Blob []byte `gdao:"column=blob"`
-	// Raw raw
+	// raw
 	Raw []byte `gdao:"column=raw"`
-	// LongRaw long_raw
+	// long_raw
 	LongRaw []byte `gdao:"column=long_raw"`
-	// Rowid rowid
-	Rowid *string `gdao:"column=rowid"`
-	// Urowid
+	// rowid
+	Rowid  *string `gdao:"column=rowid"`
 	Urowid *string `gdao:"column=urowid"`
 }

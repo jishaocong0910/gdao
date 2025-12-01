@@ -14,7 +14,9 @@ import (
 // table: {{.Table}}
 type {{.EntityName}} struct {
 {{- range $f := .Fields}}
-	// {{$f.FieldName}}{{if ne $f.Comment ""}} {{$f.Comment}}{{end}}
+	{{- if ne $f.Comment ""}}
+	// {{$f.Comment}}
+	{{- end}}
 	{{- if or $f.IsNotNull $f.HasDefaultValue}}
 	//{{if $f.IsNotNull}} not_null{{end}}{{if $f.HasDefaultValue}} has_default_value{{end}}
 	{{- end}}
