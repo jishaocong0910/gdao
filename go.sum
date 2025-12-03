@@ -77,8 +77,8 @@ github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a h1:bbPeKD0xmW/
 github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a/go.mod h1:5TJZWKEWniPve33vlWYSoGYefn3gLQRzjfDlhSJ9ZKM=
 github.com/jackc/pgx/v5 v5.5.4 h1:Xp2aQS8uXButQdnCMWNmvx6UysWQQC+u1EoizjguY+8=
 github.com/jackc/pgx/v5 v5.5.4/go.mod h1:ez9gk+OAat140fv9ErkZDYFWmXLfV+++K0uAOiwgm1A=
-github.com/jishaocong0910/enum v1.0.2 h1:3PlcwcbPScKv0wQX9pKEhdArvjhbqaGUsunnwa2KNG8=
-github.com/jishaocong0910/enum v1.0.2/go.mod h1:U+q+LG127pwJVAoPZHRw34t0cEWU4C+qPMfcT2K2hQw=
+github.com/jishaocong0910/enum v1.0.4 h1:zcPq7as2gu0JnJDTs1CZD4sVyQAjt4zwm/6Oy+6nWgk=
+github.com/jishaocong0910/enum v1.0.4/go.mod h1:U+q+LG127pwJVAoPZHRw34t0cEWU4C+qPMfcT2K2hQw=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kisielk/sqlstruct v0.0.0-20201105191214-5f3e10d3ab46/go.mod h1:yyMNCyc/Ib3bDTKd379tNMpB/7/H5TjM2Y9QJ5THLbE=

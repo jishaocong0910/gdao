@@ -118,7 +118,7 @@ var daoNameMapper = gdao.NewNameMapper().UpperCamelCase()
 var entityFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
 var daoFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
 
-var pkgNameRegex = regexp.MustCompile(`^([a-zA-Z]\w*[a-zA-Z_])(\d*)$`)
+var pkgNameRegex = regexp.MustCompile(`^([a-zA-Z_]\w*[a-zA-Z_])(\d*)$`)
 
 type mapping struct {
 	t  any
