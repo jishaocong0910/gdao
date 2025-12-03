@@ -56,7 +56,7 @@ func printSql(ctx context.Context, logLevel LogLevel, desc string, sql string, a
 	if logLevel.IsUndefined() {
 		logLevel = global.LogLevel
 	}
-	if LogLevel_.Not(logLevel, LogLevel_.DEBUG, LogLevel_.INFO) { // coverage-ignore
+	if logLevel.Not(LogLevel_.DEBUG, LogLevel_.INFO) { // coverage-ignore
 		return
 	}
 	var msg strings.Builder
