@@ -40,103 +40,62 @@ func (this *sqliteGenerator) getBaseDaoTemplate() string {
 
 func (this *sqliteGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
-		exists       bool
-		fields       []fieldTplParam
-		tableComment string
+		exists  bool
+		pkCount int
+		fields  []fieldTplParam
 	)
 
-	exists, st := this.getSqlTokenizer(table)
-	if !exists || !(st.nextUntilDelimiterAndToken("(") && st.nextToken()) { // coverage-ignore
-		return nil, "", errors.New("\"" + table + "\" is not exists")
-	}
-
-	for {
-		if st.token == ")" || st.token == "" {
-			break
-		}
-		if strings.ToUpper(st.token) == "PRIMARY" { // coverage-ignore
-			if st.nextUntilDelimiterAndToken("(") && st.nextToken() {
-				primaryKeycolumn := st.token
-				for st.nextDelimiterAndToken() {
-					if st.token == ")" {
-						break
-					}
-					if !st.tokenIsDelimiter {
-						primaryKeycolumn = ""
-						break
-					}
-				}
-				if primaryKeycolumn != "" {
-					for _, f := range fields {
-						if f.Column == primaryKeycolumn {
-							f.IsAutoIncrement = true
-						}
-					}
-				}
-			}
-			break
-		}
-
+	rows := mustReturn(this.db.Query("PRAGMA table_info(" + table + ")"))
+	defer rows.Close()
+	for rows.Next() {
+		exists = true
 		var (
-			fieldType string
-
-			column          string
-			dataType        string
+			fieldType       string
+			hasDefaultValue bool
 			isAutoIncrement bool
-			comment         string
+			// 扫描的字段
+			column    string
+			dataType  string
+			isNotNull bool
+			dfltValue *any
+			pk        int
 		)
-		column = st.token
-		st.nextToken()
-		dataType = strings.ToUpper(st.token)
 
-		if dataType == "UNSIGNED" {
-			st.nextToken()
-			dataType = strings.ToUpper(st.token)
+		must(rows.Scan(new(any), &column, &dataType, &isNotNull, &dfltValue, &pk))
+		dataType = strings.ToUpper(dataType)
+		hasDefaultValue = dfltValue != nil
+		if pk != 0 {
+			isAutoIncrement = true
+			pkCount++
+		}
+		if strings.HasPrefix(dataType, "DECIMAL") {
+			dataType = "DECIMAL"
 		}
 
 		fieldType = "any"
 		switch dataType {
-		case "INTEGER", "INT", "TINYINT", "SMALLINT", "MEDIUMINT", "BIGINT", "UNSIGNED BIG INT", "INT2", "INT8", "TINY", "SMALL", "MEDIUM", "BIG":
+		case "TINYINT", "INT8":
+			fieldType = "*int8"
+		case "SMALLINT", "INT2":
+			fieldType = "*int16"
+		case "MEDIUM INT", "INTEGER", "INT":
+			fieldType = "*int32"
+		case "BIGINT":
 			fieldType = "*int64"
-		case "REAL", "NUMERIC", "DOUBLE", "FLOAT", "DECIMAL":
+		case "UNSIGNED INT", "UNSIGNED INTEGER":
+			fieldType = "*uint32"
+		case "UNSIGNED BIG INT":
+			fieldType = "*uint64"
+		case "REAL", "NUMERIC", "DOUBLE", "DOUBLE PRECISION", "FLOAT", "DECIMAL":
 			fieldType = "*float64"
 		case "BOOLEAN":
 			fieldType = "*bool"
-		case "DATE", "DATETIME":
+		case "DATETIME", "TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "TIME WITH TIME ZONE":
 			fieldType = "*time.Time"
-		case "TEXT", "CHARACTER", "VARCHAR", "VARYING", "NCHAR", "NATIVE", "NVARCHAR", "CLOB":
+		case "TIME", "DATE", "TEXT", "CHARACTER", "VARCHAR", "VARYING CHARACTER", "VARYING", "NCHAR", "NATIVE CHARACTER", "NVARCHAR", "CLOB":
 			fieldType = "*string"
 		case "BLOB":
 			fieldType = "[]byte"
-		}
-
-		for st.nextDelimiterAndToken(); ; {
-			if st.token == "(" {
-				st.nextUntilDelimiterAndToken(")")
-				if !st.nextDelimiterAndToken() { // coverage-ignore
-					break
-				}
-			} else if strings.ToUpper(st.token) == "PRIMARY" {
-				isAutoIncrement = true
-				if !st.nextDelimiterAndToken() { // coverage-ignore
-					break
-				}
-			} else if st.token == "," {
-				st.nextToken()
-				if st.token == "--" {
-					comment = this.nextComment(st)
-					st.nextToken()
-				}
-				break
-			} else if st.token == "--" {
-				comment = this.nextComment(st)
-				st.nextToken()
-				break
-			} else if st.token == ")" {
-				break
-			} else if !st.nextDelimiterAndToken() {
-				break
-			}
 		}
 
 		f := fieldTplParam{
@@ -144,50 +103,21 @@ func (this *sqliteGenerator) getTableInfo(table string) ([]fieldTplParam, string
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,
 			IsAutoIncrement: isAutoIncrement,
-			Comment:         comment,
+			IsNotNull:       isNotNull,
+			HasDefaultValue: hasDefaultValue,
 			Valid:           fieldType != "any",
 		}
 		fields = append(fields, f)
 	}
-
-	st.reset()
-	for {
-		if st.token == "(" || st.token == "--" {
-			break
-		}
-		if !st.nextDelimiterAndToken() { // coverage-ignore
-			break
+	if pkCount > 1 {
+		for _, field := range fields {
+			field.IsAutoIncrement = false
 		}
 	}
-	tableComment = this.nextComment(st)
-	return fields, tableComment, nil
-}
-
-func (this *sqliteGenerator) getSqlTokenizer(table string) (bool, *stringTokenizer) {
-	rows := mustReturn(this.db.Query("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", table))
-	defer rows.Close()
-	if !rows.Next() { // coverage-ignore
-		return false, nil
+	if !exists {
+		return nil, "", errors.New("\"" + table + "\" is not exists")
 	}
-	var sql string
-	must(rows.Scan(&sql))
-	return true, newStringTokenizer(sql, []rune{' ', '\t', '\n', ',', '(', ')'})
-}
-
-func (this *sqliteGenerator) nextComment(st *stringTokenizer) string {
-	if st.token != "--" { // coverage-ignore
-		return ""
-	}
-	begin := st.pos + 1
-	for {
-		if st.token == "\n" {
-			break
-		}
-		if !st.nextDelimiterAndToken() { // coverage-ignore
-			break
-		}
-	}
-	return string(st.chars[begin : st.pos-1])
+	return fields, "", nil
 }
 
 func newSqliteGenerator(c GenCfg) *sqliteGenerator {

@@ -4,59 +4,35 @@ package entity
 
 import "time"
 
-// TestTable table comment
+// TestTable
 // table: test_table
 type TestTable struct {
-	// auto_increment
-	AutoIncrement *int64 `gdao:"column=auto_increment;auto"`
-	Int           *int64 `gdao:"column=int"`
-	// tinyint
-	Tinyint  *int64 `gdao:"column=tinyint"`
-	Smallint *int64 `gdao:"column=smallint"`
-	// mediumint
-	Mediumint *int64 `gdao:"column=mediumint"`
-	// bigint
-	Bigint *int64 `gdao:"column=bigint"`
-	// unsigned big int
-	UnsignedBigInt *int64 `gdao:"column=unsigned_big_int"`
-	// int2
-	Int2 *int64 `gdao:"column=int2"`
-	// int8
-	Int8 *int64 `gdao:"column=int8"`
-	// real
-	Real *float64 `gdao:"column=real"`
-	// numeric
-	Numeric *float64 `gdao:"column=numeric"`
-	// double
-	Double *float64 `gdao:"column=double"`
-	// double precision
-	DoublePrecision *float64 `gdao:"column=double_precision"`
-	// float
-	Float *float64 `gdao:"column=float"`
-	// decimal
-	Decimal *float64 `gdao:"column=decimal"`
-	// boolean[]
-	Boolean *bool `gdao:"column=boolean"`
-	// date
-	Date *time.Time `gdao:"column=date"`
-	// datetime
-	Datetime *time.Time `gdao:"column=datetime"`
-	// text
-	Text *string `gdao:"column=text"`
-	// character
-	Character *string `gdao:"column=character"`
-	// varchar
-	Varchar *string `gdao:"column=varchar"`
-	// varying character
-	VaryingCharacter *string `gdao:"column=varying_character"`
-	// nchar
-	Nchar *string `gdao:"column=nchar"`
-	// native character
-	NativeCharacter *string `gdao:"column=native_character"`
-	// nvarchar
-	Nvarchar *string `gdao:"column=nvarchar"`
-	// clob
-	Clob *string `gdao:"column=clob"`
-	// blob
-	Blob []byte `gdao:"column=blob"`
+	// not_null
+	AutoIncrement    *int32     `gdao:"column=auto_increment;auto"`
+	Int              *int32     `gdao:"column=int"`
+	Tinyint          *int8      `gdao:"column=tinyint"`
+	Smallint         *int16     `gdao:"column=smallint"`
+	Mediumint        *int32     `gdao:"column=mediumint"`
+	Bigint           *int64     `gdao:"column=bigint"`
+	UnsignedBigInt   *uint64    `gdao:"column=unsigned_big_int"`
+	Int2             *int16     `gdao:"column=int2"`
+	Int8             *int8      `gdao:"column=int8"`
+	Real             *float64   `gdao:"column=real"`
+	Numeric          *float64   `gdao:"column=numeric"`
+	Double           *float64   `gdao:"column=double"`
+	DoublePrecision  *float64   `gdao:"column=double_precision"`
+	Float            *float64   `gdao:"column=float"`
+	Decimal          *float64   `gdao:"column=decimal"`
+	Boolean          *bool      `gdao:"column=boolean"`
+	Date             *string    `gdao:"column=date"`
+	Datetime         *time.Time `gdao:"column=datetime"`
+	Text             *string    `gdao:"column=text"`
+	Character        *string    `gdao:"column=character"`
+	Varchar          *string    `gdao:"column=varchar"`
+	VaryingCharacter *string    `gdao:"column=varying_character"`
+	Nchar            *string    `gdao:"column=nchar"`
+	NativeCharacter  *string    `gdao:"column=native_character"`
+	Nvarchar         *string    `gdao:"column=nvarchar"`
+	Clob             *string    `gdao:"column=clob"`
+	Blob             []byte     `gdao:"column=blob"`
 }

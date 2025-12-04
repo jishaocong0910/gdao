@@ -46,21 +46,23 @@ func (this *oracleGenerator) getTableInfo(table string) ([]fieldTplParam, string
 		tableComment string
 	)
 
-	rows := mustReturn(this.db.Query(`SELECT c.column_name, c.data_type, c.data_precision , c.data_scale , c.char_length, c2.comments FROM user_tab_columns c LEFT JOIN user_col_comments c2 ON c.table_name =c2.table_name AND c.COLUMN_NAME =c2.COLUMN_NAME WHERE c.table_name = :1 ORDER BY c.column_id`, strings.ToUpper(table)))
+	rows := mustReturn(this.db.Query(`SELECT c.column_name, c.data_type, c.data_precision, c.data_scale, c.char_length, c.nullable = 'N', c.data_default IS NOT NULL, c2.comments FROM user_tab_columns c LEFT JOIN user_col_comments c2 ON c.table_name =c2.table_name AND c.COLUMN_NAME =c2.COLUMN_NAME WHERE c.table_name = :1 ORDER BY c.column_id`, strings.ToUpper(table)))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
 		var (
 			fieldType string
-
-			column     string
-			dataType   string
-			precision  *int
-			scale      *int
-			charLength int
-			comment    *string
+			// 扫描的字段
+			column          string
+			dataType        string
+			precision       *int
+			scale           *int
+			charLength      int
+			isNotNull       bool
+			hasDefaultValue bool
+			comment         *string
 		)
-		must(rows.Scan(&column, &dataType, &precision, &scale, &charLength, &comment))
+		must(rows.Scan(&column, &dataType, &precision, &scale, &charLength, &isNotNull, &hasDefaultValue, &comment))
 		dataType = strings.ToUpper(dataType)
 		if strings.HasPrefix(dataType, "TIMESTAMP") {
 			dataType = "TIMESTAMP"
@@ -95,11 +97,13 @@ func (this *oracleGenerator) getTableInfo(table string) ([]fieldTplParam, string
 		}
 
 		f := fieldTplParam{
-			Column:    column,
-			FieldName: fieldNameMapper.Convert(column),
-			FieldType: fieldType,
-			Comment:   *comment,
-			Valid:     fieldType != "any",
+			Column:          column,
+			FieldName:       fieldNameMapper.Convert(column),
+			FieldType:       fieldType,
+			IsNotNull:       isNotNull,
+			HasDefaultValue: hasDefaultValue,
+			Comment:         *comment,
+			Valid:           fieldType != "any",
 		}
 		fields = append(fields, f)
 	}

@@ -48,28 +48,37 @@ func (g postgresGenerator) getTableInfo(table string) ([]fieldTplParam, string, 
 		tableComment string
 	)
 
-	rows := mustReturn(g.db.Query("SELECT i.column_name,i.udt_name,i.is_identity,i.column_default,p.attndims,p.description FROM information_schema.columns i JOIN (SELECT n.nspname,c.relname,a.attname,a.attndims,d.description FROM pg_namespace n JOIN pg_class c ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid LEFT JOIN pg_description d ON d.objoid = c.oid AND d.objsubid = a.attnum WHERE a.attnum > 0 AND NOT a.attisdropped) p ON p.nspname=i.table_schema and p.relname=i.table_name and p.attname=i.column_name WHERE i.table_catalog = $1 AND i.table_schema = $2 AND i.table_name = $3 ORDER BY i.ordinal_position", g.database, g.schema, table))
+	rows := mustReturn(g.db.Query("SELECT i.column_name,i.udt_name,i.is_identity,i.is_nullable='NO',i.column_default,p.attndims,p.description FROM information_schema.columns i JOIN (SELECT n.nspname,c.relname,a.attname,a.attndims,d.description FROM pg_namespace n JOIN pg_class c ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid LEFT JOIN pg_description d ON d.objoid = c.oid AND d.objsubid = a.attnum WHERE a.attnum > 0 AND NOT a.attisdropped) p ON p.nspname=i.table_schema and p.relname=i.table_name and p.attname=i.column_name WHERE i.table_catalog = $1 AND i.table_schema = $2 AND i.table_name = $3 ORDER BY i.ordinal_position", g.database, g.schema, table))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
 		var (
-			fieldType string
-
-			column          string
-			udtName         string
-			isIdentity      string
-			columnDefault   *string
-			attndims        int
-			description     *string
+			fieldType       string
+			hasDefaultValue bool
 			isAutoIncrement bool
+			// 扫描的字段
+			column        string
+			udtName       string
+			isIdentity    string
+			isNotNull     bool
+			columnDefault *string
+			attndims      int
+			description   *string
 		)
-		must(rows.Scan(&column, &udtName, &isIdentity, &columnDefault, &attndims, &description))
+		must(rows.Scan(&column, &udtName, &isIdentity, &isNotNull, &columnDefault, &attndims, &description))
 		if description == nil {
 			description = gdao.P("")
 		}
 
-		if strings.EqualFold(isIdentity, "YES") || (columnDefault != nil && strings.HasPrefix(*columnDefault, "nextval(")) {
+		if strings.EqualFold(isIdentity, "YES") {
 			isAutoIncrement = true
+		}
+		if columnDefault != nil {
+			if strings.HasPrefix(*columnDefault, "nextval(") {
+				isAutoIncrement = true
+			} else {
+				hasDefaultValue = true
+			}
 		}
 
 		if udtName[:1] == "_" {
@@ -108,6 +117,8 @@ func (g postgresGenerator) getTableInfo(table string) ([]fieldTplParam, string, 
 			Column:          column,
 			FieldName:       fieldNameMapper.Convert(column),
 			FieldType:       fieldType,
+			IsNotNull:       isNotNull,
+			HasDefaultValue: hasDefaultValue,
 			Comment:         *description,
 			Valid:           fieldType != "any",
 			IsAutoIncrement: isAutoIncrement,
