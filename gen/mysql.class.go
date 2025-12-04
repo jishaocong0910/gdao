@@ -52,7 +52,7 @@ func (this *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string,
 		exists = true
 		var (
 			fieldType string
-
+			// 扫描的字段
 			column          string
 			dataType        string
 			columnType      string

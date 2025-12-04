@@ -1,10 +1,10 @@
 CREATE TABLE test_table
 (
-    tinyint          tinyint,
-    smallint         smallint,
+    tinyint          tinyint DEFAULT 1,
+    smallint         smallint NOT NULL DEFAULT 1,
     int              int IDENTITY(4,2),
     bigint           bigint,
-    bit              bit,
+    bit              bit NOT NULL,
     decimal          decimal,
     numeric          numeric,
     money            money,

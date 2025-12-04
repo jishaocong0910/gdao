@@ -13,10 +13,13 @@ type TestTable struct {
 	// char_3
 	Char3 *bool `gdao:"column=char_3"`
 	// varchar2
+	// not_null has_default_value
 	Varchar2 *string `gdao:"column=varchar2"`
 	// varchar2_2
+	// has_default_value
 	Varchar22 *bool `gdao:"column=varchar2_2"`
 	// varchar2_3
+	// not_null
 	Varchar23 *bool `gdao:"column=varchar2_3"`
 	// varchar1
 	Varchar1 *string `gdao:"column=varchar1"`

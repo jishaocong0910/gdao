@@ -46,19 +46,21 @@ func (g sqlServerGenerator) getTableInfo(table string) ([]fieldTplParam, string,
 		tableComment string
 	)
 
-	rows := mustReturn(g.db.Query("SELECT B.name, C.increment_value, D.data_type, E.value AS comment FROM sys.tables A LEFT JOIN sys.columns B ON A.object_id = B.object_id LEFT JOIN sys.identity_columns C ON A.object_id =C.object_id and B.name=C.name LEFT JOIN information_schema.columns D ON B.name = D.column_name LEFT JOIN sys.extended_properties E ON B.object_id = E.major_id AND B.column_id = E.minor_id WHERE A.name = :1 AND D.table_name = :2 ORDER BY D.ordinal_position", table, table))
+	rows := mustReturn(g.db.Query("SELECT B.name, C.increment_value, D.data_type, CASE D.is_nullable WHEN 'NO' THEN 1 ELSE 0 END AS is_notnull, CASE WHEN D.column_default IS NOT NULL THEN 1 ELSE 0 END AS has_default, E.value AS comment FROM sys.tables A LEFT JOIN sys.columns B ON A.object_id = B.object_id LEFT JOIN sys.identity_columns C ON A.object_id =C.object_id and B.name=C.name LEFT JOIN information_schema.columns D ON B.name = D.column_name LEFT JOIN sys.extended_properties E ON B.object_id = E.major_id AND B.column_id = E.minor_id WHERE A.name = :1 AND D.table_name = :2 ORDER BY D.ordinal_position", table, table))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
 		var (
 			fieldType string
-
-			column         string
-			dataType       string
-			comment        *string
-			incrementValue *int
+			// 扫描的字段
+			column          string
+			dataType        string
+			isNotNull       bool
+			hasDefaultValue bool
+			comment         *string
+			incrementValue  *int
 		)
-		must(rows.Scan(&column, &incrementValue, &dataType, &comment))
+		must(rows.Scan(&column, &incrementValue, &dataType, &isNotNull, &hasDefaultValue, &comment))
 		dataType = strings.ToLower(dataType)
 		if comment == nil {
 			comment = gdao.P("")
@@ -95,6 +97,8 @@ func (g sqlServerGenerator) getTableInfo(table string) ([]fieldTplParam, string,
 			Column:            column,
 			FieldName:         fieldNameMapper.Convert(column),
 			FieldType:         fieldType,
+			IsNotNull:         isNotNull,
+			HasDefaultValue:   hasDefaultValue,
 			Comment:           *comment,
 			Valid:             fieldType != "any",
 			IsAutoIncrement:   *incrementValue > 0,
