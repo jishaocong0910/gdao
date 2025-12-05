@@ -26,11 +26,11 @@ type list[T any] struct {
 	// specify the columns which in the select column list, default is all columns.
 	sel []string
 	// conditions of the where clause，create by function And, Or and Not.
-	condition Cond
+	cond Cond
 	// ORDER BY clause，create by function OrderBy.
-	orderBy *orderBy
+	odrBy *OdrBy
 	// paging query，create by function Page.
-	page *page
+	paging *Paging
 	// FOR UPDATE clause
 	forUpdate bool
 }
@@ -61,17 +61,17 @@ func (l *list[T]) Select(sel ...string) *list[T] {
 }
 
 func (l *list[T]) Condition(cond Cond) *list[T] {
-	l.condition = cond
+	l.cond = cond
 	return l
 }
 
-func (l *list[T]) Orderby(orderBy *orderBy) *list[T] {
-	l.orderBy = orderBy
+func (l *list[T]) OrderBy(odrBy *OdrBy) *list[T] {
+	l.odrBy = odrBy
 	return l
 }
 
-func (l *list[T]) Page(page *page) *list[T] {
-	l.page = page
+func (l *list[T]) Page(paging *Paging) *list[T] {
+	l.paging = paging
 	return l
 }
 
@@ -83,20 +83,20 @@ func (l *list[T]) ForUpdate(forUpdate bool) *list[T] {
 func (l *list[T]) Do() ([]*T, error) {
 	_, list, err := l.dao.Query().Ctx(l.ctx).Must(l.must).LogLevel(l.logLevel).Desc(l.desc).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("SELECT ").WriteColumns(l.sel...).Write(" FROM ").Write(l.dao.table)
-		if l.condition != nil && l.condition.len() > 0 {
+		if l.cond != nil && l.cond.len() > 0 {
 			b.Write(" WHERE ")
-			l.condition.write(l.dao.NameMap(), b.BaseSqlBuilder)
+			l.cond.write(l.dao.NameMap(), b.BaseSqlBuilder)
 		}
-		if l.orderBy != nil {
-			l.orderBy.write(l.dao.NameMap(), b.BaseSqlBuilder)
+		if l.odrBy != nil {
+			l.odrBy.write(l.dao.NameMap(), b.BaseSqlBuilder)
 		}
-		if l.page != nil {
+		if l.paging != nil {
 			b.Write(" LIMIT ")
-			if l.page.offset > 0 {
-				b.Write(strconv.FormatInt(int64(l.page.offset), 10))
+			if l.paging.offset > 0 {
+				b.Write(strconv.FormatInt(int64(l.paging.offset), 10))
 				b.Write(", ")
 			}
-			b.Write(strconv.FormatInt(int64(l.page.pageSize), 10))
+			b.Write(strconv.FormatInt(int64(l.paging.pageSize), 10))
 		}
 		if l.forUpdate {
 			b.Write(" FOR UPDATE")
@@ -119,9 +119,9 @@ type get[T any] struct {
 	// specify the columns which in the select column list, default is all columns.
 	sel []string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	condition Cond
+	cond Cond
 	// ORDER BY clause，create by function OrderBy.
-	orderBy *orderBy
+	odrBy *OdrBy
 	// FOR UPDATE clause
 	forUpdate bool
 	// must return one row, default is false
@@ -154,12 +154,12 @@ func (g *get[T]) Select(sel ...string) *get[T] {
 }
 
 func (g *get[T]) Condition(cond Cond) *get[T] {
-	g.condition = cond
+	g.cond = cond
 	return g
 }
 
-func (g *get[T]) Orderby(orderBy *orderBy) *get[T] {
-	g.orderBy = orderBy
+func (g *get[T]) OrderBy(odrBy *OdrBy) *get[T] {
+	g.odrBy = odrBy
 	return g
 }
 
@@ -175,7 +175,7 @@ func (g *get[T]) CheckOne(checkOne bool) *get[T] {
 
 func (g *get[T]) Do() (*T, error) {
 	list, err := g.dao.List().Ctx(g.ctx).Must(g.must).LogLevel(g.logLevel).Desc(g.desc).
-		Select(g.sel...).Condition(g.condition).Orderby(g.orderBy).ForUpdate(g.forUpdate).Do()
+		Select(g.sel...).Condition(g.cond).OrderBy(g.odrBy).ForUpdate(g.forUpdate).Do()
 	if len(list) == 0 { // coverage-ignore
 		return nil, err
 	}
@@ -209,8 +209,8 @@ type insert[T any] struct {
 	ignore []string
 	// INSERT IGNORE ...
 	insertIgnore bool
-	// INSERT ... ON DUPLICATE KEY UPDATE, create by function OnDuplKeyUpd
-	onDuplicateKeyUpdate *onDuplKeyUpd
+	// INSERT ... ON DUPLICATE KEY UPDATE, create by function OnDuplicateKey
+	onDuplKey *OnDuplKey
 }
 
 func (i *insert[T]) Ctx(ctx context.Context) *insert[T] { // coverage-ignore
@@ -258,14 +258,14 @@ func (i *insert[T]) InsertIgnore(insertIgnore bool) *insert[T] {
 	return i
 }
 
-func (i *insert[T]) OnDuplicateKeyUpdate(onDuplicateKeyUpdate *onDuplKeyUpd) *insert[T] {
-	i.onDuplicateKeyUpdate = onDuplicateKeyUpdate
+func (i *insert[T]) OnDuplicateKey(onDuplKey *OnDuplKey) *insert[T] {
+	i.onDuplKey = onDuplKey
 	return i
 }
 
 func (i *insert[T]) Do() (int64, error) {
 	return i.dao.InsertBatch().Ctx(i.ctx).Must(i.must).LogLevel(i.logLevel).Desc(i.desc).Entities(i.entity).All(i.all).
-		SetNull(i.setNull...).Ignore(i.ignore...).InsertIgnore(i.insertIgnore).OnDuplicateKeyUpdate(i.onDuplicateKeyUpdate).Do()
+		SetNull(i.setNull...).Ignore(i.ignore...).InsertIgnore(i.insertIgnore).OnDuplicateKey(i.onDuplKey).Do()
 }
 
 type insertBatch[T any] struct {
@@ -289,8 +289,8 @@ type insertBatch[T any] struct {
 	ignore []string
 	// INSERT IGNORE ...
 	insertIgnore bool
-	// INSERT ... ON DUPLICATE KEY UPDATE, create by function OnDuplKeyUpd
-	onDuplicateKeyUpdate *onDuplKeyUpd
+	// INSERT ... ON DUPLICATE KEY UPDATE, create by function OnDuplicateKey
+	onDuplKey *OnDuplKey
 }
 
 func (ib *insertBatch[T]) Ctx(ctx context.Context) *insertBatch[T] {
@@ -338,8 +338,8 @@ func (ib *insertBatch[T]) InsertIgnore(insertIgnore bool) *insertBatch[T] {
 	return ib
 }
 
-func (ib *insertBatch[T]) OnDuplicateKeyUpdate(onDuplicateKeyUpdate *onDuplKeyUpd) *insertBatch[T] {
-	ib.onDuplicateKeyUpdate = onDuplicateKeyUpdate
+func (ib *insertBatch[T]) OnDuplicateKey(onDuplKey *OnDuplKey) *insertBatch[T] {
+	ib.onDuplKey = onDuplKey
 	return ib
 }
 
@@ -392,8 +392,8 @@ func (ib *insertBatch[T]) Do() (int64, error) {
 			b.Write(")")
 		})
 
-		if ib.onDuplicateKeyUpdate != nil {
-			ib.onDuplicateKeyUpdate.write(ib.dao.NameMap(), b.BaseSqlBuilder)
+		if ib.onDuplKey != nil {
+			ib.onDuplKey.write(ib.dao.NameMap(), b.BaseSqlBuilder)
 		}
 	}).Do()
 }
@@ -420,7 +420,7 @@ type update[T any] struct {
 	// specify the non-nil fields in the entity used as conditions.
 	where []string
 	// conditions of the WHERE clause，create by function And, Or and Not..
-	condition Cond
+	cond Cond
 }
 
 func (u *update[T]) Ctx(ctx context.Context) *update[T] { // coverage-ignore
@@ -469,7 +469,7 @@ func (u *update[T]) Where(where ...string) *update[T] {
 }
 
 func (u *update[T]) Condition(cond Cond) *update[T] {
-	u.condition = cond
+	u.cond = cond
 	return u
 }
 
@@ -512,7 +512,7 @@ func (u *update[T]) Do() (int64, error) {
 				}
 			}, u.where...)
 		}
-		cond.addCond(u.condition)
+		cond.addCond(u.cond)
 		if cond.len() > 0 {
 			b.Write(" WHERE ")
 			cond.write(u.dao.NameMap(), b.BaseSqlBuilder)
@@ -539,10 +539,10 @@ type updateBatch[T any] struct {
 	setNull []string
 	// specify the columns which don't be set
 	ignore []string
-	// specify the column which used as a condition.
+	// specify the column which used as a cond.
 	where string
 	// conditions of the WHERE clause，create by function And, Or and Not..
-	condition Cond
+	cond Cond
 }
 
 func (u *updateBatch[T]) Ctx(ctx context.Context) *updateBatch[T] { // coverage-ignore
@@ -591,7 +591,7 @@ func (u *updateBatch[T]) Where(where string) *updateBatch[T] {
 }
 
 func (u *updateBatch[T]) Condition(cond Cond) *updateBatch[T] {
-	u.condition = cond
+	u.cond = cond
 	return u
 }
 
@@ -635,7 +635,7 @@ func (u *updateBatch[T]) Do() (int64, error) {
 			whereColumnValues = append(whereColumnValues, b.ColumnValue(entity, u.where))
 		})
 		cond.In(u.where, InArgs(whereColumnValues...))
-		cond.addCond(u.condition)
+		cond.addCond(u.cond)
 		cond.write(u.dao.NameMap(), b.BaseSqlBuilder)
 	}).Do()
 }
@@ -652,7 +652,7 @@ type delete[T any] struct {
 	// describe the SQL in the log
 	desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	condition Cond
+	cond Cond
 }
 
 func (d *delete[T]) Ctx(ctx context.Context) *delete[T] { // coverage-ignore
@@ -676,16 +676,16 @@ func (d *delete[T]) Desc(desc string) *delete[T] { // coverage-ignore
 }
 
 func (d *delete[T]) Condition(cond Cond) *delete[T] {
-	d.condition = cond
+	d.cond = cond
 	return d
 }
 
 func (d *delete[T]) Do() (int64, error) {
 	return d.dao.Exec().Ctx(d.ctx).Must(d.must).LogLevel(d.logLevel).Desc(d.desc).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
 		b.Write("DELETE FROM ").Write(d.dao.table)
-		if d.condition != nil && d.condition.len() > 0 {
+		if d.cond != nil && d.cond.len() > 0 {
 			b.Write(" WHERE ")
-			d.condition.write(d.dao.NameMap(), b.BaseSqlBuilder)
+			d.cond.write(d.dao.NameMap(), b.BaseSqlBuilder)
 		}
 	}).Do()
 }
@@ -702,7 +702,7 @@ type count[T any] struct {
 	// describe the SQL in the log
 	desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	condition Cond
+	cond Cond
 }
 
 func (c *count[T]) Ctx(ctx context.Context) *count[T] { // coverage-ignore
@@ -726,16 +726,16 @@ func (c *count[T]) Desc(desc string) *count[T] { // coverage-ignore
 }
 
 func (c *count[T]) Condition(cond Cond) *count[T] {
-	c.condition = cond
+	c.cond = cond
 	return c
 }
 
 func (c *count[T]) Do() (*gdao.Count, error) {
 	return c.dao.CountDao.Count().Ctx(c.ctx).Must(c.must).LogLevel(c.logLevel).Desc(c.desc).BuildSql(func(b *gdao.CountBuilder) {
 		b.Write("SELECT COUNT(*) FROM ").Write(c.dao.table)
-		if c.condition != nil && c.condition.len() > 0 {
+		if c.cond != nil && c.cond.len() > 0 {
 			b.Write(" WHERE ")
-			c.condition.write(c.dao.NameMap(), b.BaseSqlBuilder)
+			c.cond.write(c.dao.NameMap(), b.BaseSqlBuilder)
 		}
 	}).Do()
 }
@@ -1217,21 +1217,21 @@ func WithIfPredicate(predicate func() bool) CondOpt {
 //======================= SQL Modifier ========================
 //=============================================================
 
-type orderBy struct {
-	items []orderByItem
+type OdrBy struct {
+	items []odrByItem
 }
 
-func (o *orderBy) Asc(column string) *orderBy {
-	o.items = append(o.items, orderByItem{column: column, seq: asc})
+func (o *OdrBy) Asc(column string) *OdrBy {
+	o.items = append(o.items, odrByItem{column: column, seq: asc})
 	return o
 }
 
-func (o *orderBy) Desc(column string) *orderBy {
-	o.items = append(o.items, orderByItem{column: column, seq: desc})
+func (o *OdrBy) Desc(column string) *OdrBy {
+	o.items = append(o.items, odrByItem{column: column, seq: desc})
 	return o
 }
 
-func (o *orderBy) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (o *OdrBy) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
 	b.Repeat(len(o.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
 		item := o.items[i]
 		b.Write(mapColumn(nameMap, item.column)).Write(" ")
@@ -1239,37 +1239,37 @@ func (o *orderBy) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
 	})
 }
 
-type orderBySeq string
+type odrBySeq string
 
 const (
-	asc  orderBySeq = "ASC"
-	desc            = "DESC"
+	asc  odrBySeq = "ASC"
+	desc          = "DESC"
 )
 
-type orderByItem struct {
+type odrByItem struct {
 	column string
-	seq    orderBySeq
+	seq    odrBySeq
 }
 
-type page struct {
+type Paging struct {
 	offset, pageSize int
 }
 
-type onDuplKeyUpd struct {
-	items []onDuplKeyUpdItem
+type OnDuplKey struct {
+	items []onDuplKeyItem
 }
 
-func (o *onDuplKeyUpd) SetValue(column string, value any) *onDuplKeyUpd {
-	o.items = append(o.items, onDuplKeyUpdItem{column: column, value: value})
+func (o *OnDuplKey) SetValue(column string, value any) *OnDuplKey {
+	o.items = append(o.items, onDuplKeyItem{column: column, value: value})
 	return o
 }
 
-func (o *onDuplKeyUpd) SetPlain(column, value string) *onDuplKeyUpd {
-	o.items = append(o.items, onDuplKeyUpdItem{column: column, value: value, plain: true})
+func (o *OnDuplKey) SetPlain(column, value string) *OnDuplKey {
+	o.items = append(o.items, onDuplKeyItem{column: column, value: value, plain: true})
 	return o
 }
 
-func (o *onDuplKeyUpd) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (o *OnDuplKey) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
 	b.Write(" ON DUPLICATE KEY UPDATE ")
 	b.Repeat(len(o.items), b.Sep(", "), nil, func(_, i int) {
 		item := o.items[i]
@@ -1283,18 +1283,18 @@ func (o *onDuplKeyUpd) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) 
 	})
 }
 
-type onDuplKeyUpdItem struct {
+type onDuplKeyItem struct {
 	column string
 	value  any
 	plain  bool
 }
 
-func OrderBy() *orderBy {
-	return &orderBy{}
+func OrderBy() *OdrBy {
+	return &OdrBy{}
 }
 
-func Page(offset, pageSize int) *page {
-	return &page{offset: offset, pageSize: pageSize}
+func Page(offset, pageSize int) *Paging {
+	return &Paging{offset: offset, pageSize: pageSize}
 }
 
 func And() *conds {
@@ -1309,7 +1309,7 @@ func Not() notConds {
 	return notConds{}
 }
 
-func OnDuplKeyUpd() *onDuplKeyUpd { return &onDuplKeyUpd{} }
+func OnDuplicateKey() *OnDuplKey { return &OnDuplKey{} }
 
 //=============================================================
 //========================== Others ===========================

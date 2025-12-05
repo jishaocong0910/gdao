@@ -54,7 +54,7 @@ func TestBaseDao_List(t *testing.T) {
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy").AddRow(2, "nick"))
 		list, err := d.List().Select("id", "Name").Condition(dao.And().Eq("status", 4)).
-			Orderby(dao.OrderBy().Asc("name").Desc("address")).
+			OrderBy(dao.OrderBy().Asc("name").Desc("address")).
 			Page(dao.Page(3, 10)).
 			ForUpdate(true).
 			Do()
@@ -78,7 +78,7 @@ func TestBaseDao_Get(t *testing.T) {
 			AddRow(1, "lucy"))
 
 		get, err := d.Get().Select("id", "name").Condition(dao.And().Eq("status", 4)).
-			Orderby(dao.OrderBy().Asc("name").Desc("id")).
+			OrderBy(dao.OrderBy().Asc("name").Desc("id")).
 			ForUpdate(true).
 			Do()
 
