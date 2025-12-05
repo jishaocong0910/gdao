@@ -4,7 +4,7 @@ package {{.PkgName}}
 
 import "github.com/jishaocong0910/gdao"
 
-var CountDao = _CountDao{gdao.NewCountDao(gdao.NewCountDaoReq{})}
+var CountDao = _CountDao{gdao.CountDaoBuilder().Build()}
 
 type _CountDao struct {
 	*gdao.CountDao
