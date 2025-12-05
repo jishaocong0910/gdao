@@ -70,7 +70,7 @@ func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOptio
 		} else if r := recover(); r != nil {
 			tx.Rollback()
 			if e, ok := r.(error); ok {
-				err = e
+				err = pkgErrors.WithStack(e)
 			} else {
 				err = pkgErrors.WithStack(fmt.Errorf("%v", r))
 			}
