@@ -54,7 +54,7 @@ func TestBaseDao_List(t *testing.T) {
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy").AddRow(2, "nick"))
 		list, err := d.List().Select("id", "Name").Condition(dao.And().Eq("status", 4)).
-			Orderby(dao.OrderBy().Asc("name").Desc("address")).
+			OrderBy(dao.OrderBy().Asc("name").Desc("address")).
 			Page(dao.Page(3, 10)).
 			ForUpdate(true).
 			Do()
@@ -78,7 +78,7 @@ func TestBaseDao_Get(t *testing.T) {
 			AddRow(1, "lucy"))
 
 		get, err := d.Get().Select("id", "name").Condition(dao.And().Eq("status", 4)).
-			Orderby(dao.OrderBy().Asc("name").Desc("id")).
+			OrderBy(dao.OrderBy().Asc("name").Desc("id")).
 			ForUpdate(true).
 			Do()
 
@@ -157,7 +157,7 @@ func TestBaseDao_Update(t *testing.T) {
 		}
 		affected, err := d.Update().Entity(u).SetNull("email", "phone").
 			Ignore("address").Where("status", "level").
-			Cond(dao.And().Eq("age", 20)).
+			Condition(dao.And().Eq("age", 20)).
 			Do()
 
 		r.NoError(err)
@@ -209,7 +209,7 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 			Email: gdao.P("email3"),
 		}
 		affected, err := d.UpdateBatch().Entities(u, u2, u3).SetNull("state", "level").
-			Ignore("email").Where("id").Cond(dao.And().Eq("Status", 1)).Do()
+			Ignore("email").Where("id").Condition(dao.And().Eq("Status", 1)).Do()
 
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -252,7 +252,7 @@ func TestBaseDao_Delete(t *testing.T) {
 	mock.ExpectPrepare(`DELETE FROM user WHERE status = \$1`).
 		ExpectExec().WithArgs(1).WillReturnResult(sqlmock.NewResult(0, 3))
 
-	affected, err := d.Delete().Cond(dao.And().Eq("status", 1)).Do()
+	affected, err := d.Delete().Condition(dao.And().Eq("status", 1)).Do()
 
 	r.NoError(err)
 	r.NoError(mock.ExpectationsWereMet())
