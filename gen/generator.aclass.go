@@ -21,8 +21,6 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
-	"github.com/jishaocong0910/gdao/internal"
-	"golang.org/x/tools/imports"
 	"io"
 	"log"
 	"os"
@@ -31,11 +29,17 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/jishaocong0910/gdao/internal"
+	"golang.org/x/tools/imports"
 )
 
 type Generator_ interface {
+	// 继承标识方法
 	generator_()
+	// 公共方法
 	Gen()
+	// 子类需实现的方法
 	getDriverName() string
 	getTableInfo(table string) ([]fieldTplParam, string, error)
 	getBaseDaoTemplate() string
@@ -338,19 +342,17 @@ func (this *generator__) createFile(outPath, fileName string, cover bool, tpl *t
 	return true, importErr
 }
 
+// 继承Generator_类的函数
 func extendGenerator_(i Generator_, cfg GenCfg) *generator__ {
 	if cfg.OutPath == "" {
 		cfg.OutPath = "dao"
 	}
-
 	var db *sql.DB
 	if cfg.Dsn != "" {
 		db = mustReturn(sql.Open(i.getDriverName(), cfg.Dsn))
 	}
-
 	entityTpl := mustReturn(template.New("").Parse(entityTpl))
 	daoTpl := mustReturn(template.New("").Parse(daoTpl))
 	countDaoTpl := mustReturn(template.New("").Parse(countDaoTpl))
-
 	return &generator__{i: i, cfg: cfg, db: db, entityTpl: entityTpl, daoTpl: daoTpl, countDaoTpl: countDaoTpl}
 }

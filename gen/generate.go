@@ -18,9 +18,43 @@ package gen
 
 import (
 	_ "embed"
-	"github.com/jishaocong0910/gdao"
 	"regexp"
+
+	"github.com/jishaocong0910/gdao"
 )
+
+// GetGenerator 创建生成器
+func GetGenerator(c GenCfg) Generator_ {
+	switch c.DbType.String() {
+	case DbType_.MYSQL.String():
+		return newMySqlGenerator(c)
+	case DbType_.ORACLE.String():
+		return newOracleGenerator(c)
+	case DbType_.POSTGRES.String():
+		return newPostgresGenerator(c)
+	case DbType_.SQLSERVER.String():
+		return newSqlServerGenerator(c)
+	case DbType_.SQLITE.String():
+		return newSqliteGenerator(c)
+	default: // coverage-ignore
+		panic("not support this db type yet")
+	}
+}
+
+func Mapping[T gdao.Type]() mapping {
+	var t T
+	return mapping{t: t, mt: mappingType_.base}
+}
+
+func MappingSlice[T gdao.Type]() mapping {
+	var t T
+	return mapping{t: t, mt: mappingType_.slice}
+}
+
+func MappingConvert[T any]() mapping {
+	var t T
+	return mapping{t: t, mt: mappingType_.convert}
+}
 
 // GenCfg 生成配置
 type GenCfg struct {
@@ -58,6 +92,16 @@ type TableCfg struct {
 	Ignores Ignores
 }
 
+type Tables []string
+
+type Mappers map[string]Mappings
+
+type Mappings map[string]mapping
+
+type Ignores map[string]Columns
+
+type Columns []string
+
 type baseDaoTplParam struct {
 	PkgName string
 }
@@ -93,16 +137,6 @@ type fieldTplParam struct {
 	Valid             bool
 }
 
-type Tables []string
-
-type Mappers map[string]Mappings
-
-type Mappings map[string]mapping
-
-type Ignores map[string]Columns
-
-type Columns []string
-
 //go:embed entity.tpl
 var entityTpl string
 
@@ -118,26 +152,12 @@ var daoNameMapper = gdao.NewNameMapper().UpperCamelCase()
 var entityFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
 var daoFileNameMapper = gdao.NewNameMapper().LowerSnakeCase().AddSuffix(".go")
 
-var pkgNameRegex = regexp.MustCompile(`^([a-zA-Z_]\w*[a-zA-Z_])(\d*)$`)
+var pkgNameRegex = regexp.MustCompile(`^([a-zA-Z_](?:\w*[a-zA-Z_])*)(\d*)$
+`)
 
 type mapping struct {
 	t  any
 	mt mappingType
-}
-
-func Mapping[T gdao.Type]() mapping {
-	var t T
-	return mapping{t: t, mt: mappingType_.base}
-}
-
-func MappingSlice[T gdao.Type]() mapping {
-	var t T
-	return mapping{t: t, mt: mappingType_.slice}
-}
-
-func MappingConvert[T any]() mapping {
-	var t T
-	return mapping{t: t, mt: mappingType_.convert}
 }
 
 func must(err error) {
@@ -151,22 +171,4 @@ func mustReturn[T any](t T, err error) T {
 		panic(err)
 	}
 	return t
-}
-
-// GetGenerator 创建生成器
-func GetGenerator(c GenCfg) Generator_ {
-	switch c.DbType.String() {
-	case DbType_.MYSQL.String():
-		return newMySqlGenerator(c)
-	case DbType_.ORACLE.String():
-		return newOracleGenerator(c)
-	case DbType_.POSTGRES.String():
-		return newPostgresGenerator(c)
-	case DbType_.SQLSERVER.String():
-		return newSqlServerGenerator(c)
-	case DbType_.SQLITE.String():
-		return newSqliteGenerator(c)
-	default: // coverage-ignore
-		panic("not support this db type yet")
-	}
 }
