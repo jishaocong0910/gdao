@@ -286,12 +286,6 @@ func (this *generator__) genBaseDao() {
 		log.Println("create base dao success")
 	}
 	if this.cfg.DaoCfg.GenCountDao {
-		for _, table := range this.cfg.TableCfg.Tables {
-			if strings.EqualFold(table, "count") { // coverage-ignore
-				log.Printf("create count dao fail because exists table named \"%s\"", table)
-				return
-			}
-		}
 		generated, err = this.createFile(this.dir, "count_dao.go", this.cfg.DaoCfg.CoverCountDao, this.countDaoTpl, this.baseDaoTplParam)
 		if err != nil { // coverage-ignore
 			log.Printf("create count dao fail: %+v\n", err)

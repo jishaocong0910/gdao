@@ -55,6 +55,7 @@ type Product struct {
 	Id         *int64 `gdao:"auto"`
 	Tags       MyStringSlice
 	Status     *MyStatus
+	Valid      *MyValid
 	Properties *Properties
 	Attributes *Attributes
 }
@@ -102,6 +103,8 @@ func (MyStringSlice) GdaoField(value string) MyStringSlice {
 }
 
 type MyStatus int
+
+type MyValid = int
 
 type InvalidField struct {
 	field *string `gdao:"column=field"`
@@ -185,11 +188,11 @@ func TestNewDao(t *testing.T) {
 	{
 		dao, _ := mockProductDao(r)
 		export := gdao.ExportDao(dao)
-		r.Equal("id, tags, status, properties, attributes", export.ColumnsWithComma)
-		r.Equal([]string{"id", "tags", "status", "properties", "attributes"}, export.Columns)
-		r.Len(export.ColumnToFieldIndex, 5)
-		checkMap(r, map[string]int{"id": 0, "tags": 1, "status": 2, "properties": 3, "attributes": 4}, export.ColumnToFieldIndex)
-		checkMap(r, map[string]string{"Id": "id", "Tags": "tags", "Status": "status", "Properties": "properties", "Attributes": "attributes"}, dao.NameMap())
+		r.Equal("id, tags, status, valid, properties, attributes", export.ColumnsWithComma)
+		r.Equal([]string{"id", "tags", "status", "valid", "properties", "attributes"}, export.Columns)
+		r.Len(export.ColumnToFieldIndex, 6)
+		checkMap(r, map[string]int{"id": 0, "tags": 1, "status": 2, "valid": 3, "properties": 4, "attributes": 5}, export.ColumnToFieldIndex)
+		checkMap(r, map[string]string{"Id": "id", "Tags": "tags", "Status": "status", "Valid": "valid", "Properties": "properties", "Attributes": "attributes"}, dao.NameMap())
 		r.Len(export.ColumnToFieldConvertor, 3)
 		checkMapKeys(r, []string{"tags", "properties", "attributes"}, export.ColumnToFieldConvertor)
 		r.Contains(export.AutoIncrementColumns, "id")
