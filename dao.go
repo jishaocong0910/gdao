@@ -20,9 +20,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/jishaocong0910/gdao/internal"
 	"reflect"
 	"strings"
+
+	"github.com/jishaocong0910/gdao/internal"
 )
 
 type Dao[T any] struct {
@@ -43,10 +44,6 @@ func (d *Dao[T]) Query() *query[T] {
 
 func (d *Dao[T]) Exec() *exec[T] {
 	return &exec[T]{dao: d}
-}
-
-func (d *Dao[T]) NameMap() map[string]string {
-	return d.fieldNameToColumn
 }
 
 func (d *Dao[T]) mappingScanFields(entity *T, columns []string) ([]any, []func()) {

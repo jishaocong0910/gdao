@@ -6,8 +6,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"reflect"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/jishaocong0910/gdao"
 )
@@ -15,6 +17,8 @@ import (
 type list[T any] struct {
 	// the base dao
 	dao *baseDao[T]
+	// the field name to column
+	fieldNameToColumn map[string]string
 	// the context
 	ctx context.Context
 	// if true, panic when error occurs, otherwise, return error.
@@ -56,7 +60,7 @@ func (l *list[T]) Desc(desc string) *list[T] {
 }
 
 func (l *list[T]) Select(sel ...string) *list[T] {
-	l.sel = mapColumns(l.dao.NameMap(), sel)
+	l.sel = mapColumns(l.fieldNameToColumn, sel)
 	return l
 }
 
@@ -99,10 +103,10 @@ func (l *list[T]) Do() ([]*T, error) {
 		b.WriteColumns(l.sel...).Write(" FROM ").Write(l.dao.table)
 		if l.cond != nil && l.cond.len() > 0 {
 			b.Write(" WHERE ")
-			l.cond.write(l.dao.NameMap(), b.BaseSqlBuilder)
+			l.cond.write(l.fieldNameToColumn, b.BaseSqlBuilder)
 		}
 		if l.odrBy != nil {
-			l.odrBy.write(l.dao.NameMap(), b.BaseSqlBuilder)
+			l.odrBy.write(l.fieldNameToColumn, b.BaseSqlBuilder)
 		}
 		if pagingType == 1 {
 			b.Write(" OFFSET ")
@@ -121,6 +125,8 @@ func (l *list[T]) Do() ([]*T, error) {
 type get[T any] struct {
 	// the base dao
 	dao *baseDao[T]
+	// the field name to column
+	fieldNameToColumn map[string]string
 	// the context
 	ctx context.Context
 	// if true, panic when error occurs, otherwise, return error.
@@ -162,7 +168,7 @@ func (g *get[T]) Desc(desc string) *get[T] { // coverage-ignore
 }
 
 func (g *get[T]) Select(sel ...string) *get[T] {
-	g.sel = mapColumns(g.dao.NameMap(), sel)
+	g.sel = mapColumns(g.fieldNameToColumn, sel)
 	return g
 }
 
@@ -204,6 +210,8 @@ func (g *get[T]) Do() (*T, error) {
 type insert[T any] struct {
 	// the base dao
 	dao *baseDao[T]
+	// the field name to column
+	fieldNameToColumn map[string]string
 	// the context
 	ctx context.Context
 	// if true, panic when error occurs, otherwise, return error.
@@ -253,12 +261,12 @@ func (i *insert[T]) All(all bool) *insert[T] {
 }
 
 func (i *insert[T]) SetNull(setNull ...string) *insert[T] {
-	i.setNull = mapColumns(i.dao.NameMap(), setNull)
+	i.setNull = mapColumns(i.fieldNameToColumn, setNull)
 	return i
 }
 
 func (i *insert[T]) Ignore(ignore ...string) *insert[T] {
-	i.ignore = mapColumns(i.dao.NameMap(), ignore)
+	i.ignore = mapColumns(i.fieldNameToColumn, ignore)
 	return i
 }
 
@@ -270,6 +278,8 @@ func (i *insert[T]) Do() error {
 type insertBatch[T any] struct {
 	// the base dao
 	dao *baseDao[T]
+	// the field name to column
+	fieldNameToColumn map[string]string
 	// the context
 	ctx context.Context
 	// if true, panic when error occurs, otherwise, return error.
@@ -319,12 +329,12 @@ func (ib *insertBatch[T]) All(all bool) *insertBatch[T] {
 }
 
 func (ib *insertBatch[T]) SetNull(setNull ...string) *insertBatch[T] {
-	ib.setNull = mapColumns(ib.dao.NameMap(), setNull)
+	ib.setNull = mapColumns(ib.fieldNameToColumn, setNull)
 	return ib
 }
 
 func (ib *insertBatch[T]) Ignore(ignore ...string) *insertBatch[T] {
-	ib.ignore = mapColumns(ib.dao.NameMap(), ignore)
+	ib.ignore = mapColumns(ib.fieldNameToColumn, ignore)
 	return ib
 }
 
@@ -382,6 +392,8 @@ func (ib *insertBatch[T]) Do() error {
 type update[T any] struct {
 	// the base dao
 	dao *baseDao[T]
+	// the field name to column
+	fieldNameToColumn map[string]string
 	// the context
 	ctx context.Context
 	// if true, panic when error occurs, otherwise, return error.
@@ -435,17 +447,17 @@ func (u *update[T]) All(all bool) *update[T] {
 }
 
 func (u *update[T]) SetNull(setNull ...string) *update[T] {
-	u.setNull = mapColumns(u.dao.NameMap(), setNull)
+	u.setNull = mapColumns(u.fieldNameToColumn, setNull)
 	return u
 }
 
 func (u *update[T]) Ignore(ignore ...string) *update[T] {
-	u.ignore = mapColumns(u.dao.NameMap(), ignore)
+	u.ignore = mapColumns(u.fieldNameToColumn, ignore)
 	return u
 }
 
 func (u *update[T]) Where(where ...string) *update[T] {
-	u.where = mapColumns(u.dao.NameMap(), where)
+	u.where = mapColumns(u.fieldNameToColumn, where)
 	return u
 }
 
@@ -496,7 +508,7 @@ func (u *update[T]) Do() (int64, error) {
 		cond.addCond(u.cond)
 		if cond.len() > 0 {
 			b.Write(" WHERE ")
-			cond.write(u.dao.NameMap(), b.BaseSqlBuilder)
+			cond.write(u.fieldNameToColumn, b.BaseSqlBuilder)
 		}
 	}).Do()
 }
@@ -504,6 +516,8 @@ func (u *update[T]) Do() (int64, error) {
 type updateBatch[T any] struct {
 	// the base dao
 	dao *baseDao[T]
+	// the field name to column
+	fieldNameToColumn map[string]string
 	// the context
 	ctx context.Context
 	// if true, panic when error occurs, otherwise, return error.
@@ -557,17 +571,17 @@ func (u *updateBatch[T]) All(all bool) *updateBatch[T] {
 }
 
 func (u *updateBatch[T]) SetNull(setNull ...string) *updateBatch[T] {
-	u.setNull = mapColumns(u.dao.NameMap(), setNull)
+	u.setNull = mapColumns(u.fieldNameToColumn, setNull)
 	return u
 }
 
 func (u *updateBatch[T]) Ignore(ignore ...string) *updateBatch[T] {
-	u.ignore = mapColumns(u.dao.NameMap(), ignore)
+	u.ignore = mapColumns(u.fieldNameToColumn, ignore)
 	return u
 }
 
 func (u *updateBatch[T]) Where(where string) *updateBatch[T] {
-	u.where = mapColumn(u.dao.NameMap(), where)
+	u.where = mapColumn(u.fieldNameToColumn, where)
 	return u
 }
 
@@ -617,13 +631,15 @@ func (u *updateBatch[T]) Do() (int64, error) {
 		})
 		cond.In(u.where, InArgs(whereColumnValues...))
 		cond.addCond(u.cond)
-		cond.write(u.dao.NameMap(), b.BaseSqlBuilder)
+		cond.write(u.fieldNameToColumn, b.BaseSqlBuilder)
 	}).Do()
 }
 
 type delete[T any] struct {
 	// the base dao
 	dao *baseDao[T]
+	// the field name to column
+	fieldNameToColumn map[string]string
 	// the context
 	ctx context.Context
 	// if true, panic when error occurs, otherwise, return error.
@@ -666,7 +682,7 @@ func (d *delete[T]) Do() (int64, error) {
 		b.Write("DELETE FROM ").Write(d.dao.table)
 		if d.cond != nil && d.cond.len() > 0 {
 			b.Write(" WHERE ")
-			d.cond.write(d.dao.NameMap(), b.BaseSqlBuilder)
+			d.cond.write(d.fieldNameToColumn, b.BaseSqlBuilder)
 		}
 	}).Do()
 }
@@ -674,6 +690,8 @@ func (d *delete[T]) Do() (int64, error) {
 type count[T any] struct {
 	// the base dao
 	dao *baseDao[T]
+	// the field name to column
+	fieldNameToColumn map[string]string
 	// the context
 	ctx context.Context
 	// if true, panic when error occurs, otherwise, return error.
@@ -716,7 +734,7 @@ func (c *count[T]) Do() (*gdao.Count, error) {
 		b.Write("SELECT COUNT(*) FROM ").Write(c.dao.table)
 		if c.cond != nil && c.cond.len() > 0 {
 			b.Write(" WHERE ")
-			c.cond.write(c.dao.NameMap(), b.BaseSqlBuilder)
+			c.cond.write(c.fieldNameToColumn, b.BaseSqlBuilder)
 		}
 	}).Do()
 }
@@ -724,39 +742,40 @@ func (c *count[T]) Do() (*gdao.Count, error) {
 type baseDao[T any] struct {
 	*gdao.Dao[T]
 	*gdao.CountDao
-	table string
+	table             string
+	fieldNameToColumn map[string]string
 }
 
 func (d *baseDao[T]) List() *list[T] {
-	return &list[T]{dao: d}
+	return &list[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
 func (d *baseDao[T]) Get() *get[T] {
-	return &get[T]{dao: d}
+	return &get[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
 func (d *baseDao[T]) Insert() *insert[T] {
-	return &insert[T]{dao: d}
+	return &insert[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
 func (d *baseDao[T]) InsertBatch() *insertBatch[T] {
-	return &insertBatch[T]{dao: d}
+	return &insertBatch[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
 func (d *baseDao[T]) Update() *update[T] {
-	return &update[T]{dao: d}
+	return &update[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
 func (d *baseDao[T]) UpdateBatch() *updateBatch[T] {
-	return &updateBatch[T]{dao: d}
+	return &updateBatch[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
 func (d *baseDao[T]) Delete() *delete[T] {
-	return &delete[T]{dao: d}
+	return &delete[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
 func (d *baseDao[T]) Count() *count[T] {
-	return &count[T]{dao: d}
+	return &count[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
 type baseDaoBuilder[T any] struct {
@@ -792,7 +811,8 @@ func (b *baseDaoBuilder[T]) Build() *baseDao[T] {
 	}
 	dao := gdao.DaoBuilder[T]().DB(b.db).AllowInvalidField(b.allowInvalidField).ColumnMapper(b.columnMapper).Build()
 	countDao := gdao.CountDaoBuilder().DB(b.db).Build()
-	return &baseDao[T]{Dao: dao, CountDao: countDao, table: b.table}
+	fieldNameToColumn := *(*map[string]string)(unsafe.Pointer(reflect.ValueOf(dao).Elem().FieldByName("fieldNameToColumn").UnsafeAddr()))
+	return &baseDao[T]{Dao: dao, CountDao: countDao, table: b.table, fieldNameToColumn: fieldNameToColumn}
 }
 
 func BaseDaoBuilder[T any]() *baseDaoBuilder[T] {
