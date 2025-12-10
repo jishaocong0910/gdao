@@ -216,58 +216,9 @@ func (q *query[T]) Do() (first *T, list []*T, err error) {
 
 	switch q.rowAs.String() {
 	case RowAs_.RETURNING.String():
-		var affected int64
-		for i := 0; rows.Next() && i < len(q.entities); i++ {
-			entity := q.entities[i]
-			if entity == nil { // coverage-ignore
-				continue
-			}
-			v := reflect.ValueOf(entity).Elem()
-			var fields []any
-			for _, c := range columns {
-				if fieldIndex, ok := q.dao.columnToFieldIndex[c]; ok {
-					field := v.Field(fieldIndex).Addr().Interface()
-					fields = append(fields, field)
-				}
-			}
-			if len(fields) > 0 {
-				printWarn(q.ctx, rows.Scan(fields...))
-			}
-			affected++
-		}
-		printSql(q.ctx, q.logLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
+		q.rowAsReturning(b, rows, columns)
 	case RowAs_.LAST_ID.String():
-		var affected int64
-		var id *int64
-		if rows.Next() && len(columns) == 1 && len(q.dao.autoIncrementColumns) == 1 {
-			err = rows.Scan(&id)
-			printWarn(q.ctx, err)
-			if err != nil && rows.Next() { // coverage-ignore
-				id = nil
-			}
-		}
-		if id != nil {
-			fieldIndex := q.dao.columnToFieldIndex[q.dao.autoIncrementColumns[0]]
-			entityLength := len(q.entities)
-			for i := 0; i < entityLength; i++ {
-				entity := q.entities[i]
-				if entity == nil { // coverage-ignore
-					continue
-				}
-				v := reflect.ValueOf(entity).Elem()
-				field := v.Field(fieldIndex)
-				field.Set(q.dao.autoIncrementConvert(*id - int64(entityLength-1-i)*q.dao.autoIncrementStep))
-				affected++
-			}
-		} else {
-			for i := 0; i < len(q.entities); i++ {
-				entity := q.entities[i]
-				if entity != nil { // coverage-ignore
-					affected++
-				}
-			}
-		}
-		printSql(q.ctx, q.logLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
+		q.rowAsLastId(b, rows, columns)
 	default:
 		var rowCounts int64
 		for rows.Next() {
@@ -290,6 +241,63 @@ func (q *query[T]) Do() (first *T, list []*T, err error) {
 		printSql(q.ctx, q.logLevel, q.desc, b.Sql(), b.Args(), -1, rowCounts, nil)
 	}
 	return
+}
+
+func (q *query[T]) rowAsReturning(b *DaoSqlBuilder[T], rows *sql.Rows, columns []string) {
+	var affected int64
+	for i := 0; rows.Next() && i < len(q.entities); i++ {
+		entity := q.entities[i]
+		if entity == nil { // coverage-ignore
+			continue
+		}
+		v := reflect.ValueOf(entity).Elem()
+		var fields []any
+		for _, c := range columns {
+			if fieldIndex, ok := q.dao.columnToFieldIndex[c]; ok {
+				field := v.Field(fieldIndex).Addr().Interface()
+				fields = append(fields, field)
+			}
+		}
+		if len(fields) > 0 {
+			printWarn(q.ctx, rows.Scan(fields...))
+		}
+		affected++
+	}
+	printSql(q.ctx, q.logLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
+}
+
+func (q *query[T]) rowAsLastId(b *DaoSqlBuilder[T], rows *sql.Rows, columns []string) {
+	var affected int64
+	var id *int64
+	if rows.Next() && len(columns) == 1 && len(q.dao.autoIncrementColumns) == 1 {
+		err := rows.Scan(&id)
+		printWarn(q.ctx, err)
+		if err != nil && rows.Next() { // coverage-ignore
+			id = nil
+		}
+	}
+	if id != nil {
+		fieldIndex := q.dao.columnToFieldIndex[q.dao.autoIncrementColumns[0]]
+		entityLength := len(q.entities)
+		for i := 0; i < entityLength; i++ {
+			entity := q.entities[i]
+			if entity == nil { // coverage-ignore
+				continue
+			}
+			v := reflect.ValueOf(entity).Elem()
+			field := v.Field(fieldIndex)
+			field.Set(q.dao.autoIncrementConvert(*id - int64(entityLength-1-i)*q.dao.autoIncrementStep))
+			affected++
+		}
+	} else {
+		for i := 0; i < len(q.entities); i++ {
+			entity := q.entities[i]
+			if entity != nil { // coverage-ignore
+				affected++
+			}
+		}
+	}
+	printSql(q.ctx, q.logLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
 }
 
 type exec[T any] struct {
@@ -358,37 +366,45 @@ func (e *exec[T]) Do() (affected int64, err error) {
 
 	switch e.lastInsertIdAs.String() {
 	case LastInsertIdAs_.FIRST_ID.String():
-		id, err := result.LastInsertId()
-		printWarn(e.ctx, err)
-		if err == nil && len(e.entities) > 0 && len(e.dao.autoIncrementColumns) == 1 {
-			fieldIndex := e.dao.columnToFieldIndex[e.dao.autoIncrementColumns[0]]
-			for i, entity := range e.entities {
-				if entity == nil { // coverage-ignore
-					continue
-				}
-				v := reflect.ValueOf(entity).Elem()
-				field := v.Field(fieldIndex)
-				field.Set(e.dao.autoIncrementConvert(id + int64(i)*e.dao.autoIncrementStep))
-			}
-		}
+		e.lastInsertIdAsFirstId(result)
 	case LastInsertIdAs_.LAST_ID.String():
-		id, err := result.LastInsertId()
-		printWarn(e.ctx, err)
-		if err == nil && len(e.entities) > 0 && len(e.dao.autoIncrementColumns) == 1 {
-			fieldIndex := e.dao.columnToFieldIndex[e.dao.autoIncrementColumns[0]]
-			entityLength := len(e.entities)
-			for i := 0; i < entityLength; i++ {
-				entity := e.entities[i]
-				if entity == nil { // coverage-ignore
-					continue
-				}
-				v := reflect.ValueOf(entity).Elem()
-				field := v.Field(fieldIndex)
-				field.Set(e.dao.autoIncrementConvert(id - int64(entityLength-1-i)*e.dao.autoIncrementStep))
-			}
-		}
+		e.lastInsertIdAsLastId(result)
 	}
 	return
+}
+
+func (e *exec[T]) lastInsertIdAsFirstId(result sql.Result) {
+	id, err := result.LastInsertId()
+	printWarn(e.ctx, err)
+	if err == nil && len(e.entities) > 0 && len(e.dao.autoIncrementColumns) == 1 {
+		fieldIndex := e.dao.columnToFieldIndex[e.dao.autoIncrementColumns[0]]
+		for i, entity := range e.entities {
+			if entity == nil { // coverage-ignore
+				continue
+			}
+			v := reflect.ValueOf(entity).Elem()
+			field := v.Field(fieldIndex)
+			field.Set(e.dao.autoIncrementConvert(id + int64(i)*e.dao.autoIncrementStep))
+		}
+	}
+}
+
+func (e *exec[T]) lastInsertIdAsLastId(result sql.Result) {
+	id, err := result.LastInsertId()
+	printWarn(e.ctx, err)
+	if err == nil && len(e.entities) > 0 && len(e.dao.autoIncrementColumns) == 1 {
+		fieldIndex := e.dao.columnToFieldIndex[e.dao.autoIncrementColumns[0]]
+		entityLength := len(e.entities)
+		for i := 0; i < entityLength; i++ {
+			entity := e.entities[i]
+			if entity == nil { // coverage-ignore
+				continue
+			}
+			v := reflect.ValueOf(entity).Elem()
+			field := v.Field(fieldIndex)
+			field.Set(e.dao.autoIncrementConvert(id - int64(entityLength-1-i)*e.dao.autoIncrementStep))
+		}
+	}
 }
 
 type DaoSqlBuilder[T any] struct {

@@ -8,6 +8,17 @@ var baseTypes = map[string]struct{}{
 	"int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {}, "uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {}, "float32": {}, "float64": {}, "bool": {}, "string": {}, "time.Time": {},
 }
 
+// IsBaseType 判断fte是否为基本类型，fte 为字段类型的元素类型 ft.Elem()
+func IsBaseType(fte reflect.Type) bool {
+	if _, ok := baseTypes[fte.Kind().String()]; ok {
+		return true
+	}
+	if _, ok := baseTypes[fte.String()]; ok {
+		return true
+	}
+	return false
+}
+
 func IsImplementConvert(ft reflect.Type) int {
 	kind := ft.Kind()
 	if kind == reflect.Pointer {
@@ -40,15 +51,4 @@ func IsImplementConvert(ft reflect.Type) int {
 		return 2
 	}
 	return 1
-}
-
-// IsBaseType 判断fte是否为基本类型，fte 为字段类型的元素类型 ft.Elem()
-func IsBaseType(fte reflect.Type) bool {
-	if _, ok := baseTypes[fte.Kind().String()]; ok {
-		return true
-	}
-	if _, ok := baseTypes[fte.String()]; ok {
-		return true
-	}
-	return false
 }
