@@ -71,7 +71,7 @@ func TestOracle(t *testing.T) {
 	}
 	db.Close()
 
-	gen.GetGenerator(gen.GenCfg{
+	gen.GetGenerator(gen.Config{
 		DbType:    gen.DbType_.ORACLE,
 		Dsn:       dsn,
 		GoModPath: "../../..",

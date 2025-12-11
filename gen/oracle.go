@@ -17,36 +17,34 @@
 package gen
 
 import (
+	"database/sql"
 	_ "embed"
 	"errors"
+	"strings"
+
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/sijms/go-ora/v2"
-	"strings"
 )
 
 //go:embed oracle_base_dao.tpl
 var oracleBaseDaoTpl string
 
-type oracleGenerator struct {
-	*generator__
+type oracleInfo struct {
+	db *sql.DB
 }
 
-func (this *oracleGenerator) getDriverName() string {
-	return "oracle"
-}
-
-func (this *oracleGenerator) getBaseDaoTemplate() string {
+func (g *oracleInfo) getBaseDaoTemplate() string {
 	return oracleBaseDaoTpl
 }
 
-func (this *oracleGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
+func (g *oracleInfo) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists       bool
 		fields       []fieldTplParam
 		tableComment string
 	)
 
-	rows := mustReturn(this.db.Query(`SELECT c.column_name, c.data_type, c.data_precision, c.data_scale, c.char_length, c.nullable = 'N', c.data_default IS NOT NULL, c2.comments FROM user_tab_columns c LEFT JOIN user_col_comments c2 ON c.table_name =c2.table_name AND c.COLUMN_NAME =c2.COLUMN_NAME WHERE c.table_name = :1 ORDER BY c.column_id`, strings.ToUpper(table)))
+	rows := mustReturn(g.db.Query(`SELECT c.column_name, c.data_type, c.data_precision, c.data_scale, c.char_length, c.nullable = 'N', c.data_default IS NOT NULL, c2.comments FROM user_tab_columns c LEFT JOIN user_col_comments c2 ON c.table_name =c2.table_name AND c.COLUMN_NAME =c2.COLUMN_NAME WHERE c.table_name = :1 ORDER BY c.column_id`, strings.ToUpper(table)))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
@@ -108,7 +106,7 @@ func (this *oracleGenerator) getTableInfo(table string) ([]fieldTplParam, string
 		fields = append(fields, f)
 	}
 
-	rows = mustReturn(this.db.Query("SELECT comments FROM user_tab_comments WHERE table_name = :1", table))
+	rows = mustReturn(g.db.Query("SELECT comments FROM user_tab_comments WHERE table_name = :1", table))
 	defer rows.Close()
 	if rows.Next() {
 		rows.Scan(&tableComment)
@@ -119,8 +117,6 @@ func (this *oracleGenerator) getTableInfo(table string) ([]fieldTplParam, string
 	return fields, tableComment, nil
 }
 
-func newOracleGenerator(c GenCfg) *oracleGenerator {
-	this := &oracleGenerator{}
-	this.generator__ = extendGenerator_(this, c)
-	return this
+func newOracleDbInfo(c Config) *oracleInfo {
+	return &oracleInfo{db: c.getDB()}
 }

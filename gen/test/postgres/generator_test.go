@@ -55,7 +55,7 @@ func TestPostgres(t *testing.T) {
 	dsn, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	r.NoError(err)
 
-	gen.GetGenerator(gen.GenCfg{
+	gen.GetGenerator(gen.Config{
 		DbType:    gen.DbType_.POSTGRES,
 		Dsn:       dsn,
 		GoModPath: "../../..",

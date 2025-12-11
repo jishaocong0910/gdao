@@ -17,31 +17,29 @@
 package gen
 
 import (
+	"database/sql"
 	_ "embed"
 	"errors"
+	"strings"
+
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/lib/pq"
-	"strings"
 )
 
 //go:embed postgres_base_dao.tpl
 var postgresBaseDaoTpl string
 
-type postgresGenerator struct {
-	*generator__
+type postgresInfo struct {
+	db       *sql.DB
 	schema   string
 	database string
 }
 
-func (g postgresGenerator) getDriverName() string {
-	return "postgres"
-}
-
-func (g postgresGenerator) getBaseDaoTemplate() string {
+func (g postgresInfo) getBaseDaoTemplate() string {
 	return postgresBaseDaoTpl
 }
 
-func (g postgresGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
+func (g postgresInfo) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists       bool
 		fields       []fieldTplParam
@@ -137,10 +135,8 @@ func (g postgresGenerator) getTableInfo(table string) ([]fieldTplParam, string, 
 	return fields, tableComment, nil
 }
 
-func newPostgresGenerator(c GenCfg) *postgresGenerator {
-	this := &postgresGenerator{}
-	this.generator__ = extendGenerator_(this, c)
-
+func newPostgresGenerator(c Config) *postgresInfo {
+	this := &postgresInfo{db: c.getDB()}
 	if this.db != nil {
 		schema := ""
 		rows := mustReturn(this.db.Query("SELECT CURRENT_SCHEMA()"))

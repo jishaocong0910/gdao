@@ -55,6 +55,7 @@ type Product struct {
 	Id         *int64 `gdao:"auto"`
 	Tags       MyStringSlice
 	Status     *MyStatus
+	Valid      *MyValid
 	Properties *Properties
 	Attributes *Attributes
 }
@@ -102,6 +103,8 @@ func (MyStringSlice) GdaoField(value string) MyStringSlice {
 }
 
 type MyStatus int
+
+type MyValid = int
 
 type InvalidField struct {
 	field *string `gdao:"column=field"`
@@ -165,7 +168,7 @@ func TestNewDao(t *testing.T) {
 		r.Equal([]string{"id", "name", "age", "address", "phone", "email", "status", "level", "create_at"}, export.Columns)
 		r.Len(export.ColumnToFieldIndex, 9)
 		checkMap(r, map[string]int{"id": 0, "name": 1, "age": 2, "address": 3, "phone": 4, "email": 5, "status": 6, "level": 7, "create_at": 8}, export.ColumnToFieldIndex)
-		checkMap(r, map[string]string{"Id": "id", "Name": "name", "Age": "age", "Address": "address", "Phone": "phone", "Email": "email", "Status": "status", "Level": "level", "CreateAt": "create_at"}, dao.NameMap())
+		checkMap(r, map[string]string{"Id": "id", "Name": "name", "Age": "age", "Address": "address", "Phone": "phone", "Email": "email", "Status": "status", "Level": "level", "CreateAt": "create_at"}, export.FieldNameToColumn)
 		r.Contains(export.AutoIncrementColumns, "id")
 		r.Equal(int64(1), export.AutoIncrementStep)
 		r.NotNil(export.AutoIncrementConvertor)
@@ -177,7 +180,7 @@ func TestNewDao(t *testing.T) {
 		r.Equal([]string{"id", "other_id", "user_id", "status", "balance", "licence_file"}, export.Columns)
 		r.Len(export.ColumnToFieldIndex, 6)
 		checkMap(r, map[string]int{"id": 0, "other_id": 1, "user_id": 2, "status": 3, "balance": 4, "licence_file": 5}, export.ColumnToFieldIndex)
-		checkMap(r, map[string]string{"Id": "id", "OtherId": "other_id", "UserId": "user_id", "Status": "status", "Balance": "balance", "LicenceFile": "licence_file"}, dao.NameMap())
+		checkMap(r, map[string]string{"Id": "id", "OtherId": "other_id", "UserId": "user_id", "Status": "status", "Balance": "balance", "LicenceFile": "licence_file"}, export.FieldNameToColumn)
 		r.Contains(export.AutoIncrementColumns, "id")
 		r.Equal(int64(2), export.AutoIncrementStep)
 		r.NotNil(export.AutoIncrementConvertor)
@@ -185,11 +188,11 @@ func TestNewDao(t *testing.T) {
 	{
 		dao, _ := mockProductDao(r)
 		export := gdao.ExportDao(dao)
-		r.Equal("id, tags, status, properties, attributes", export.ColumnsWithComma)
-		r.Equal([]string{"id", "tags", "status", "properties", "attributes"}, export.Columns)
-		r.Len(export.ColumnToFieldIndex, 5)
-		checkMap(r, map[string]int{"id": 0, "tags": 1, "status": 2, "properties": 3, "attributes": 4}, export.ColumnToFieldIndex)
-		checkMap(r, map[string]string{"Id": "id", "Tags": "tags", "Status": "status", "Properties": "properties", "Attributes": "attributes"}, dao.NameMap())
+		r.Equal("id, tags, status, valid, properties, attributes", export.ColumnsWithComma)
+		r.Equal([]string{"id", "tags", "status", "valid", "properties", "attributes"}, export.Columns)
+		r.Len(export.ColumnToFieldIndex, 6)
+		checkMap(r, map[string]int{"id": 0, "tags": 1, "status": 2, "valid": 3, "properties": 4, "attributes": 5}, export.ColumnToFieldIndex)
+		checkMap(r, map[string]string{"Id": "id", "Tags": "tags", "Status": "status", "Valid": "valid", "Properties": "properties", "Attributes": "attributes"}, export.FieldNameToColumn)
 		r.Len(export.ColumnToFieldConvertor, 3)
 		checkMapKeys(r, []string{"tags", "properties", "attributes"}, export.ColumnToFieldConvertor)
 		r.Contains(export.AutoIncrementColumns, "id")

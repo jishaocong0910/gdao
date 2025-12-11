@@ -26,7 +26,7 @@ import (
 
 func TestSqlite(t *testing.T) {
 	r := require.New(t)
-	gen.GetGenerator(gen.GenCfg{
+	gen.GetGenerator(gen.Config{
 		DbType:    gen.DbType_.SQLITE,
 		Dsn:       "testdata/sqlite.db",
 		GoModPath: "../../..",

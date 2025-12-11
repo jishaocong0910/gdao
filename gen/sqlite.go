@@ -17,35 +17,33 @@
 package gen
 
 import (
+	"database/sql"
 	_ "embed"
 	"errors"
-	_ "github.com/mattn/go-sqlite3"
 	"strings"
+
+	_ "modernc.org/sqlite"
 )
 
 //go:embed sqlite_base_dao.tpl
 var sqliteBaseDaoTpl string
 
-type sqliteGenerator struct {
-	*generator__
+type sqliteInfo struct {
+	db *sql.DB
 }
 
-func (this *sqliteGenerator) getDriverName() string {
-	return "sqlite3"
-}
-
-func (this *sqliteGenerator) getBaseDaoTemplate() string {
+func (g *sqliteInfo) getBaseDaoTemplate() string {
 	return sqliteBaseDaoTpl
 }
 
-func (this *sqliteGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
+func (g *sqliteInfo) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists  bool
 		pkCount int
 		fields  []fieldTplParam
 	)
 
-	rows := mustReturn(this.db.Query("PRAGMA table_info(" + table + ")"))
+	rows := mustReturn(g.db.Query("PRAGMA table_info(" + table + ")"))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
@@ -120,8 +118,6 @@ func (this *sqliteGenerator) getTableInfo(table string) ([]fieldTplParam, string
 	return fields, "", nil
 }
 
-func newSqliteGenerator(c GenCfg) *sqliteGenerator {
-	this := &sqliteGenerator{}
-	this.generator__ = extendGenerator_(this, c)
-	return this
+func newSqliteGenerator(c Config) *sqliteInfo {
+	return &sqliteInfo{db: c.getDB()}
 }

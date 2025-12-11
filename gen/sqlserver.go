@@ -17,29 +17,31 @@
 package gen
 
 import (
+	"database/sql"
 	_ "embed"
 	"errors"
+	"strings"
+
 	"github.com/jishaocong0910/gdao"
 	_ "github.com/microsoft/go-mssqldb"
-	"strings"
 )
 
 //go:embed sqlserver_base_dao.tpl
 var sqlserverBaseDaoTpl string
 
-type sqlServerGenerator struct {
-	*generator__
+type sqlServerInfo struct {
+	db *sql.DB
 }
 
-func (g sqlServerGenerator) getDriverName() string {
+func (g sqlServerInfo) getDriverName() string {
 	return "mssql"
 }
 
-func (g sqlServerGenerator) getBaseDaoTemplate() string {
+func (g sqlServerInfo) getBaseDaoTemplate() string {
 	return sqlserverBaseDaoTpl
 }
 
-func (g sqlServerGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
+func (g sqlServerInfo) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists       bool
 		fields       []fieldTplParam
@@ -118,8 +120,6 @@ func (g sqlServerGenerator) getTableInfo(table string) ([]fieldTplParam, string,
 	return fields, tableComment, nil
 }
 
-func newSqlServerGenerator(c GenCfg) *sqlServerGenerator {
-	this := &sqlServerGenerator{}
-	this.generator__ = extendGenerator_(this, c)
-	return this
+func newSqlServerInfo(c Config) *sqlServerInfo {
+	return &sqlServerInfo{db: c.getDB()}
 }
