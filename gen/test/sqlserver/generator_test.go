@@ -67,7 +67,7 @@ func TestSqlServer(t *testing.T) {
 	}
 	db.Close()
 
-	gen.GetGenerator(gen.GenCfg{
+	gen.GetGenerator(gen.Config{
 		DbType:    gen.DbType_.SQLSERVER,
 		Dsn:       dsn,
 		GoModPath: "../../..",

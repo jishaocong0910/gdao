@@ -20,6 +20,7 @@ import e "github.com/jishaocong0910/enum"
 
 type dbType struct {
 	*e.EnumElem__
+	driverName string
 }
 
 type _DbType struct {
@@ -31,7 +32,13 @@ type _DbType struct {
 	SQLITE dbType
 }
 
-var DbType_ = e.NewEnum[dbType](_DbType{})
+var DbType_ = e.NewEnum[dbType](_DbType{
+	MYSQL:     dbType{driverName: "mysql"},
+	ORACLE:    dbType{driverName: "oracle"},
+	POSTGRES:  dbType{driverName: "postgres"},
+	SQLSERVER: dbType{driverName: "mssql"},
+	SQLITE:    dbType{driverName: "sqlite"},
+})
 
 type mappingType struct {
 	*e.EnumElem__

@@ -28,6 +28,7 @@ import (
 	pkg2 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1"
 	pkg3 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1/pkg"
 	pkg4 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1/pkg1"
+	_type "github.com/jishaocong0910/gdao/gen/test/mysql/internal/type"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mysql"
@@ -56,7 +57,7 @@ func TestMySql(t *testing.T) {
 	dsn, err := mysqlContainer.ConnectionString(ctx)
 	r.NoError(err)
 
-	gen.GetGenerator(gen.GenCfg{
+	gen.GetGenerator(gen.Config{
 		DbType:    gen.DbType_.MYSQL,
 		Dsn:       dsn,
 		GoModPath: "../../..",
@@ -65,15 +66,17 @@ func TestMySql(t *testing.T) {
 			Tables: gen.Tables{"test_table"},
 			Mappers: gen.Mappers{
 				"test_table": gen.Mappings{
-					"other2":  gen.Mapping[int64](),
+					"other2":  gen.MappingBase[int64](),
 					"other3":  gen.MappingSlice[int32](),
-					"other4":  gen.MappingConvert[pkg.MyMap](),
-					"other5":  gen.MappingConvert[pkg.MySlice](),
-					"other6":  gen.MappingConvert[pkg.MyStruct](),
-					"other7":  gen.MappingConvert[*pkg.MyStruct2](),
-					"other8":  gen.MappingConvert[pkg2.MyStruct3](),
-					"other9":  gen.MappingConvert[pkg3.MyStruct4](),
-					"other10": gen.MappingConvert[pkg4.MyStruct5](),
+					"other4":  gen.MappingBase[_type.MyInt](),
+					"other5":  gen.MappingBase[_type.MyInt2](),
+					"other6":  gen.MappingConvert[pkg.MyMap](),
+					"other7":  gen.MappingConvert[pkg.MySlice](),
+					"other8":  gen.MappingConvert[pkg.MyStruct](),
+					"other9":  gen.MappingConvert[*pkg.MyStruct2](),
+					"other10": gen.MappingConvert[pkg2.MyStruct3](),
+					"other11": gen.MappingConvert[pkg3.MyStruct4](),
+					"other12": gen.MappingConvert[pkg4.MyStruct5](),
 				},
 			},
 			Ignores: gen.Ignores{

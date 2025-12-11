@@ -17,36 +17,34 @@
 package gen
 
 import (
+	"database/sql"
 	_ "embed"
 	"errors"
-	_ "github.com/go-sql-driver/mysql"
 	"strings"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 //go:embed mysql_base_dao.tpl
 var mysqlBaseDaoTpl string
 
 type mySqlGenerator struct {
-	*generator__
+	db       *sql.DB
 	database string
 }
 
-func (this *mySqlGenerator) getDriverName() string {
-	return "mysql"
-}
-
-func (this *mySqlGenerator) getBaseDaoTemplate() string {
+func (g *mySqlGenerator) getBaseDaoTemplate() string {
 	return mysqlBaseDaoTpl
 }
 
-func (this *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
+func (g *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string, error) {
 	var (
 		exists       bool
 		fields       []fieldTplParam
 		tableComment string
 	)
 
-	rows := mustReturn(this.db.Query("SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, EXTRA = 'auto_increment', IS_NULLABLE = 'NO', COLUMN_DEFAULT IS NOT NULL, COLUMN_COMMENT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION", this.database, table))
+	rows := mustReturn(g.db.Query("SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, EXTRA = 'auto_increment', IS_NULLABLE = 'NO', COLUMN_DEFAULT IS NOT NULL, COLUMN_COMMENT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION", g.database, table))
 	defer rows.Close()
 	for rows.Next() {
 		exists = true
@@ -127,7 +125,7 @@ func (this *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string,
 		fields = append(fields, f)
 	}
 
-	rows = mustReturn(this.db.Query("SELECT TABLE_COMMENT FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", this.database, table))
+	rows = mustReturn(g.db.Query("SELECT TABLE_COMMENT FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", g.database, table))
 	defer rows.Close()
 	if rows.Next() {
 		rows.Scan(&tableComment)
@@ -138,18 +136,16 @@ func (this *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string,
 	return fields, tableComment, nil
 }
 
-func newMySqlGenerator(c GenCfg) *mySqlGenerator {
-	this := &mySqlGenerator{}
-	this.generator__ = extendGenerator_(this, c)
-
-	if this.db != nil {
+func newMySqlInfo(c Config) *mySqlGenerator {
+	g := &mySqlGenerator{db: c.getDB()}
+	if g.db != nil {
 		database := ""
-		rows := mustReturn(this.db.Query("SELECT DATABASE()"))
+		rows := mustReturn(g.db.Query("SELECT DATABASE()"))
 		if rows.Next() {
 			rows.Scan(&database)
 		}
 		rows.Close()
-		this.database = database
+		g.database = database
 	}
-	return this
+	return g
 }
