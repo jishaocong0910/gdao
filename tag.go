@@ -24,8 +24,9 @@ import (
 
 type tag struct {
 	column            string
-	isAutoIncrement   bool
+	autoIncrement     bool
 	autoIncrementStep int64
+	transient         bool
 }
 
 func parseTag(tf reflect.StructField) tag {
@@ -36,8 +37,11 @@ func parseTag(tf reflect.StructField) tag {
 			kv := strings.Split(p, "=")
 			if len(kv) == 1 {
 				p = strings.TrimSpace(p)
-				if p == "auto" {
-					t.isAutoIncrement = true
+				switch p {
+				case "auto":
+					t.autoIncrement = true
+				case "transient":
+					t.transient = true
 				}
 			}
 			if len(kv) == 2 {
@@ -47,7 +51,7 @@ func parseTag(tf reflect.StructField) tag {
 				case "column":
 					t.column = v
 				case "auto":
-					t.isAutoIncrement = true
+					t.autoIncrement = true
 					i, err := strconv.ParseInt(v, 10, 64)
 					if err == nil { // coverage-ignore
 						t.autoIncrementStep = i

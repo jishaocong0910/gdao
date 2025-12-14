@@ -40,6 +40,7 @@ type User struct {
 	Status   *int8      `gdao:"column=status"`
 	Level    *int32     `gdao:"column=level"`
 	CreateAt *time.Time `gdao:"column=create_at"`
+	UpdateAt time.Time  `gdao:"transient"`
 }
 
 type Account struct {
@@ -133,6 +134,11 @@ type InvalidField4 struct {
 }
 
 type InvalidField5 struct {
+	Field  *string `gdao:"column=field"`
+	Field2 *string
+}
+
+type InvalidField6 struct {
 	Field *InvalidImplementConvert `gdao:"column=field"`
 }
 
@@ -203,8 +209,8 @@ func TestNewDao(t *testing.T) {
 		r.Len(export.ColumnToFieldIndex, 6)
 		checkMap(r, map[string]int{"id": 0, "tags": 1, "status": 2, "level": 3, "properties": 4, "attributes": 5}, export.ColumnToFieldIndex)
 		checkMap(r, map[string]string{"Id": "id", "Tags": "tags", "Status": "status", "Level": "level", "Properties": "properties", "Attributes": "attributes"}, export.FieldNameToColumn)
-		r.Len(export.ColumnToFieldConvertor, 3)
-		checkMapKeys(r, []string{"tags", "properties", "attributes"}, export.ColumnToFieldConvertor)
+		r.Len(export.ColumnToFieldConvertor, 4)
+		checkMapKeys(r, []string{"tags", "level", "properties", "attributes"}, export.ColumnToFieldConvertor)
 		r.Contains(export.AutoIncrementColumns, "id")
 		r.Equal(int64(1), export.AutoIncrementStep)
 		r.NotNil(export.AutoIncrementConvertor)
@@ -561,11 +567,14 @@ func TestNewDaoPanic(t *testing.T) {
 	r.NotPanics(func() {
 		gdao.DaoBuilder[InvalidField4]().AllowInvalidField(true).Build()
 	})
-	r.PanicsWithError(`field "Field" of "gdao_test.InvalidField5" is invalid implementing gdao.Convert`, func() {
+	r.PanicsWithError(`field "Field2" of "gdao_test.InvalidField5" has not specified the column name`, func() {
 		gdao.DaoBuilder[InvalidField5]().Build()
 	})
+	r.PanicsWithError(`field "Field" of "gdao_test.InvalidField6" is invalid implementing gdao.Convert`, func() {
+		gdao.DaoBuilder[InvalidField6]().Build()
+	})
 	r.NotPanics(func() {
-		gdao.DaoBuilder[InvalidField5]().AllowInvalidField(true).Build()
+		gdao.DaoBuilder[InvalidField6]().AllowInvalidField(true).Build()
 	})
 }
 
