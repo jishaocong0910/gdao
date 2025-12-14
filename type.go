@@ -38,8 +38,7 @@ func getFieldConvertor(ft reflect.Type) fieldConvertor {
 		return fc
 	}
 	method, _ := ft.MethodByName("GdaoValue")
-	zero := reflect.New(method.Type.Out(0)).Elem().Interface()
-	fc := newFieldConvertor(&zero, ft)
+	fc := newFieldConvertor(method.Type.Out(0), ft)
 	key := ft
 	if key.Kind() == reflect.Pointer {
 		key = key.Elem()
@@ -48,12 +47,23 @@ func getFieldConvertor(ft reflect.Type) fieldConvertor {
 	return fc
 }
 
-func newFieldConvertor(zero *any, ft reflect.Type) fieldConvertor {
-	ftZeroType := ft
+func newFieldConvertor(vt reflect.Type, ft reflect.Type) fieldConvertor {
 	if ft.Kind() == reflect.Pointer {
-		ftZeroType = ft.Elem()
+		ft = ft.Elem()
 	}
+	vt = reflect.New(vt).Type()
 	return fieldConvertor{
+		newScanDest: func() scanDest {
+			value := reflect.New(vt)
+			return scanDest{
+				dest: value.Interface(),
+				getValue: func() any {
+					if !value.Elem().IsNil() {
+						return value.Elem().Elem().Interface()
+					}
+					return nil
+				}}
+		},
 		toValue: func(entity any) any {
 			if entity == nil {
 				return nil
@@ -61,22 +71,11 @@ func newFieldConvertor(zero *any, ft reflect.Type) fieldConvertor {
 			ev := reflect.ValueOf(entity)
 			return ev.MethodByName("GdaoValue").Call(nil)[0].Interface()
 		},
-		newScanDest: func() scanDest {
-			dest := &zero
-			return scanDest{
-				dest: &dest,
-				getValue: func() any {
-					if dest != nil {
-						return **dest
-					}
-					return nil
-				}}
-		},
 		toField: func(value any) any {
 			if value == nil {
 				return nil
 			}
-			m := reflect.New(ftZeroType).MethodByName("GdaoField")
+			m := reflect.New(ft).MethodByName("GdaoField")
 			return m.Call([]reflect.Value{reflect.ValueOf(value)})[0].Interface()
 		},
 	}
@@ -112,7 +111,7 @@ type scanDest struct {
 }
 
 type fieldConvertor struct {
-	toValue     func(any) any
 	newScanDest func() scanDest
+	toValue     func(any) any
 	toField     func(value any) any
 }

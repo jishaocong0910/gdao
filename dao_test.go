@@ -55,9 +55,9 @@ type Product struct {
 	Id         *int64 `gdao:"auto"`
 	Tags       MyStringSlice
 	Status     *MyStatus
-	Valid      *MyValid
+	Level      *MyLevel
 	Properties *Properties
-	Attributes *Attributes
+	Attributes Attributes
 }
 
 type Properties struct {
@@ -65,46 +65,56 @@ type Properties struct {
 	Weight int    `json:"weight"`
 }
 
-func (p Properties) GdaoValue() string {
+func (p *Properties) GdaoValue() string {
 	str, _ := json.Marshal(p)
 	return string(str)
 }
 
-func (Properties) GdaoField(value string) *Properties {
-	var p *Properties
+func (p *Properties) GdaoField(value string) *Properties {
 	json.Unmarshal([]byte(value), &p)
 	return p
 }
 
-type Attributes struct {
-	Size  []int    `json:"size"`
-	Color []string `json:"color"`
-}
+type Attributes map[string]any
 
 func (a Attributes) GdaoValue() string {
 	str, _ := json.Marshal(a)
 	return string(str)
 }
 
-func (*Attributes) GdaoField(value string) *Attributes {
-	var a *Attributes
+func (a Attributes) GdaoField(value string) Attributes {
 	json.Unmarshal([]byte(value), &a)
 	return a
 }
 
 type MyStringSlice []string
 
-func (c MyStringSlice) GdaoValue() string {
-	return strings.Join(c, ",")
+func (s MyStringSlice) GdaoValue() string {
+	return strings.Join(s, ",")
 }
 
-func (MyStringSlice) GdaoField(value string) MyStringSlice {
-	return strings.Split(value, ",")
+func (s MyStringSlice) GdaoField(value string) MyStringSlice {
+	arr := strings.Split(value, ",")
+	for _, a := range arr {
+		s = append(s, a)
+	}
+	return arr
 }
 
 type MyStatus int
 
-type MyValid = int
+type MyLevel string
+
+func (m MyLevel) GdaoValue() int8 {
+	i, _ := strconv.ParseInt(string(m), 10, 8)
+	return int8(i)
+}
+
+func (m MyLevel) GdaoField(value int8) *MyLevel {
+	str := strconv.FormatInt(int64(value), 10)
+	myLevel := MyLevel(str)
+	return &myLevel
+}
 
 type InvalidField struct {
 	field *string `gdao:"column=field"`
@@ -188,11 +198,11 @@ func TestNewDao(t *testing.T) {
 	{
 		dao, _ := mockProductDao(r)
 		export := gdao.ExportDao(dao)
-		r.Equal("id, tags, status, valid, properties, attributes", export.ColumnsWithComma)
-		r.Equal([]string{"id", "tags", "status", "valid", "properties", "attributes"}, export.Columns)
+		r.Equal("id, tags, status, level, properties, attributes", export.ColumnsWithComma)
+		r.Equal([]string{"id", "tags", "status", "level", "properties", "attributes"}, export.Columns)
 		r.Len(export.ColumnToFieldIndex, 6)
-		checkMap(r, map[string]int{"id": 0, "tags": 1, "status": 2, "valid": 3, "properties": 4, "attributes": 5}, export.ColumnToFieldIndex)
-		checkMap(r, map[string]string{"Id": "id", "Tags": "tags", "Status": "status", "Valid": "valid", "Properties": "properties", "Attributes": "attributes"}, export.FieldNameToColumn)
+		checkMap(r, map[string]int{"id": 0, "tags": 1, "status": 2, "level": 3, "properties": 4, "attributes": 5}, export.ColumnToFieldIndex)
+		checkMap(r, map[string]string{"Id": "id", "Tags": "tags", "Status": "status", "Level": "level", "Properties": "properties", "Attributes": "attributes"}, export.FieldNameToColumn)
 		r.Len(export.ColumnToFieldConvertor, 3)
 		checkMapKeys(r, []string{"tags", "properties", "attributes"}, export.ColumnToFieldConvertor)
 		r.Contains(export.AutoIncrementColumns, "id")
@@ -354,6 +364,27 @@ func TestDao_Query_RowAsLastId(t *testing.T) {
 	r.Equal(int32(1234), *accounts[1].Id)
 }
 
+func TestDao_Query_FieldConvert(t *testing.T) {
+	r := require.New(t)
+	{
+		dao, mock := mockProductDao(r)
+		mock.ExpectPrepare(`SELECT \* FROM product WHERE status = \? AND tag = \?`).
+			ExpectQuery().WithArgs(MyStatus(2), "a,b,c").WillReturnRows(mock.NewRows([]string{"id", "tags", "status", "level", "properties", "attributes"}).
+			AddRow(1, "a,b,c", 2, 3, "{\"unit\": \"kg\",\"weight\": 10}", "{\"size\": [56, 57, 58],\"color\": [\"red\",\"green\",\"blue\"]}"))
+		product, _, err := dao.Query().BuildSql(func(b *gdao.DaoSqlBuilder[Product]) {
+			b.Write("SELECT * FROM product WHERE status = ? AND tag = ?", MyStatus(2), MyStringSlice{"a", "b", "c"})
+		}).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+		r.Equal(int64(1), *product.Id)
+		r.Equal(MyStatus(2), *product.Status)
+		r.Equal(MyLevel("3"), *product.Level)
+		r.Equal(MyStringSlice{"a", "b", "c"}, product.Tags)
+		r.Equal(Properties{Unit: "kg", Weight: 10}, *product.Properties)
+		r.Equal(Attributes{"size": []any{float64(56), float64(57), float64(58)}, "color": []any{"red", "green", "blue"}}, product.Attributes)
+	}
+}
+
 func TestDao_Exec(t *testing.T) {
 	r := require.New(t)
 	{
@@ -496,25 +527,6 @@ func TestDao_Exec_LastInsertIdAsLastId(t *testing.T) {
 	r.Equal(int64(2), affected)
 	r.Equal(int32(1000), *users[0].Id)
 	r.Equal(int32(1001), *users[1].Id)
-}
-
-func TestDao_Query_FieldConvert(t *testing.T) {
-	r := require.New(t)
-	{
-		dao, mock := mockProductDao(r)
-		mock.ExpectPrepare(`SELECT \* FROM product WHERE status = \? AND tag = \?`).
-			ExpectQuery().WithArgs(MyStatus(2), "a,b,c").WillReturnRows(mock.NewRows([]string{"id", "tags", "status", "properties", "attributes"}).
-			AddRow(1, "a,b,c", 2, "{\"unit\": \"kg\",\"weight\": 10}", "{\"size\": [56, 57, 58],\"color\": [\"red\",\"green\",\"blue\"]}"))
-		product, _, err := dao.Query().BuildSql(func(b *gdao.DaoSqlBuilder[Product]) {
-			b.Write("SELECT * FROM product WHERE status = ? AND tag = ?", MyStatus(2), MyStringSlice{"a", "b", "c"})
-		}).Do()
-		r.NoError(err)
-		r.NoError(mock.ExpectationsWereMet())
-		r.Equal(int64(1), *product.Id)
-		r.Equal(MyStringSlice{"a", "b", "c"}, product.Tags)
-		r.Equal(Properties{Unit: "kg", Weight: 10}, *product.Properties)
-		r.Equal(Attributes{Size: []int{56, 57, 58}, Color: []string{"red", "green", "blue"}}, *product.Attributes)
-	}
 }
 
 func TestNewDaoPanic(t *testing.T) {
