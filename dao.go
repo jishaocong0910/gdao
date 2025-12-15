@@ -81,53 +81,57 @@ func (d *Dao[T]) registerEntity(b *daoBuilder[T]) error {
 	t := reflect.TypeOf((*T)(nil)).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		tf := t.Field(i)
+		if tf.Anonymous {
+			continue
+		}
+		tag := parseTag(tf)
+		if tag.transient {
+			continue
+		}
 		if !tf.IsExported() {
 			if b.allowInvalidField {
 				continue
 			}
 			return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" must be exported")
 		}
-		if !tf.Anonymous {
-			ft := tf.Type
-			switch internal.IsImplementConvert(ft) {
-			case 1:
-				fc := getFieldConvertor(ft)
-				d.registerField(tf, b.columnMapper, &fc)
-				continue
-			case 2:
-				if !b.allowInvalidField {
-					return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" is invalid implementing gdao.Convert")
-				}
-			}
-			if ft.Kind() == reflect.Pointer || ft.Kind() == reflect.Slice {
-				if internal.IsBaseType(ft.Elem()) {
-					d.registerField(tf, b.columnMapper, nil)
-					continue
-				}
-			}
-			if b.allowInvalidField {
-				continue
-			}
-			return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" is not supported type")
+		column := d.determineColumn(tf, tag, b.columnMapper)
+		if column == "" {
+			return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" has not specified the column name")
 		}
+		ft := tf.Type
+		switch internal.IsImplementConvert(ft) {
+		case 1:
+			fc := getFieldConvertor(ft)
+			d.registerField(tf, tag, column, &fc)
+			continue
+		case 2:
+			if !b.allowInvalidField {
+				return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" is invalid implementing gdao.Convert")
+			}
+		}
+		if ft.Kind() == reflect.Pointer || ft.Kind() == reflect.Slice {
+			if internal.IsBaseType(ft.Elem()) {
+				d.registerField(tf, tag, column, nil)
+				continue
+			}
+		}
+		if b.allowInvalidField {
+			continue
+		}
+		return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" is not supported type")
 	}
 	return nil
 }
 
-func (d *Dao[T]) registerField(tf reflect.StructField, columnMapper *NameMapper, fieldConvertor *fieldConvertor) {
-	var column string
-
-	t := parseTag(tf)
-	if t.column == "" {
-		if columnMapper != nil {
-			column = columnMapper.Convert(tf.Name)
-		} else { // coverage-ignore
-			return
-		}
-	} else {
-		column = t.column
+func (d *Dao[T]) determineColumn(tf reflect.StructField, t tag, columnMapper *NameMapper) string {
+	column := t.column
+	if t.column == "" && columnMapper != nil {
+		column = columnMapper.Convert(tf.Name)
 	}
+	return column
+}
 
+func (d *Dao[T]) registerField(tf reflect.StructField, tag tag, column string, fieldConvertor *fieldConvertor) {
 	d.columns = append(d.columns, column)
 	if d.commaColumns != "" {
 		d.commaColumns += ", "
@@ -135,17 +139,16 @@ func (d *Dao[T]) registerField(tf reflect.StructField, columnMapper *NameMapper,
 	d.commaColumns += column
 	d.columnToFieldIndex[column] = tf.Index[0]
 	d.fieldNameToColumn[tf.Name] = column
-	if t.isAutoIncrement {
+	if tag.autoIncrement {
 		if convertor := lastInsertIdConvertor_.OfString(tf.Type.Elem().String()); !convertor.IsUndefined() {
 			d.autoIncrementColumns = append(d.autoIncrementColumns, column)
-			d.autoIncrementStep = t.autoIncrementStep
+			d.autoIncrementStep = tag.autoIncrementStep
 			d.autoIncrementConvert = convertor.convert
 		}
 	}
 	if fieldConvertor != nil {
 		d.columnToFieldConvertor[column] = *fieldConvertor
 	}
-	return
 }
 
 type query[T any] struct {
