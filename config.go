@@ -21,7 +21,7 @@ import "database/sql"
 type Cfg struct {
 	DefaultDB      *sql.DB
 	Logger         Logger
-	LogLevel       LogLevel
+	SqlLogLevel    LogLevel
 	CompressSqlLog bool
 }
 

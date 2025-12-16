@@ -36,7 +36,7 @@ func TestCountDao_Count(t *testing.T) {
 		dao, mock := mockCountDao(r)
 		mock.ExpectPrepare(`SELECT count\(\*\) FROM user`).ExpectQuery().WillReturnRows(mock.NewRows([]string{"c"}).AddRow(20))
 
-		count, err := dao.Count().BuildSql(func(b *gdao.CountBuilder) {
+		count, err := dao.Count().BuildSql(func(b *gdao.CountSqlBuilder) {
 			b.Write("SELECT count(*) FROM user")
 		}).Do()
 		r.NoError(err)
@@ -47,7 +47,7 @@ func TestCountDao_Count(t *testing.T) {
 		dao, mock := mockCountDao(r)
 		mock.ExpectPrepare(`SELECT count\(\*\) count FROM user GROUP BY id`).ExpectQuery().WillReturnRows(mock.NewRows([]string{"count"}).AddRow(12).AddRow(20))
 
-		_, err := dao.Count().BuildSql(func(b *gdao.CountBuilder) {
+		_, err := dao.Count().BuildSql(func(b *gdao.CountSqlBuilder) {
 			b.Write("SELECT count(*) count FROM user GROUP BY id")
 		}).Do()
 		r.NoError(mock.ExpectationsWereMet())
@@ -57,7 +57,7 @@ func TestCountDao_Count(t *testing.T) {
 		dao, mock := mockCountDao(r)
 		mock.ExpectPrepare(`SELECT id, count\(\*\) count FROM user GROUP BY id`).ExpectQuery().WillReturnRows(mock.NewRows([]string{"id", "count"}).AddRow(1, 12).AddRow(2, 20))
 
-		_, err := dao.Count().BuildSql(func(b *gdao.CountBuilder) {
+		_, err := dao.Count().BuildSql(func(b *gdao.CountSqlBuilder) {
 			b.Write("SELECT id, count(*) count FROM user GROUP BY id")
 		}).Do()
 		r.NoError(mock.ExpectationsWereMet())

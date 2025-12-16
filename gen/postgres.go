@@ -136,24 +136,24 @@ func (g postgresInfo) getTableInfo(table string) ([]fieldTplParam, string, error
 }
 
 func newPostgresGenerator(c Config) *postgresInfo {
-	this := &postgresInfo{db: c.getDB()}
-	if this.db != nil {
+	g := &postgresInfo{db: c.getDB()}
+	if g.db != nil {
 		schema := ""
-		rows := mustReturn(this.db.Query("SELECT CURRENT_SCHEMA()"))
+		rows := mustReturn(g.db.Query("SELECT CURRENT_SCHEMA()"))
 		if rows.Next() {
 			rows.Scan(&schema)
 		}
 		rows.Close()
 
 		database := ""
-		rows = mustReturn(this.db.Query("SELECT CURRENT_DATABASE()"))
+		rows = mustReturn(g.db.Query("SELECT CURRENT_DATABASE()"))
 		if rows.Next() {
 			rows.Scan(&database)
 		}
 		rows.Close()
 
-		this.schema = schema
-		this.database = database
+		g.schema = schema
+		g.database = database
 	}
-	return this
+	return g
 }

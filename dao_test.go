@@ -156,7 +156,7 @@ func (InvalidImplementConvert) GdaoField(int) InvalidImplementConvert {
 func mockUserDao(r *require.Assertions) (*gdao.Dao[User], sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao := gdao.DaoBuilder[User]().Build()
+	dao := gdao.DaoBuilder[User]().Table("user").Build()
 	gdao.Config(gdao.Cfg{DefaultDB: db})
 	return dao, mock
 }
@@ -164,14 +164,14 @@ func mockUserDao(r *require.Assertions) (*gdao.Dao[User], sqlmock.Sqlmock) {
 func mockAccountDao(r *require.Assertions) (*gdao.Dao[Account], sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao := gdao.DaoBuilder[Account]().DB(db).ColumnMapper(gdao.NewNameMapper().LowerSnakeCase()).Build()
+	dao := gdao.DaoBuilder[Account]().DB(db).Table("account").ColumnMapper(gdao.NewNameMapper().LowerSnakeCase()).Build()
 	return dao, mock
 }
 
 func mockProductDao(r *require.Assertions) (*gdao.Dao[Product], sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao := gdao.DaoBuilder[Product]().DB(db).ColumnMapper(gdao.NewNameMapper().LowerSnakeCase()).Build()
+	dao := gdao.DaoBuilder[Product]().DB(db).Table("product").ColumnMapper(gdao.NewNameMapper().LowerSnakeCase()).Build()
 	return dao, mock
 }
 
@@ -180,6 +180,7 @@ func TestNewDao(t *testing.T) {
 	{
 		dao, _ := mockUserDao(r)
 		export := gdao.ExportDao(dao)
+		r.Equal("user", export.Table)
 		r.Equal("id, name, age, address, phone, email, status, level, create_at", export.ColumnsWithComma)
 		r.Equal([]string{"id", "name", "age", "address", "phone", "email", "status", "level", "create_at"}, export.Columns)
 		r.Len(export.ColumnToFieldIndex, 9)
@@ -192,6 +193,7 @@ func TestNewDao(t *testing.T) {
 	{
 		dao, _ := mockAccountDao(r)
 		export := gdao.ExportDao(dao)
+		r.Equal("account", export.Table)
 		r.Equal("id, other_id, user_id, status, balance, licence_file", export.ColumnsWithComma)
 		r.Equal([]string{"id", "other_id", "user_id", "status", "balance", "licence_file"}, export.Columns)
 		r.Len(export.ColumnToFieldIndex, 6)
@@ -204,6 +206,7 @@ func TestNewDao(t *testing.T) {
 	{
 		dao, _ := mockProductDao(r)
 		export := gdao.ExportDao(dao)
+		r.Equal("product", export.Table)
 		r.Equal("id, tags, status, level, properties, attributes", export.ColumnsWithComma)
 		r.Equal([]string{"id", "tags", "status", "level", "properties", "attributes"}, export.Columns)
 		r.Len(export.ColumnToFieldIndex, 6)
@@ -228,7 +231,7 @@ func TestDao_Query(t *testing.T) {
 		user, users, err := dao.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("SELECT ")
 			b.WriteColumns()
-			b.Write(" FROM user")
+			b.Write(" FROM ").WriteTable()
 			b.Write(" WHERE id=? AND status=?", 1, 2)
 		}).Do()
 		r.NoError(err)
@@ -257,7 +260,7 @@ func TestDao_Query(t *testing.T) {
 		_, _, err := dao.Query().Entities(user).BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
 			b.Write("SELECT ")
 			b.WriteColumns()
-			b.Write(" FROM user")
+			b.Write(" FROM ").WriteTable()
 			b.Write(" WHERE ")
 			e := b.Entity()
 			b.Write("status=")
@@ -282,7 +285,7 @@ func TestDao_Query(t *testing.T) {
 			b.Write("SELECT ")
 			b.WriteColumns()
 			b.Write(", valid")
-			b.Write(" FROM user")
+			b.Write(" FROM ").WriteTable()
 			b.Write(" WHERE id=? AND status=?", 1, 2)
 		}).Do()
 		r.NoError(err)

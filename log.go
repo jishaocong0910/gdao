@@ -54,7 +54,7 @@ func formatSql(sql string) string {
 
 func printSql(ctx context.Context, logLevel LogLevel, desc string, sql string, args []any, affected, rowCounts int64, err error) {
 	if logLevel.IsUndefined() {
-		logLevel = global.LogLevel
+		logLevel = global.SqlLogLevel
 	}
 	if logLevel.Not(LogLevel_.DEBUG, LogLevel_.INFO) { // coverage-ignore
 		return

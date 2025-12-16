@@ -48,7 +48,7 @@ func MockBaseDao[T any](r *require.Assertions, table string) (*baseDao[T], sqlmo
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
 	dao := BaseDaoBuilder[T]().Table(table).Build()
-	gdao.Config(gdao.Cfg{DefaultDB: db, Logger: Logger{}, LogLevel: gdao.LogLevel_.INFO})
+	gdao.Config(gdao.Cfg{DefaultDB: db, Logger: Logger{}, SqlLogLevel: gdao.LogLevel_.INFO})
 	return dao, mock
 }
 

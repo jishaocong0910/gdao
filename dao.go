@@ -28,6 +28,7 @@ import (
 
 type Dao[T any] struct {
 	*baseDao
+	table                  string
 	commaColumns           string
 	columns                []string
 	columnToFieldIndex     map[string]int
@@ -152,14 +153,14 @@ func (d *Dao[T]) registerField(tf reflect.StructField, tag tag, column string, f
 }
 
 type query[T any] struct {
-	dao      *Dao[T]
-	ctx      context.Context
-	must     bool
-	logLevel LogLevel
-	desc     string
-	rowAs    RowAs
-	entities []*T
-	buildSql func(b *DaoSqlBuilder[T])
+	dao         *Dao[T]
+	ctx         context.Context
+	must        bool
+	sqlLogLevel LogLevel
+	desc        string
+	rowAs       RowAs
+	entities    []*T
+	buildSql    func(b *DaoSqlBuilder[T])
 }
 
 func (q *query[T]) Ctx(ctx context.Context) *query[T] {
@@ -172,8 +173,8 @@ func (q *query[T]) Must(must bool) *query[T] {
 	return q
 }
 
-func (q *query[T]) LogLevel(logLevel LogLevel) *query[T] {
-	q.logLevel = logLevel
+func (q *query[T]) SqlLogLevel(logLevel LogLevel) *query[T] {
+	q.sqlLogLevel = logLevel
 	return q
 }
 
@@ -211,7 +212,7 @@ func (q *query[T]) Do() (first *T, list []*T, err error) {
 	}
 	rows, columns, closeFunc, err := q.dao.query(q.ctx, b.Sql(), b.Args())
 	if err != nil { // coverage-ignore
-		printSql(q.ctx, q.logLevel, q.desc, b.Sql(), b.Args(), -1, -1, err)
+		printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), -1, -1, err)
 		checkMust(q.must, err)
 		return nil, nil, err
 	}
@@ -241,7 +242,7 @@ func (q *query[T]) Do() (first *T, list []*T, err error) {
 		if len(list) > 0 {
 			first = list[0]
 		}
-		printSql(q.ctx, q.logLevel, q.desc, b.Sql(), b.Args(), -1, rowCounts, nil)
+		printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), -1, rowCounts, nil)
 	}
 	return
 }
@@ -266,7 +267,7 @@ func (q *query[T]) rowAsReturning(b *DaoSqlBuilder[T], rows *sql.Rows, columns [
 		}
 		affected++
 	}
-	printSql(q.ctx, q.logLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
+	printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
 }
 
 func (q *query[T]) rowAsLastId(b *DaoSqlBuilder[T], rows *sql.Rows, columns []string) {
@@ -300,14 +301,14 @@ func (q *query[T]) rowAsLastId(b *DaoSqlBuilder[T], rows *sql.Rows, columns []st
 			}
 		}
 	}
-	printSql(q.ctx, q.logLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
+	printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
 }
 
 type exec[T any] struct {
 	dao            *Dao[T]
 	ctx            context.Context
 	must           bool
-	logLevel       LogLevel
+	sqlLogLevel    LogLevel
 	desc           string
 	lastInsertIdAs LastInsertIdAs
 	entities       []*T
@@ -324,8 +325,8 @@ func (e *exec[T]) Must(must bool) *exec[T] {
 	return e
 }
 
-func (e *exec[T]) LogLevel(logLevel LogLevel) *exec[T] {
-	e.logLevel = logLevel
+func (e *exec[T]) SqlLogLevel(logLevel LogLevel) *exec[T] {
+	e.sqlLogLevel = logLevel
 	return e
 }
 
@@ -361,7 +362,7 @@ func (e *exec[T]) Do() (affected int64, err error) {
 		return 0, nil
 	}
 	result, affected, err := e.dao.exec(e.ctx, b.Sql(), b.Args())
-	printSql(e.ctx, e.logLevel, e.desc, b.Sql(), b.Args(), affected, -1, err)
+	printSql(e.ctx, e.sqlLogLevel, e.desc, b.Sql(), b.Args(), affected, -1, err)
 	if err != nil { // coverage-ignore
 		checkMust(e.must, err)
 		return
@@ -416,47 +417,52 @@ type DaoSqlBuilder[T any] struct {
 	entities []*T
 }
 
-func (this *DaoSqlBuilder[T]) Write(str string, args ...any) *DaoSqlBuilder[T] {
-	this.BaseSqlBuilder.Write(str, args...)
-	return this
+func (b *DaoSqlBuilder[T]) Write(str string, args ...any) *DaoSqlBuilder[T] {
+	b.BaseSqlBuilder.Write(str, args...)
+	return b
 }
 
-func (this *DaoSqlBuilder[T]) WriteColumns(columns ...string) *DaoSqlBuilder[T] {
+func (b *DaoSqlBuilder[T]) WriteTable() *DaoSqlBuilder[T] {
+	b.Write(b.dao.table)
+	return b
+}
+
+func (b *DaoSqlBuilder[T]) WriteColumns(columns ...string) *DaoSqlBuilder[T] {
 	if len(columns) == 0 {
-		this.Write(this.dao.commaColumns)
+		b.Write(b.dao.commaColumns)
 	} else {
 		for i, c := range columns {
 			if c == "" {
 				continue
 			}
 			if i != 0 {
-				this.Write(", ")
+				b.Write(", ")
 			}
-			this.Write(c)
+			b.Write(c)
 		}
 	}
-	return this
+	return b
 }
 
-func (this *DaoSqlBuilder[T]) Columns(onlyAssigned bool, ignoredColumns ...string) (columns []string) {
+func (b *DaoSqlBuilder[T]) Columns(onlyAssigned bool, ignoredColumns ...string) (columns []string) {
 	if !onlyAssigned {
 		if len(ignoredColumns) == 0 {
-			return this.dao.columns
+			return b.dao.columns
 		}
-		ignoredColumnMap := this.toMap(ignoredColumns)
-		for _, column := range this.dao.columns {
+		ignoredColumnMap := b.toMap(ignoredColumns)
+		for _, column := range b.dao.columns {
 			if _, ok := ignoredColumnMap[column]; !ok {
 				columns = append(columns, column)
 			}
 		}
 		return
 	} else {
-		entity := this.Entity()
+		entity := b.Entity()
 		if entity != nil {
 			v := reflect.ValueOf(entity).Elem()
-			ignoredColumnMap := this.toMap(ignoredColumns)
-			for _, column := range this.dao.columns {
-				fieldIndex := this.dao.columnToFieldIndex[column]
+			ignoredColumnMap := b.toMap(ignoredColumns)
+			for _, column := range b.dao.columns {
+				fieldIndex := b.dao.columnToFieldIndex[column]
 				field := v.Field(fieldIndex)
 				if field.IsNil() {
 					continue
@@ -472,27 +478,27 @@ func (this *DaoSqlBuilder[T]) Columns(onlyAssigned bool, ignoredColumns ...strin
 	}
 }
 
-func (this *DaoSqlBuilder[T]) AutoColumns() []string {
-	return this.dao.autoIncrementColumns
+func (b *DaoSqlBuilder[T]) AutoColumns() []string {
+	return b.dao.autoIncrementColumns
 }
 
-func (this *DaoSqlBuilder[T]) EntityAt(index int) *T {
+func (b *DaoSqlBuilder[T]) EntityAt(index int) *T {
 	var t *T
-	if index < len(this.entities) {
-		t = this.entities[index]
+	if index < len(b.entities) {
+		t = b.entities[index]
 	}
 	return t
 }
 
-func (this *DaoSqlBuilder[T]) Entity() *T {
-	return this.EntityAt(0)
+func (b *DaoSqlBuilder[T]) Entity() *T {
+	return b.EntityAt(0)
 }
 
-func (this *DaoSqlBuilder[T]) ColumnValue(entity *T, column string) any {
+func (b *DaoSqlBuilder[T]) ColumnValue(entity *T, column string) any {
 	if entity == nil {
 		return nil
 	}
-	fieldIndex, ok := this.dao.columnToFieldIndex[column]
+	fieldIndex, ok := b.dao.columnToFieldIndex[column]
 	if !ok {
 		return nil
 	}
@@ -504,41 +510,41 @@ func (this *DaoSqlBuilder[T]) ColumnValue(entity *T, column string) any {
 	return vf.Interface()
 }
 
-func (this *DaoSqlBuilder[T]) EachEntity(sep *Separate, handle func(n int, entity *T)) *DaoSqlBuilder[T] {
+func (b *DaoSqlBuilder[T]) EachEntity(sep *Separate, handle func(n int, entity *T)) *DaoSqlBuilder[T] {
 	var n int
-	this.WritePrefix(sep, n)
-	for _, entity := range this.entities {
+	b.WritePrefix(sep, n)
+	for _, entity := range b.entities {
 		n++
-		this.WritePrefix(sep, n)
-		this.WriteSep(sep, n)
+		b.WritePrefix(sep, n)
+		b.WriteSep(sep, n)
 		handle(n, entity)
 	}
-	this.WriteSuffix(sep, n)
-	return this
+	b.WriteSuffix(sep, n)
+	return b
 }
 
-func (this *DaoSqlBuilder[T]) EachColumn(entity *T, sep *Separate, handle func(n int, column string, value any), columns ...string) {
+func (b *DaoSqlBuilder[T]) EachColumn(entity *T, sep *Separate, handle func(n int, column string, value any), columns ...string) {
 	v := reflect.ValueOf(entity).Elem()
 	var n int
-	this.WritePrefix(sep, n)
+	b.WritePrefix(sep, n)
 	for _, column := range columns {
-		fieldIndex := this.dao.columnToFieldIndex[column]
+		fieldIndex := b.dao.columnToFieldIndex[column]
 		field := v.Field(fieldIndex)
 		var value any
 		if !field.IsNil() {
 			value = field.Interface()
 		}
 		n++
-		this.WritePrefix(sep, n)
-		this.WriteSep(sep, n)
+		b.WritePrefix(sep, n)
+		b.WriteSep(sep, n)
 
 		handle(n, column, value)
 	}
-	this.WriteSuffix(sep, n)
+	b.WriteSuffix(sep, n)
 	return
 }
 
-func (this *DaoSqlBuilder[T]) toMap(s []string) map[string]struct{} {
+func (b *DaoSqlBuilder[T]) toMap(s []string) map[string]struct{} {
 	m := make(map[string]struct{}, len(s))
 	if len(s) > 0 {
 		for _, column := range s {
@@ -556,6 +562,7 @@ func newDaoSqlBuilder[T any](d *Dao[T], entities []*T) *DaoSqlBuilder[T] {
 type daoBuilder[T any] struct {
 	db                *sql.DB
 	allowInvalidField bool
+	table             string
 	columnMapper      *NameMapper
 }
 
@@ -569,6 +576,11 @@ func (b *daoBuilder[T]) AllowInvalidField(allowInvalidField bool) *daoBuilder[T]
 	return b
 }
 
+func (b *daoBuilder[T]) Table(table string) *daoBuilder[T] {
+	b.table = table
+	return b
+}
+
 func (b *daoBuilder[T]) ColumnMapper(columnMapper *NameMapper) *daoBuilder[T] {
 	b.columnMapper = columnMapper
 	return b
@@ -577,6 +589,7 @@ func (b *daoBuilder[T]) ColumnMapper(columnMapper *NameMapper) *daoBuilder[T] {
 func (b *daoBuilder[T]) Build() *Dao[T] {
 	dao := &Dao[T]{
 		baseDao:                newBaseDao(b.db),
+		table:                  b.table,
 		columnToFieldIndex:     make(map[string]int),
 		columnToFieldConvertor: make(map[string]fieldConvertor),
 		fieldNameToColumn:      make(map[string]string),

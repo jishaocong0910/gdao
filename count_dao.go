@@ -24,60 +24,57 @@ import (
 
 type CountDao struct {
 	*baseDao
+	table string
 }
 
 func (d *CountDao) Count() *count {
-	return &count{dao: d.baseDao, req: &countReq{}}
-}
-
-type countReq struct {
-	ctx      context.Context
-	must     bool
-	logLevel LogLevel
-	desc     string
-	buildSql func(b *CountBuilder)
+	return &count{dao: d}
 }
 
 type count struct {
-	dao *baseDao
-	req *countReq
+	dao         *CountDao
+	ctx         context.Context
+	must        bool
+	sqlLogLevel LogLevel
+	desc        string
+	buildSql    func(b *CountSqlBuilder)
 }
 
 func (c *count) Ctx(ctx context.Context) *count {
-	c.req.ctx = ctx
+	c.ctx = ctx
 	return c
 }
 
 func (c *count) Must(must bool) *count {
-	c.req.must = must
+	c.must = must
 	return c
 }
 
-func (c *count) LogLevel(logLevel LogLevel) *count {
-	c.req.logLevel = logLevel
+func (c *count) SqlLogLevel(logLevel LogLevel) *count {
+	c.sqlLogLevel = logLevel
 	return c
 }
 
 func (c *count) Desc(desc string) *count {
-	c.req.desc = desc
+	c.desc = desc
 	return c
 }
 
-func (c *count) BuildSql(buildSql func(b *CountBuilder)) *count {
-	c.req.buildSql = buildSql
+func (c *count) BuildSql(buildSql func(b *CountSqlBuilder)) *count {
+	c.buildSql = buildSql
 	return c
 }
 
 func (c *count) Do() (count *Count, err error) {
-	b := &CountBuilder{BaseSqlBuilder: NewBaseSqlBuilder()}
-	c.req.buildSql(b)
+	b := newCountSqlBuilder(c.dao)
+	c.buildSql(b)
 	if !b.Ok() { // coverage-ignore
 		return nil, b.Error()
 	}
-	rows, columns, closeFunc, err := c.dao.query(c.req.ctx, b.Sql(), b.Args())
+	rows, columns, closeFunc, err := c.dao.query(c.ctx, b.Sql(), b.Args())
 	if err != nil { // coverage-ignore
-		printSql(c.req.ctx, c.req.logLevel, c.req.desc, b.Sql(), b.Args(), -1, -1, err)
-		checkMust(c.req.must, err)
+		printSql(c.ctx, c.sqlLogLevel, c.desc, b.Sql(), b.Args(), -1, -1, err)
+		checkMust(c.must, err)
 		return nil, err
 	}
 	defer closeFunc()
@@ -92,13 +89,13 @@ func (c *count) Do() (count *Count, err error) {
 		if len(columns) > 1 {
 			count = nil
 			err = errors.New("returns more than one column")
-			checkMust(c.req.must, err)
+			checkMust(c.must, err)
 			return
 		}
 		err = rows.Scan(&count.Value)
 		if err != nil { // coverage-ignore
 			count = nil
-			checkMust(c.req.must, err)
+			checkMust(c.must, err)
 			return
 		}
 	}
@@ -106,16 +103,31 @@ func (c *count) Do() (count *Count, err error) {
 	if rowCounts > 1 {
 		count = nil
 		err = errors.New("returns more than one row")
-		printSql(c.req.ctx, c.req.logLevel, c.req.desc, b.Sql(), b.Args(), -1, rowCounts, err)
-		checkMust(c.req.must, err)
+		printSql(c.ctx, c.sqlLogLevel, c.desc, b.Sql(), b.Args(), -1, rowCounts, err)
+		checkMust(c.must, err)
 		return count, err
 	}
-	printSql(c.req.ctx, c.req.logLevel, c.req.desc, b.Sql(), b.Args(), -1, rowCounts, nil)
+	printSql(c.ctx, c.sqlLogLevel, c.desc, b.Sql(), b.Args(), -1, rowCounts, nil)
 	return
 }
 
-type CountBuilder struct {
+type CountSqlBuilder struct {
 	*BaseSqlBuilder
+	dao *CountDao
+}
+
+func (b *CountSqlBuilder) Write(str string, args ...any) *CountSqlBuilder {
+	b.BaseSqlBuilder.Write(str, args...)
+	return b
+}
+
+func (b *CountSqlBuilder) WriteTable() *CountSqlBuilder {
+	b.Write(b.dao.table)
+	return b
+}
+
+func newCountSqlBuilder(d *CountDao) *CountSqlBuilder {
+	return &CountSqlBuilder{BaseSqlBuilder: NewBaseSqlBuilder(), dao: d}
 }
 
 type Count struct {
@@ -212,7 +224,8 @@ func (c *Count) BoolPtr() *bool {
 }
 
 type countDaoBuilder struct {
-	db *sql.DB
+	db    *sql.DB
+	table string
 }
 
 func (b *countDaoBuilder) DB(db *sql.DB) *countDaoBuilder {
@@ -220,8 +233,13 @@ func (b *countDaoBuilder) DB(db *sql.DB) *countDaoBuilder {
 	return b
 }
 
+func (b *countDaoBuilder) Table(table string) *countDaoBuilder {
+	b.table = table
+	return b
+}
+
 func (b *countDaoBuilder) Build() *CountDao {
-	return &CountDao{baseDao: newBaseDao(b.db)}
+	return &CountDao{baseDao: newBaseDao(b.db), table: b.table}
 }
 
 func CountDaoBuilder() *countDaoBuilder {
