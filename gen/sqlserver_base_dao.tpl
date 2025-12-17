@@ -85,7 +85,7 @@ func (l *list[T]) ForUpdate(forUpdate bool) *list[T] {
 }
 
 func (l *list[T]) Do() ([]*T, error) {
-	_, list, err := l.dao.Query().Ctx(l.ctx).Must(l.must).SqlLogLevel(l.sqlLogLevel).Desc(l.desc).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
+	_, list, err := l.dao.Query().Ctx(l.ctx).Must(l.must).SqlLogLevel(l.sqlLogLevel).Desc(l.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		var pagingType int
 		if l.paging != nil {
 			if l.paging.offset > 0 {
@@ -340,7 +340,7 @@ func (ib *insertBatch[T]) Ignore(ignore ...string) *insertBatch[T] {
 
 func (ib *insertBatch[T]) Do() error {
 	_, _, err := ib.dao.Query().Ctx(ib.ctx).Must(ib.must).SqlLogLevel(ib.sqlLogLevel).Desc(ib.desc).RowAs(gdao.RowAs_.LAST_ID).
-		Entities(ib.entities...).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
+		Entities(ib.entities...).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
 		var allIgnore []string
 		allIgnore = append(allIgnore, ib.setNull...)
@@ -467,7 +467,7 @@ func (u *update[T]) Condition(cond Cond) *update[T] {
 }
 
 func (u *update[T]) Do() (int64, error) {
-	return u.dao.Exec().Ctx(u.ctx).Must(u.must).SqlLogLevel(u.sqlLogLevel).Desc(u.desc).Entities(u.entity).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
+	return u.dao.Exec().Ctx(u.ctx).Must(u.must).SqlLogLevel(u.sqlLogLevel).Desc(u.desc).Entities(u.entity).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
 		var allIgnore []string
 		allIgnore = append(allIgnore, u.setNull...)
@@ -591,7 +591,7 @@ func (u *updateBatch[T]) Condition(cond Cond) *updateBatch[T] {
 }
 
 func (u *updateBatch[T]) Do() (int64, error) {
-	return u.dao.Exec().Ctx(u.ctx).Must(u.must).SqlLogLevel(u.sqlLogLevel).Desc(u.desc).Entities(u.entities...).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
+	return u.dao.Exec().Ctx(u.ctx).Must(u.must).SqlLogLevel(u.sqlLogLevel).Desc(u.desc).Entities(u.entities...).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
 		var allIgnore []string
 		allIgnore = append(allIgnore, u.setNull...)
@@ -678,7 +678,7 @@ func (d *delete[T]) Condition(cond Cond) *delete[T] {
 }
 
 func (d *delete[T]) Do() (int64, error) {
-	return d.dao.Exec().Ctx(d.ctx).Must(d.must).SqlLogLevel(d.sqlLogLevel).Desc(d.desc).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
+	return d.dao.Exec().Ctx(d.ctx).Must(d.must).SqlLogLevel(d.sqlLogLevel).Desc(d.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		b.Write("DELETE FROM ").WriteTable()
 		if d.cond != nil && d.cond.len() > 0 {
 			b.Write(" WHERE ")
@@ -730,7 +730,7 @@ func (c *count[T]) Condition(cond Cond) *count[T] {
 }
 
 func (c *count[T]) Do() (*gdao.Count, error) {
-	return c.dao.CountDao.Count().Ctx(c.ctx).Must(c.must).SqlLogLevel(c.sqlLogLevel).Desc(c.desc).BuildSql(func(b *gdao.CountSqlBuilder) {
+	return c.dao.Dao.Count().Ctx(c.ctx).Must(c.must).SqlLogLevel(c.sqlLogLevel).Desc(c.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		b.Write("SELECT COUNT(*) FROM ").WriteTable()
 		if c.cond != nil && c.cond.len() > 0 {
 			b.Write(" WHERE ")
@@ -741,7 +741,6 @@ func (c *count[T]) Do() (*gdao.Count, error) {
 
 type baseDao[T any] struct {
 	*gdao.Dao[T]
-	*gdao.CountDao
 	fieldNameToColumn map[string]string
 }
 
@@ -778,19 +777,13 @@ func (d *baseDao[T]) Count() *count[T] {
 }
 
 type baseDaoBuilder[T any] struct {
-	db                *sql.DB
-	allowInvalidField bool
-	table             string
-	columnMapper      *gdao.NameMapper
+	db           *sql.DB
+	table        string
+	columnMapper *gdao.NameMapper
 }
 
 func (b *baseDaoBuilder[T]) DB(db *sql.DB) *baseDaoBuilder[T] { // coverage-ignore
 	b.db = db
-	return b
-}
-
-func (b *baseDaoBuilder[T]) AllowInvalidField(allowInvalidField bool) *baseDaoBuilder[T] { // coverage-ignore
-	b.allowInvalidField = allowInvalidField
 	return b
 }
 
@@ -808,10 +801,9 @@ func (b *baseDaoBuilder[T]) Build() *baseDao[T] {
 	if strings.TrimSpace(b.table) == "" {
 		panic("table must not be empty")
 	}
-	dao := gdao.DaoBuilder[T]().DB(b.db).AllowInvalidField(b.allowInvalidField).Table(b.table).ColumnMapper(b.columnMapper).Build()
-	countDao := gdao.CountDaoBuilder().DB(b.db).Table(b.table).Build()
+	dao := gdao.DaoBuilder[T]().DB(b.db).Table(b.table).ColumnMapper(b.columnMapper).Build()
 	fieldNameToColumn := *(*map[string]string)(unsafe.Pointer(reflect.ValueOf(dao).Elem().FieldByName("fieldNameToColumn").UnsafeAddr()))
-	return &baseDao[T]{Dao: dao, CountDao: countDao, fieldNameToColumn: fieldNameToColumn}
+	return &baseDao[T]{Dao: dao, fieldNameToColumn: fieldNameToColumn}
 }
 
 func BaseDaoBuilder[T any]() *baseDaoBuilder[T] {

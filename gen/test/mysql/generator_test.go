@@ -85,22 +85,15 @@ func TestMySql(t *testing.T) {
 				},
 			},
 		},
-		DaoCfg: gen.DaoCfg{
-			CoverBaseDao:      true,
-			GenCountDao:       true,
-			AllowInvalidField: true,
-		},
 	}).Gen()
 
 	defer os.RemoveAll("testdata/entity")
 	defer os.Remove("testdata/test_table.go")
 	defer os.Remove("testdata/base_dao.go")
-	defer os.Remove("testdata/count_dao.go")
 
 	compareFile(r, "testdata/entity.golden", "testdata/entity/test_table.go")
 	compareFile(r, "testdata/dao.golden", "testdata/test_table.go")
 	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
-	compareFile(r, "testdata/count_dao.golden", "testdata/count_dao.go")
 }
 
 func compareFile(r *require.Assertions, golden, gen string) {

@@ -34,10 +34,6 @@ func TestSqlite(t *testing.T) {
 		TableCfg: gen.TableCfg{
 			Tables: gen.Tables{"test_table"},
 		},
-		DaoCfg: gen.DaoCfg{
-			CoverBaseDao:      true,
-			AllowInvalidField: true,
-		},
 	}).Gen()
 
 	defer os.RemoveAll("testdata/entity")

@@ -95,7 +95,10 @@ type TestTable struct {
 	// real
 	Real *float64 `gdao:"column=real"`
 	// boolean
-	Boolean *bool          `gdao:"column=boolean"`
+	Boolean *bool `gdao:"column=boolean"`
+	// point
+	// GDAO cannot solve this type!
+	Point   any            `gdao:"skip"`
 	Time    *string        `gdao:"column=time"`
 	Other2  *int64         `gdao:"column=other2"`
 	Other3  []int32        `gdao:"column=other3"`

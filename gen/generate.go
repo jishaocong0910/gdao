@@ -97,14 +97,8 @@ func (c *Config) getDB() *sql.DB {
 }
 
 type DaoCfg struct {
-	// 覆盖BaseDao
-	CoverBaseDao bool
-	// 是否生成CountDao
-	GenCountDao bool
-	// 覆盖CountDao
-	CoverCountDao bool
-	// 是否允许非法字段，如字段未导出、未使用指针等。若为false，实体中有非法字段将会在程序初始化时panic
-	AllowInvalidField bool
+	// 不覆盖BaseDao
+	NotCoverBaseDao bool
 }
 
 type TableCfg struct {
@@ -236,12 +230,11 @@ func (g *Generator) queryTplParams() {
 				Comment:    comment,
 				Imports:    impts,
 				dao: daoTplParam{
-					Table:             table,
-					PkgName:           pkgName,
-					DaoName:           daoNameMapper.Convert(table),
-					EntityName:        entityName,
-					EntityPkgPath:     g.entityPkgPath,
-					AllowInvalidField: g.cfg.DaoCfg.AllowInvalidField,
+					Table:         table,
+					PkgName:       pkgName,
+					DaoName:       daoNameMapper.Convert(table),
+					EntityName:    entityName,
+					EntityPkgPath: g.entityPkgPath,
 				},
 			}
 			g.entityTplParams = append(g.entityTplParams, e)
@@ -380,19 +373,11 @@ func (g *Generator) determinePkgName(pkgPath, pkgName string, pkgNameToPaths map
 
 func (g *Generator) genBaseDao() {
 	baseDaoTpl := mustReturn(template.New("").Parse(g.dbInfo.getBaseDaoTemplate()))
-	generated, err := g.createFile(g.dir, "base_dao.go", g.cfg.DaoCfg.CoverBaseDao, baseDaoTpl, g.baseDaoTplParam)
+	generated, err := g.createFile(g.dir, "base_dao.go", !g.cfg.DaoCfg.NotCoverBaseDao, baseDaoTpl, g.baseDaoTplParam)
 	if err != nil { // coverage-ignore
 		log.Printf("create base dao fail: %+v\n", err)
 	} else if generated {
 		log.Println("create base dao success")
-	}
-	if g.cfg.DaoCfg.GenCountDao {
-		generated, err = g.createFile(g.dir, "count_dao.go", g.cfg.DaoCfg.CoverCountDao, g.countDaoTpl, g.baseDaoTplParam)
-		if err != nil { // coverage-ignore
-			log.Printf("create count dao fail: %+v\n", err)
-		} else if generated {
-			log.Println("create count dao success")
-		}
 	}
 }
 
@@ -468,12 +453,11 @@ type entityTplParam struct {
 }
 
 type daoTplParam struct {
-	Table             string
-	PkgName           string
-	DaoName           string
-	EntityName        string
-	EntityPkgPath     string
-	AllowInvalidField bool
+	Table         string
+	PkgName       string
+	DaoName       string
+	EntityName    string
+	EntityPkgPath string
 }
 
 type fieldTplParam struct {

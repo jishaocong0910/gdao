@@ -63,6 +63,8 @@ func (g *mySqlGenerator) getTableInfo(table string) ([]fieldTplParam, string, er
 
 		dataType = strings.ToLower(dataType)
 		columnType = strings.ToLower(columnType)
+
+		fieldType = "any"
 		switch dataType {
 		case "bit":
 			fieldType = "[]uint8"

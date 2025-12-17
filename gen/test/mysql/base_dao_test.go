@@ -286,7 +286,7 @@ func TestCond(t *testing.T) {
 		mock.ExpectPrepare(`c1 = \? AND c2 = \?`).
 			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.SqlBuilder[User]) {
 			c := dao.And().Eq("c1", 1).Group(nil)
 			c2 := dao.Or().Eq("c2", 2).Group(nil)
 			c = dao.And().Group(c).Group(c2)
@@ -305,7 +305,7 @@ func TestCond(t *testing.T) {
 		mock.ExpectPrepare(`c1 = \? AND c2 <> \? AND c3 > \? AND c4 < \? AND c5 >= \? AND c6 <= \? AND c7 LIKE \? AND c8 LIKE \? AND c9 LIKE \? AND c10 IN\(\?, \?, \?\) AND c11 BETWEEN \? AND \? AND c12 IS NULL AND c13 IS NOT NULL`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, "%abc%", "abc%", "%abc", 1, 2, 3, 1, 3).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.SqlBuilder[User]) {
 			c := dao.And().Eq("c1", 1).
 				Ne("c2", 2).
 				Gt("c3", 3).
@@ -328,7 +328,7 @@ func TestCond(t *testing.T) {
 		mock.ExpectPrepare(`0 = 0 AND NOT c1 = \? AND NOT \(c2 = \? AND c3 = \? AND 1 = 1 and 2 = 2\) AND c4 = \? AND NOT \(c5 = \? OR NOT c6 = \?\) AND NOT c7 = \? AND NOT \(c8 = \? OR c9 = \?\)`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, 7, 8, 9).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.SqlBuilder[User]) {
 			c0 := dao.And().Plain("0 = 0")
 			c1 := dao.Not().And().Eq("c1", 1)
 			c2 := dao.Not().And().Eq("c2", 2).Eq("c3", 3).Plain("1 = 1 and 2 = 2")
@@ -346,7 +346,7 @@ func TestCond(t *testing.T) {
 		mock.ExpectPrepare(`\(c1 = \? OR c2 = \?\) AND c3 = \? AND c4 = \?`).
 			ExpectQuery().WithArgs(1, 2, 3, 4).WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.SqlBuilder[User]) {
 			c1 := dao.Or().Eq("c1", 1).Eq("c2", 2)
 			c2 := dao.Or().Eq("c3", 3)
 			c3 := dao.Or().Eq("c4", 4)
@@ -364,7 +364,7 @@ func TestCondOpt(t *testing.T) {
 		mock.ExpectPrepare(`1 = 1`).
 			ExpectQuery().WillReturnRows(mock.NewRows(nil))
 
-		_, _, err := d.Query().BuildSql(func(b *gdao.DaoSqlBuilder[User]) {
+		_, _, err := d.Query().BuildSql(func(b *gdao.SqlBuilder[User]) {
 			c := dao.And().Plain("1 = 1").
 				Eq("c1", nil, dao.WithIfPresent()).
 				Eq("c1", 1, dao.WithIfPredicate(func() bool { return false })).

@@ -82,6 +82,8 @@ func (g postgresInfo) getTableInfo(table string) ([]fieldTplParam, string, error
 		if udtName[:1] == "_" {
 			udtName = udtName[1:]
 		}
+
+		fieldType = "any"
 		switch udtName {
 		case "int8":
 			fieldType = "*int64"

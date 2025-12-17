@@ -7,7 +7,7 @@ import (
 	"{{.EntityPkgPath}}"
 )
 
-var {{.DaoName}} = _{{.DaoName}}{BaseDaoBuilder[entity.{{.EntityName}}]().Table("{{.Table}}"){{- if .AllowInvalidField}}.AllowInvalidField(true){{end}}.Build()}
+var {{.DaoName}} = _{{.DaoName}}{BaseDaoBuilder[entity.{{.EntityName}}]().Table("{{.Table}}").Build()}
 
 type _{{.DaoName}} struct {
 	*baseDao[entity.{{.EntityName}}]

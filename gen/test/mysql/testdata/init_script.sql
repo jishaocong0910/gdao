@@ -40,6 +40,7 @@ CREATE TABLE test_table
     `float`              float COMMENT 'float',
     `real`               real COMMENT 'real',
     `boolean`            boolean COMMENT 'boolean',
+    `point`              point COMMENT 'point',
     `time`               time,
     `other`              int,
     `other2`             int,
