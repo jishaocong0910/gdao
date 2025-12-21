@@ -53,5 +53,5 @@ func MockBaseDao[T any](r *require.Assertions, table string) (*baseDao[T], sqlmo
 }
 
 func WriteCondition[T any](c Cond, b *gdao.SqlBuilder[T]) {
-	c.write(nil, b.BaseSqlBuilder)
+	c.write(nil, b.PlainSqlBuilder)
 }

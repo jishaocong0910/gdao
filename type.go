@@ -22,13 +22,13 @@ import (
 	"time"
 )
 
-type Type interface {
+type BaseType interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64 | ~bool | ~string | time.Time
 }
 
-type Convert[V Type, F any] interface {
-	GdaoValue() V
-	GdaoField(value V) F
+type Convert[T BaseType, F any] interface {
+	GdaoValue() T
+	GdaoField(value T) F
 }
 
 var fieldConvertors = map[reflect.Type]fieldConvertor{}

@@ -89,10 +89,10 @@ func (l *list[T]) Do() ([]*T, error) {
 		b.Write("SELECT ").WriteColumns(l.sel...).Write(" FROM ").WriteTable()
 		if l.cond != nil && l.cond.len() > 0 {
 			b.Write(" WHERE ")
-			l.cond.write(l.fieldNameToColumn, b.BaseSqlBuilder)
+			l.cond.write(l.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 		if l.odrBy != nil {
-			l.odrBy.write(l.fieldNameToColumn, b.BaseSqlBuilder)
+			l.odrBy.write(l.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 		if l.paging != nil {
 			if l.paging.offset > 0 {
@@ -355,7 +355,7 @@ func (ib *insertBatch[T]) Do() (int64, error) {
 			b.EachEntity(b.Sep(", "), func(_ int, entity *T) {
 				b.EachColumn(entity, b.SepFix("(", ", ", "", true), func(_ int, column string, value any) {
 					if value != nil {
-						b.Write(b.Pp(":"), value)
+						b.Write(b.Ph(":"), value)
 					} else {
 						b.Write("NULL")
 					}
@@ -464,7 +464,7 @@ func (u *update[T]) Do() (int64, error) {
 			setColumnNum++
 			b.Write(column).Write(" = ")
 			if value != nil {
-				b.Write(b.Pp(":")).SetArgs(value)
+				b.Write(b.Ph(":")).SetArgs(value)
 			} else {
 				b.Write("NULL")
 			}
@@ -492,7 +492,7 @@ func (u *update[T]) Do() (int64, error) {
 		cond.addCond(u.cond)
 		if cond.len() > 0 {
 			b.Write(" WHERE ")
-			cond.write(u.fieldNameToColumn, b.BaseSqlBuilder)
+			cond.write(u.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 	}).Do()
 }
@@ -588,9 +588,9 @@ func (u *updateBatch[T]) Do() (int64, error) {
 			setColumnNum++
 			b.Write(column).Write(" = CASE ").Write(u.where)
 			b.EachEntity(nil, func(_ int, entity *T) {
-				b.Write(" WHEN ").Write(b.Pp(":"), b.ColumnValue(entity, u.where)).Write(" THEN ")
+				b.Write(" WHEN ").Write(b.Ph(":"), b.ColumnValue(entity, u.where)).Write(" THEN ")
 				if value != nil {
-					b.Write(b.Pp(":")).SetArgs(b.ColumnValue(entity, column))
+					b.Write(b.Ph(":")).SetArgs(b.ColumnValue(entity, column))
 				} else {
 					b.Write("NULL")
 				}
@@ -615,7 +615,7 @@ func (u *updateBatch[T]) Do() (int64, error) {
 		})
 		cond.In(u.where, InArgs(whereColumnValues...))
 		cond.addCond(u.cond)
-		cond.write(u.fieldNameToColumn, b.BaseSqlBuilder)
+		cond.write(u.fieldNameToColumn, b.PlainSqlBuilder)
 	}).Do()
 }
 
@@ -666,7 +666,7 @@ func (d *delete[T]) Do() (int64, error) {
 		b.Write("DELETE FROM ").WriteTable()
 		if d.cond != nil && d.cond.len() > 0 {
 			b.Write(" WHERE ")
-			d.cond.write(d.fieldNameToColumn, b.BaseSqlBuilder)
+			d.cond.write(d.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 	}).Do()
 }
@@ -718,7 +718,7 @@ func (c *count[T]) Do() (*gdao.Count, error) {
 		b.Write("SELECT COUNT(*) FROM ").WriteTable()
 		if c.cond != nil && c.cond.len() > 0 {
 			b.Write(" WHERE ")
-			c.cond.write(c.fieldNameToColumn, b.BaseSqlBuilder)
+			c.cond.write(c.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 	}).Do()
 }
@@ -802,7 +802,7 @@ type Cond interface {
 	len() int
 	setNot()
 	setParenthesized()
-	write(nameMap map[string]string, b *gdao.BaseSqlBuilder)
+	write(nameMap map[string]string, b *gdao.PlainSqlBuilder)
 }
 
 type baseCond struct {
@@ -822,7 +822,7 @@ func (bc *baseCond) setParenthesized() {
 	bc.parenthesized = true
 }
 
-func (bc *baseCond) doWrite(b *gdao.BaseSqlBuilder, write func()) {
+func (bc *baseCond) doWrite(b *gdao.PlainSqlBuilder, write func()) {
 	if bc.not {
 		b.Write("NOT ")
 	}
@@ -860,7 +860,7 @@ func (cs *conds) len() int {
 	return len(cs.cs)
 }
 
-func (cs *conds) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (cs *conds) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	cs.doWrite(b, func() {
 		for i, cond := range cs.cs {
 			if i != 0 {
@@ -890,8 +890,8 @@ func (cs *conds) addCond(c Cond) *conds {
 }
 
 func (cs *conds) ToStrArgs(nameMap map[string]string) (string, []any) {
-	b := newTempSqlBuilder()
-	cs.write(nameMap, b.BaseSqlBuilder)
+	b := &gdao.PlainSqlBuilder{}
+	cs.write(nameMap, b)
 	return b.Sql(), b.Args()
 }
 
@@ -1073,7 +1073,7 @@ type condPlain struct {
 	args []any
 }
 
-func (c *condPlain) write(_ map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condPlain) write(_ map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(c.sql, c.args...)
 	})
@@ -1086,13 +1086,13 @@ type condBinOp struct {
 	arg    any
 }
 
-func (c *condBinOp) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condBinOp) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(mapColumn(nameMap, c.column))
 		b.Write(" ")
 		b.Write(c.op)
 		b.Write(" ")
-		b.Write(b.Pp(":"), c.arg)
+		b.Write(b.Ph(":"), c.arg)
 	})
 }
 
@@ -1102,7 +1102,7 @@ type condIn struct {
 	args   []any
 }
 
-func (c *condIn) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condIn) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(mapColumn(nameMap, c.column))
 		b.Write(" IN(")
@@ -1110,7 +1110,7 @@ func (c *condIn) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
 			if i != 0 {
 				b.Write(", ")
 			}
-			b.Write(b.Pp(":"))
+			b.Write(b.Ph(":"))
 		}
 		b.Write(")", c.args...)
 	})
@@ -1122,13 +1122,13 @@ type condBetween struct {
 	min, max any
 }
 
-func (c *condBetween) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condBetween) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(mapColumn(nameMap, c.column))
 		b.Write(" BETWEEN ")
-		b.Write(b.Pp(":"))
+		b.Write(b.Ph(":"))
 		b.Write(" AND ")
-		b.Write(b.Pp(":"), c.min, c.max)
+		b.Write(b.Ph(":"), c.min, c.max)
 	})
 }
 
@@ -1138,7 +1138,7 @@ type condIsNull struct {
 	column  string
 }
 
-func (c *condIsNull) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condIsNull) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(mapColumn(nameMap, c.column))
 		b.Write(" IS")
@@ -1157,16 +1157,6 @@ func InArgs[T any](source ...T) inArgs {
 		target = append(target, s)
 	}
 	return target
-}
-
-type TempSqlBuilder struct {
-	*gdao.BaseSqlBuilder
-}
-
-func newTempSqlBuilder() *TempSqlBuilder {
-	t := &TempSqlBuilder{}
-	t.BaseSqlBuilder = gdao.NewBaseSqlBuilder()
-	return t
 }
 
 //=============================================================
@@ -1210,7 +1200,7 @@ func (o *OdrBy) Desc(column string) *OdrBy {
 	return o
 }
 
-func (o *OdrBy) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (o *OdrBy) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	b.Repeat(len(o.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
 		item := o.items[i]
 		b.Write(mapColumn(nameMap, item.column)).Write(" ")

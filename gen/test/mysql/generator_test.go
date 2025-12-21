@@ -67,9 +67,9 @@ func TestMySql(t *testing.T) {
 			Mappers: gen.Mappers{
 				"test_table": gen.Mappings{
 					"other2":  gen.MappingBase[int64](),
-					"other3":  gen.MappingSlice[int32](),
+					"other3":  gen.MappingSlice[int32](1),
 					"other4":  gen.MappingBase[_type.MyInt](),
-					"other5":  gen.MappingBase[_type.MyInt2](),
+					"other5":  gen.MappingSlice[_type.MyInt](2),
 					"other6":  gen.MappingConvert[pkg.MyMap](),
 					"other7":  gen.MappingConvert[pkg.MySlice](),
 					"other8":  gen.MappingConvert[pkg.MyStruct](),

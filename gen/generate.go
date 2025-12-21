@@ -57,14 +57,17 @@ func GetGenerator(cfg Config) *Generator {
 	return newGenerator(cfg, dbInfo)
 }
 
-func MappingBase[T gdao.Type]() Mapping {
+func MappingBase[T gdao.BaseType]() Mapping {
 	var t T
 	return Mapping{t: t, mt: mappingType_.base}
 }
 
-func MappingSlice[T gdao.Type]() Mapping {
+func MappingSlice[T gdao.BaseType](dim int) Mapping {
 	var t T
-	return Mapping{t: t, mt: mappingType_.slice}
+	if dim < 1 {
+		dim = 1
+	}
+	return Mapping{t: t, sliceDim: dim, mt: mappingType_.slice}
 }
 
 func MappingConvert[T any]() Mapping {
@@ -104,15 +107,16 @@ type DaoCfg struct {
 type TableCfg struct {
 	// 需要生成的表
 	Tables Tables
-	// 指定表字段映射实体字段类型，使用函数 [MappingBase]、[MappingSlice] 或 [MappingConvert] 指定
+	// 指定表字段映射实体字段类型，使用函数 [MappingBase]、[MappingSlice] 或 [MappingConvertor] 指定
 	Mappers Mappers
 	// 指定表忽略的字段，key为表名，value为列名
 	Ignores Ignores
 }
 
 type Mapping struct {
-	t  any
-	mt mappingType
+	t        any
+	sliceDim int
+	mt       mappingType
 }
 
 type Tables []string
@@ -279,8 +283,12 @@ func (g *Generator) mappingFields(table string, fields []fieldTplParam) ([]strin
 				fieldType := g.determineFieldType(table, reflect.TypeOf(m.t))
 				f.FieldType = "*" + fieldType
 			case mappingType_.slice.String():
-				fieldType := g.determineFieldType(table, reflect.TypeOf(m.t))
-				f.FieldType = "[]" + fieldType
+				var fieldType string
+				for i := 0; i < m.sliceDim; i++ {
+					fieldType += "[]"
+				}
+				fieldType += g.determineFieldType(table, reflect.TypeOf(m.t))
+				f.FieldType = fieldType
 			case mappingType_.convert.String():
 				ft := reflect.TypeOf(m.t)
 				validConvertType := false

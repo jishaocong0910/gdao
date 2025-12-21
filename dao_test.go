@@ -59,6 +59,7 @@ type Product struct {
 	Level      *MyLevel
 	Properties *Properties
 	Attributes Attributes
+	Remark     [][]string
 }
 
 type Properties struct {
@@ -67,8 +68,8 @@ type Properties struct {
 }
 
 func (p *Properties) GdaoValue() string {
-	str, _ := json.Marshal(p)
-	return string(str)
+	bs, _ := json.Marshal(p)
+	return string(bs)
 }
 
 func (p *Properties) GdaoField(value string) *Properties {
@@ -78,13 +79,13 @@ func (p *Properties) GdaoField(value string) *Properties {
 
 type Attributes map[string]any
 
-func (a Attributes) GdaoValue() string {
-	str, _ := json.Marshal(a)
-	return string(str)
+func (a Attributes) GdaoValue() []byte {
+	bs, _ := json.Marshal(a)
+	return bs
 }
 
-func (a Attributes) GdaoField(value string) Attributes {
-	json.Unmarshal([]byte(value), &a)
+func (a Attributes) GdaoField(value []byte) Attributes {
+	json.Unmarshal(value, &a)
 	return a
 }
 
@@ -99,7 +100,7 @@ func (s MyStringSlice) GdaoField(value string) MyStringSlice {
 	for _, a := range arr {
 		s = append(s, a)
 	}
-	return arr
+	return s
 }
 
 type MyStatus int
@@ -207,11 +208,11 @@ func TestNewDao(t *testing.T) {
 		dao, _ := mockProductDao(r)
 		export := gdao.ExportDao(dao)
 		r.Equal("product", export.Table)
-		r.Equal("id, tags, status, level, properties, attributes", export.ColumnsWithComma)
-		r.Equal([]string{"id", "tags", "status", "level", "properties", "attributes"}, export.Columns)
-		r.Len(export.ColumnToFieldIndex, 6)
-		checkMap(r, map[string]int{"id": 0, "tags": 1, "status": 2, "level": 3, "properties": 4, "attributes": 5}, export.ColumnToFieldIndex)
-		checkMap(r, map[string]string{"Id": "id", "Tags": "tags", "Status": "status", "Level": "level", "Properties": "properties", "Attributes": "attributes"}, export.FieldNameToColumn)
+		r.Equal("id, tags, status, level, properties, attributes, remark", export.ColumnsWithComma)
+		r.Equal([]string{"id", "tags", "status", "level", "properties", "attributes", "remark"}, export.Columns)
+		r.Len(export.ColumnToFieldIndex, 7)
+		checkMap(r, map[string]int{"id": 0, "tags": 1, "status": 2, "level": 3, "properties": 4, "attributes": 5, "remark": 6}, export.ColumnToFieldIndex)
+		checkMap(r, map[string]string{"Id": "id", "Tags": "tags", "Status": "status", "Level": "level", "Properties": "properties", "Attributes": "attributes", "Remark": "remark"}, export.FieldNameToColumn)
 		r.Len(export.ColumnToFieldConvertor, 4)
 		checkMapKeys(r, []string{"tags", "level", "properties", "attributes"}, export.ColumnToFieldConvertor)
 		r.Contains(export.AutoIncrementColumns, "id")
@@ -264,13 +265,13 @@ func TestDao_Query(t *testing.T) {
 			b.Write(" WHERE ")
 			e := b.Entity()
 			b.Write("status=")
-			b.Write(b.Pp("$"), e.Status)
+			b.Write(b.Ph("$"), e.Status)
 			b.Write(" AND ")
 			b.Write("level=")
-			b.Write(b.Pp("$"), e.Level)
+			b.Write(b.Ph("$"), e.Level)
 			b.Write(" AND ")
 			b.Write("create_at=")
-			b.Write(b.Pp("$"), e.CreateAt)
+			b.Write(b.Ph("$"), e.CreateAt)
 		}).Do()
 		r.NoError(err)
 		r.NoError(mock.ExpectationsWereMet())
@@ -684,20 +685,20 @@ func TestBuilder_Pp(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockUserDao(r)
 	dao.Query().BuildSql(func(b *gdao.SqlBuilder[User]) {
-		b.Write(b.Pp("$"))
+		b.Write(b.Ph("$"))
 		r.Equal("$1", b.Sql())
-		b.Write(b.Pp("$"))
+		b.Write(b.Ph("$"))
 		r.Equal("$1$2", b.Sql())
 	}).Do()
 }
 
-func TestBuilder_SetOk(t *testing.T) {
+func TestBuilder_SetCancel(t *testing.T) {
 	r := require.New(t)
 	dao, _ := mockUserDao(r)
 	dao.Query().BuildSql(func(b *gdao.SqlBuilder[User]) {
-		r.True(b.Ok())
-		b.SetOk(false)
-		r.False(b.Ok())
+		r.False(b.Cancel())
+		b.SetCancel(true)
+		r.True(b.Cancel())
 	}).Do()
 }
 
@@ -707,9 +708,9 @@ func TestBuilder_SetError(t *testing.T) {
 	dao.Query().BuildSql(func(b *gdao.SqlBuilder[User]) {
 		b.SetError(errors.New("this is an error"))
 		r.EqualError(b.Error(), "this is an error")
-		r.False(b.Ok())
-		b.SetOk(true)
-		r.False(b.Ok())
+		r.True(b.Cancel())
+		b.SetCancel(false)
+		r.True(b.Cancel())
 	}).Do()
 }
 
