@@ -79,10 +79,6 @@ func TestOracle(t *testing.T) {
 		TableCfg: gen.TableCfg{
 			Tables: gen.Tables{"TEST_TABLE"},
 		},
-		DaoCfg: gen.DaoCfg{
-			CoverBaseDao:      true,
-			AllowInvalidField: true,
-		},
 	}).Gen()
 
 	defer os.RemoveAll("testdata/entity")

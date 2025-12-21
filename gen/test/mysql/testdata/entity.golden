@@ -95,17 +95,20 @@ type TestTable struct {
 	// real
 	Real *float64 `gdao:"column=real"`
 	// boolean
-	Boolean *bool          `gdao:"column=boolean"`
-	Time    *string        `gdao:"column=time"`
-	Other2  *int64         `gdao:"column=other2"`
-	Other3  []int32        `gdao:"column=other3"`
-	Other4  *_type.MyInt   `gdao:"column=other4"`
-	Other5  *int           `gdao:"column=other5"`
-	Other6  pkg.MyMap      `gdao:"column=other6"`
-	Other7  pkg.MySlice    `gdao:"column=other7"`
-	Other8  pkg.MyStruct   `gdao:"column=other8"`
-	Other9  pkg.MyStruct2  `gdao:"column=other9"`
-	Other10 pkg2.MyStruct3 `gdao:"column=other10"`
-	Other11 pkg3.MyStruct4 `gdao:"column=other11"`
-	Other12 pkg4.MyStruct5 `gdao:"column=other12"`
+	Boolean *bool `gdao:"column=boolean"`
+	// point
+	// GDAO cannot solve this type!
+	Point   any             `gdao:"skip"`
+	Time    *string         `gdao:"column=time"`
+	Other2  *int64          `gdao:"column=other2"`
+	Other3  []int32         `gdao:"column=other3"`
+	Other4  *_type.MyInt    `gdao:"column=other4"`
+	Other5  [][]_type.MyInt `gdao:"column=other5"`
+	Other6  pkg.MyMap       `gdao:"column=other6"`
+	Other7  pkg.MySlice     `gdao:"column=other7"`
+	Other8  pkg.MyStruct    `gdao:"column=other8"`
+	Other9  pkg.MyStruct2   `gdao:"column=other9"`
+	Other10 pkg2.MyStruct3  `gdao:"column=other10"`
+	Other11 pkg3.MyStruct4  `gdao:"column=other11"`
+	Other12 pkg4.MyStruct5  `gdao:"column=other12"`
 }

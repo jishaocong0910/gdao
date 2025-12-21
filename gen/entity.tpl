@@ -23,7 +23,7 @@ type {{.EntityName}} struct {
 	{{- if not $f.Valid}}
 	// GDAO cannot solve this type!
 	{{- end}}
-	{{$f.FieldName}} {{$f.FieldType}} `gdao:"column={{$f.Column}}{{if $f.IsAutoIncrement}};auto{{end}}{{if gt $f.AutoIncrementStep 0}}={{$f.AutoIncrementStep}}{{end}}"`
+	{{$f.FieldName}} {{$f.FieldType}} {{if not $f.Valid}}`gdao:"skip"`{{else}}`gdao:"column={{$f.Column}}{{if $f.IsAutoIncrement}};auto{{end}}{{if gt $f.AutoIncrementStep 0}}={{$f.AutoIncrementStep}}{{end}}"`{{end}}
 {{- end}}
 }
 

@@ -26,7 +26,7 @@ type tag struct {
 	column            string
 	autoIncrement     bool
 	autoIncrementStep int64
-	transient         bool
+	skip              bool
 }
 
 func parseTag(tf reflect.StructField) tag {
@@ -40,8 +40,8 @@ func parseTag(tf reflect.StructField) tag {
 				switch p {
 				case "auto":
 					t.autoIncrement = true
-				case "transient":
-					t.transient = true
+				case "skip":
+					t.skip = true
 				}
 			}
 			if len(kv) == 2 {

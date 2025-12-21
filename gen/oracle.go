@@ -69,6 +69,7 @@ func (g *oracleInfo) getTableInfo(table string) ([]fieldTplParam, string, error)
 			comment = gdao.P("")
 		}
 
+		fieldType = "any"
 		switch dataType {
 		case "CHAR", "VARCHAR2", "VARCHAR":
 			if charLength == 1 {

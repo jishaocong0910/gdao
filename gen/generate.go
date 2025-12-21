@@ -57,14 +57,17 @@ func GetGenerator(cfg Config) *Generator {
 	return newGenerator(cfg, dbInfo)
 }
 
-func MappingBase[T gdao.Type]() Mapping {
+func MappingBase[T gdao.BaseType]() Mapping {
 	var t T
 	return Mapping{t: t, mt: mappingType_.base}
 }
 
-func MappingSlice[T gdao.Type]() Mapping {
+func MappingSlice[T gdao.BaseType](dim int) Mapping {
 	var t T
-	return Mapping{t: t, mt: mappingType_.slice}
+	if dim < 1 {
+		dim = 1
+	}
+	return Mapping{t: t, sliceDim: dim, mt: mappingType_.slice}
 }
 
 func MappingConvert[T any]() Mapping {
@@ -97,28 +100,23 @@ func (c *Config) getDB() *sql.DB {
 }
 
 type DaoCfg struct {
-	// 覆盖BaseDao
-	CoverBaseDao bool
-	// 是否生成CountDao
-	GenCountDao bool
-	// 覆盖CountDao
-	CoverCountDao bool
-	// 是否允许非法字段，如字段未导出、未使用指针等。若为false，实体中有非法字段将会在程序初始化时panic
-	AllowInvalidField bool
+	// 不覆盖BaseDao
+	NotCoverBaseDao bool
 }
 
 type TableCfg struct {
 	// 需要生成的表
 	Tables Tables
-	// 指定表字段映射实体字段类型，使用函数 [MappingBase]、[MappingSlice] 或 [MappingConvert] 指定
+	// 指定表字段映射实体字段类型，使用函数 [MappingBase]、[MappingSlice] 或 [MappingConvertor] 指定
 	Mappers Mappers
 	// 指定表忽略的字段，key为表名，value为列名
 	Ignores Ignores
 }
 
 type Mapping struct {
-	t  any
-	mt mappingType
+	t        any
+	sliceDim int
+	mt       mappingType
 }
 
 type Tables []string
@@ -236,12 +234,11 @@ func (g *Generator) queryTplParams() {
 				Comment:    comment,
 				Imports:    impts,
 				dao: daoTplParam{
-					Table:             table,
-					PkgName:           pkgName,
-					DaoName:           daoNameMapper.Convert(table),
-					EntityName:        entityName,
-					EntityPkgPath:     g.entityPkgPath,
-					AllowInvalidField: g.cfg.DaoCfg.AllowInvalidField,
+					Table:         table,
+					PkgName:       pkgName,
+					DaoName:       daoNameMapper.Convert(table),
+					EntityName:    entityName,
+					EntityPkgPath: g.entityPkgPath,
 				},
 			}
 			g.entityTplParams = append(g.entityTplParams, e)
@@ -286,8 +283,12 @@ func (g *Generator) mappingFields(table string, fields []fieldTplParam) ([]strin
 				fieldType := g.determineFieldType(table, reflect.TypeOf(m.t))
 				f.FieldType = "*" + fieldType
 			case mappingType_.slice.String():
-				fieldType := g.determineFieldType(table, reflect.TypeOf(m.t))
-				f.FieldType = "[]" + fieldType
+				var fieldType string
+				for i := 0; i < m.sliceDim; i++ {
+					fieldType += "[]"
+				}
+				fieldType += g.determineFieldType(table, reflect.TypeOf(m.t))
+				f.FieldType = fieldType
 			case mappingType_.convert.String():
 				ft := reflect.TypeOf(m.t)
 				validConvertType := false
@@ -380,19 +381,11 @@ func (g *Generator) determinePkgName(pkgPath, pkgName string, pkgNameToPaths map
 
 func (g *Generator) genBaseDao() {
 	baseDaoTpl := mustReturn(template.New("").Parse(g.dbInfo.getBaseDaoTemplate()))
-	generated, err := g.createFile(g.dir, "base_dao.go", g.cfg.DaoCfg.CoverBaseDao, baseDaoTpl, g.baseDaoTplParam)
+	generated, err := g.createFile(g.dir, "base_dao.go", !g.cfg.DaoCfg.NotCoverBaseDao, baseDaoTpl, g.baseDaoTplParam)
 	if err != nil { // coverage-ignore
 		log.Printf("create base dao fail: %+v\n", err)
 	} else if generated {
 		log.Println("create base dao success")
-	}
-	if g.cfg.DaoCfg.GenCountDao {
-		generated, err = g.createFile(g.dir, "count_dao.go", g.cfg.DaoCfg.CoverCountDao, g.countDaoTpl, g.baseDaoTplParam)
-		if err != nil { // coverage-ignore
-			log.Printf("create count dao fail: %+v\n", err)
-		} else if generated {
-			log.Println("create count dao success")
-		}
 	}
 }
 
@@ -468,12 +461,11 @@ type entityTplParam struct {
 }
 
 type daoTplParam struct {
-	Table             string
-	PkgName           string
-	DaoName           string
-	EntityName        string
-	EntityPkgPath     string
-	AllowInvalidField bool
+	Table         string
+	PkgName       string
+	DaoName       string
+	EntityName    string
+	EntityPkgPath string
 }
 
 type fieldTplParam struct {

@@ -24,7 +24,7 @@ type list[T any] struct {
 	// if true, panic when error occurs, otherwise, return error.
 	must bool
 	// specify the log level
-	logLevel gdao.LogLevel
+	sqlLogLevel gdao.LogLevel
 	// describe the sql in the log
 	desc string
 	// specify the columns which in the select column list, default is all columns.
@@ -49,8 +49,8 @@ func (l *list[T]) Must(must bool) *list[T] {
 	return l
 }
 
-func (l *list[T]) LogLevel(logLevel gdao.LogLevel) *list[T] {
-	l.logLevel = logLevel
+func (l *list[T]) SqlLogLevel(logLevel gdao.LogLevel) *list[T] {
+	l.sqlLogLevel = logLevel
 	return l
 }
 
@@ -85,7 +85,7 @@ func (l *list[T]) ForUpdate(forUpdate bool) *list[T] {
 }
 
 func (l *list[T]) Do() ([]*T, error) {
-	_, list, err := l.dao.Query().Ctx(l.ctx).Must(l.must).LogLevel(l.logLevel).Desc(l.desc).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
+	_, list, err := l.dao.Query().Ctx(l.ctx).Must(l.must).SqlLogLevel(l.sqlLogLevel).Desc(l.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		var pagingType int
 		if l.paging != nil {
 			if l.paging.offset > 0 {
@@ -100,13 +100,13 @@ func (l *list[T]) Do() ([]*T, error) {
 			b.Write(strconv.FormatInt(int64(l.paging.pageSize), 10))
 			b.Write(" ")
 		}
-		b.WriteColumns(l.sel...).Write(" FROM ").Write(l.dao.table)
+		b.WriteColumns(l.sel...).Write(" FROM ").WriteTable()
 		if l.cond != nil && l.cond.len() > 0 {
 			b.Write(" WHERE ")
-			l.cond.write(l.fieldNameToColumn, b.BaseSqlBuilder)
+			l.cond.write(l.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 		if l.odrBy != nil {
-			l.odrBy.write(l.fieldNameToColumn, b.BaseSqlBuilder)
+			l.odrBy.write(l.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 		if pagingType == 1 {
 			b.Write(" OFFSET ")
@@ -132,7 +132,7 @@ type get[T any] struct {
 	// if true, panic when error occurs, otherwise, return error.
 	must bool
 	// specify the log level
-	logLevel gdao.LogLevel
+	sqlLogLevel gdao.LogLevel
 	// describe the SQL in the log
 	desc string
 	// specify the columns which in the select column list, default is all columns.
@@ -157,8 +157,8 @@ func (g *get[T]) Must(must bool) *get[T] { // coverage-ignore
 	return g
 }
 
-func (g *get[T]) LogLevel(logLevel gdao.LogLevel) *get[T] { // coverage-ignore
-	g.logLevel = logLevel
+func (g *get[T]) SqlLogLevel(logLevel gdao.LogLevel) *get[T] { // coverage-ignore
+	g.sqlLogLevel = logLevel
 	return g
 }
 
@@ -193,7 +193,7 @@ func (g *get[T]) CheckOne(checkOne bool) *get[T] {
 }
 
 func (g *get[T]) Do() (*T, error) {
-	list, err := g.dao.List().Ctx(g.ctx).Must(g.must).LogLevel(g.logLevel).Desc(g.desc).
+	list, err := g.dao.List().Ctx(g.ctx).Must(g.must).SqlLogLevel(g.sqlLogLevel).Desc(g.desc).
 		Select(g.sel...).Condition(g.cond).OrderBy(g.odrBy).ForUpdate(g.forUpdate).Do()
 	if len(list) == 0 { // coverage-ignore
 		return nil, err
@@ -217,7 +217,7 @@ type insert[T any] struct {
 	// if true, panic when error occurs, otherwise, return error.
 	must bool
 	// specify the log level
-	logLevel gdao.LogLevel
+	sqlLogLevel gdao.LogLevel
 	// describe the SQL in the log
 	desc string
 	// the non-nil fields will be saved, and the auto generated keys will be set in it.
@@ -240,8 +240,8 @@ func (i *insert[T]) Must(must bool) *insert[T] { // coverage-ignore
 	return i
 }
 
-func (i *insert[T]) LogLevel(logLevel gdao.LogLevel) *insert[T] { // coverage-ignore
-	i.logLevel = logLevel
+func (i *insert[T]) SqlLogLevel(logLevel gdao.LogLevel) *insert[T] { // coverage-ignore
+	i.sqlLogLevel = logLevel
 	return i
 }
 
@@ -271,7 +271,7 @@ func (i *insert[T]) Ignore(ignore ...string) *insert[T] {
 }
 
 func (i *insert[T]) Do() error {
-	return i.dao.InsertBatch().Ctx(i.ctx).Must(i.must).LogLevel(i.logLevel).Desc(i.desc).Entities(i.entity).All(i.all).
+	return i.dao.InsertBatch().Ctx(i.ctx).Must(i.must).SqlLogLevel(i.sqlLogLevel).Desc(i.desc).Entities(i.entity).All(i.all).
 		SetNull(i.setNull...).Ignore(i.ignore...).Do()
 }
 
@@ -285,7 +285,7 @@ type insertBatch[T any] struct {
 	// if true, panic when error occurs, otherwise, return error.
 	must bool
 	// specify the log level
-	logLevel gdao.LogLevel
+	sqlLogLevel gdao.LogLevel
 	// describe the SQL in the log
 	desc string
 	// each element corresponds to a record to be saved, and the auto generated keys will be set in them.
@@ -308,8 +308,8 @@ func (ib *insertBatch[T]) Must(must bool) *insertBatch[T] {
 	return ib
 }
 
-func (ib *insertBatch[T]) LogLevel(logLevel gdao.LogLevel) *insertBatch[T] {
-	ib.logLevel = logLevel
+func (ib *insertBatch[T]) SqlLogLevel(logLevel gdao.LogLevel) *insertBatch[T] {
+	ib.sqlLogLevel = logLevel
 	return ib
 }
 
@@ -339,15 +339,15 @@ func (ib *insertBatch[T]) Ignore(ignore ...string) *insertBatch[T] {
 }
 
 func (ib *insertBatch[T]) Do() error {
-	_, _, err := ib.dao.Query().Ctx(ib.ctx).Must(ib.must).LogLevel(ib.logLevel).Desc(ib.desc).RowAs(gdao.RowAs_.LAST_ID).
-		Entities(ib.entities...).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
+	_, _, err := ib.dao.Query().Ctx(ib.ctx).Must(ib.must).SqlLogLevel(ib.sqlLogLevel).Desc(ib.desc).RowAs(gdao.RowAs_.LAST_ID).
+		Entities(ib.entities...).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
 		var allIgnore []string
 		allIgnore = append(allIgnore, ib.setNull...)
 		allIgnore = append(allIgnore, ib.ignore...)
 		allIgnore = append(allIgnore, b.AutoColumns()...)
 
-		b.Write("INSERT INTO ").Write(ib.dao.table)
+		b.Write("INSERT INTO ").WriteTable()
 		columns := b.Columns(!ib.all, allIgnore...)
 		b.Repeat(len(columns), b.SepFix("(", ", ", "", true), nil, func(_, i int) {
 			setColumnNum++
@@ -367,7 +367,7 @@ func (ib *insertBatch[T]) Do() error {
 		b.EachEntity(b.Sep(", "), func(_ int, entity *T) {
 			b.EachColumn(entity, b.SepFix("(", ", ", "", true), func(_ int, column string, value any) {
 				if value != nil {
-					b.Write(b.Pp(":"), value)
+					b.Write(b.Ph(":"), value)
 				} else {
 					b.Write("NULL")
 				}
@@ -399,7 +399,7 @@ type update[T any] struct {
 	// if true, panic when error occurs, otherwise, return error.
 	must bool
 	// specify the log level
-	logLevel gdao.LogLevel
+	sqlLogLevel gdao.LogLevel
 	// describe the SQL in the log
 	desc string
 	// uses to update values or the WHERE clause conditions.
@@ -426,8 +426,8 @@ func (u *update[T]) Must(must bool) *update[T] { // coverage-ignore
 	return u
 }
 
-func (u *update[T]) LogLevel(logLevel gdao.LogLevel) *update[T] { // coverage-ignore
-	u.logLevel = logLevel
+func (u *update[T]) SqlLogLevel(logLevel gdao.LogLevel) *update[T] { // coverage-ignore
+	u.sqlLogLevel = logLevel
 	return u
 }
 
@@ -467,20 +467,20 @@ func (u *update[T]) Condition(cond Cond) *update[T] {
 }
 
 func (u *update[T]) Do() (int64, error) {
-	return u.dao.Exec().Ctx(u.ctx).Must(u.must).LogLevel(u.logLevel).Desc(u.desc).Entities(u.entity).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
+	return u.dao.Exec().Ctx(u.ctx).Must(u.must).SqlLogLevel(u.sqlLogLevel).Desc(u.desc).Entities(u.entity).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
 		var allIgnore []string
 		allIgnore = append(allIgnore, u.setNull...)
 		allIgnore = append(allIgnore, u.ignore...)
 		allIgnore = append(allIgnore, u.where...)
 
-		b.Write("UPDATE ").Write(u.dao.table).Write(" SET ")
+		b.Write("UPDATE ").WriteTable().Write(" SET ")
 		columns := b.Columns(!u.all, allIgnore...)
 		b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
 			setColumnNum++
 			b.Write(column).Write(" = ")
 			if value != nil {
-				b.Write(b.Pp(":")).SetArgs(value)
+				b.Write(b.Ph(":")).SetArgs(value)
 			} else {
 				b.Write("NULL")
 			}
@@ -508,7 +508,7 @@ func (u *update[T]) Do() (int64, error) {
 		cond.addCond(u.cond)
 		if cond.len() > 0 {
 			b.Write(" WHERE ")
-			cond.write(u.fieldNameToColumn, b.BaseSqlBuilder)
+			cond.write(u.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 	}).Do()
 }
@@ -523,7 +523,7 @@ type updateBatch[T any] struct {
 	// if true, panic when error occurs, otherwise, return error.
 	must bool
 	// specify the log level
-	logLevel gdao.LogLevel
+	sqlLogLevel gdao.LogLevel
 	// describe the SQL in the log
 	desc string
 	// each element corresponds to a record to be updated.
@@ -550,8 +550,8 @@ func (u *updateBatch[T]) Must(must bool) *updateBatch[T] { // coverage-ignore
 	return u
 }
 
-func (u *updateBatch[T]) LogLevel(logLevel gdao.LogLevel) *updateBatch[T] { // coverage-ignore
-	u.logLevel = logLevel
+func (u *updateBatch[T]) SqlLogLevel(logLevel gdao.LogLevel) *updateBatch[T] { // coverage-ignore
+	u.sqlLogLevel = logLevel
 	return u
 }
 
@@ -591,22 +591,22 @@ func (u *updateBatch[T]) Condition(cond Cond) *updateBatch[T] {
 }
 
 func (u *updateBatch[T]) Do() (int64, error) {
-	return u.dao.Exec().Ctx(u.ctx).Must(u.must).LogLevel(u.logLevel).Desc(u.desc).Entities(u.entities...).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
+	return u.dao.Exec().Ctx(u.ctx).Must(u.must).SqlLogLevel(u.sqlLogLevel).Desc(u.desc).Entities(u.entities...).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		var setColumnNum, setNullColumnNum int
 		var allIgnore []string
 		allIgnore = append(allIgnore, u.setNull...)
 		allIgnore = append(allIgnore, u.ignore...)
 		allIgnore = append(allIgnore, u.where)
 
-		b.Write("UPDATE ").Write(u.dao.table).Write(" SET ")
+		b.Write("UPDATE ").WriteTable().Write(" SET ")
 		columns := b.Columns(!u.all, allIgnore...)
 		b.EachColumn(b.Entity(), b.SepFix("", ", ", "", true), func(_ int, column string, value any) {
 			setColumnNum++
 			b.Write(column).Write(" = CASE ").Write(u.where)
 			b.EachEntity(nil, func(_ int, entity *T) {
-				b.Write(" WHEN ").Write(b.Pp(":"), b.ColumnValue(entity, u.where)).Write(" THEN ")
+				b.Write(" WHEN ").Write(b.Ph(":"), b.ColumnValue(entity, u.where)).Write(" THEN ")
 				if value != nil {
-					b.Write(b.Pp(":")).SetArgs(b.ColumnValue(entity, column))
+					b.Write(b.Ph(":")).SetArgs(b.ColumnValue(entity, column))
 				} else {
 					b.Write("NULL")
 				}
@@ -631,7 +631,7 @@ func (u *updateBatch[T]) Do() (int64, error) {
 		})
 		cond.In(u.where, InArgs(whereColumnValues...))
 		cond.addCond(u.cond)
-		cond.write(u.fieldNameToColumn, b.BaseSqlBuilder)
+		cond.write(u.fieldNameToColumn, b.PlainSqlBuilder)
 	}).Do()
 }
 
@@ -645,7 +645,7 @@ type delete[T any] struct {
 	// if true, panic when error occurs, otherwise, return error.
 	must bool
 	// specify the log level
-	logLevel gdao.LogLevel
+	sqlLogLevel gdao.LogLevel
 	// describe the SQL in the log
 	desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
@@ -662,8 +662,8 @@ func (d *delete[T]) Must(must bool) *delete[T] { // coverage-ignore
 	return d
 }
 
-func (d *delete[T]) LogLevel(logLevel gdao.LogLevel) *delete[T] { // coverage-ignore
-	d.logLevel = logLevel
+func (d *delete[T]) SqlLogLevel(logLevel gdao.LogLevel) *delete[T] { // coverage-ignore
+	d.sqlLogLevel = logLevel
 	return d
 }
 
@@ -678,11 +678,11 @@ func (d *delete[T]) Condition(cond Cond) *delete[T] {
 }
 
 func (d *delete[T]) Do() (int64, error) {
-	return d.dao.Exec().Ctx(d.ctx).Must(d.must).LogLevel(d.logLevel).Desc(d.desc).BuildSql(func(b *gdao.DaoSqlBuilder[T]) {
-		b.Write("DELETE FROM ").Write(d.dao.table)
+	return d.dao.Exec().Ctx(d.ctx).Must(d.must).SqlLogLevel(d.sqlLogLevel).Desc(d.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
+		b.Write("DELETE FROM ").WriteTable()
 		if d.cond != nil && d.cond.len() > 0 {
 			b.Write(" WHERE ")
-			d.cond.write(d.fieldNameToColumn, b.BaseSqlBuilder)
+			d.cond.write(d.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 	}).Do()
 }
@@ -697,7 +697,7 @@ type count[T any] struct {
 	// if true, panic when error occurs, otherwise, return error.
 	must bool
 	// specify the log level
-	logLevel gdao.LogLevel
+	sqlLogLevel gdao.LogLevel
 	// describe the SQL in the log
 	desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
@@ -714,8 +714,8 @@ func (c *count[T]) Must(must bool) *count[T] { // coverage-ignore
 	return c
 }
 
-func (c *count[T]) LogLevel(logLevel gdao.LogLevel) *count[T] { // coverage-ignore
-	c.logLevel = logLevel
+func (c *count[T]) SqlLogLevel(logLevel gdao.LogLevel) *count[T] { // coverage-ignore
+	c.sqlLogLevel = logLevel
 	return c
 }
 
@@ -730,19 +730,17 @@ func (c *count[T]) Condition(cond Cond) *count[T] {
 }
 
 func (c *count[T]) Do() (*gdao.Count, error) {
-	return c.dao.CountDao.Count().Ctx(c.ctx).Must(c.must).LogLevel(c.logLevel).Desc(c.desc).BuildSql(func(b *gdao.CountBuilder) {
-		b.Write("SELECT COUNT(*) FROM ").Write(c.dao.table)
+	return c.dao.Dao.Count().Ctx(c.ctx).Must(c.must).SqlLogLevel(c.sqlLogLevel).Desc(c.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
+		b.Write("SELECT COUNT(*) FROM ").WriteTable()
 		if c.cond != nil && c.cond.len() > 0 {
 			b.Write(" WHERE ")
-			c.cond.write(c.fieldNameToColumn, b.BaseSqlBuilder)
+			c.cond.write(c.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 	}).Do()
 }
 
 type baseDao[T any] struct {
 	*gdao.Dao[T]
-	*gdao.CountDao
-	table             string
 	fieldNameToColumn map[string]string
 }
 
@@ -779,24 +777,13 @@ func (d *baseDao[T]) Count() *count[T] {
 }
 
 type baseDaoBuilder[T any] struct {
-	db                *sql.DB
-	allowInvalidField bool
-	columnMapper      *gdao.NameMapper
-	table             string
+	db           *sql.DB
+	table        string
+	columnMapper *gdao.NameMapper
 }
 
 func (b *baseDaoBuilder[T]) DB(db *sql.DB) *baseDaoBuilder[T] { // coverage-ignore
 	b.db = db
-	return b
-}
-
-func (b *baseDaoBuilder[T]) AllowInvalidField(allowInvalidField bool) *baseDaoBuilder[T] { // coverage-ignore
-	b.allowInvalidField = allowInvalidField
-	return b
-}
-
-func (b *baseDaoBuilder[T]) ColumnMapper(columnMapper *gdao.NameMapper) *baseDaoBuilder[T] { // coverage-ignore
-	b.columnMapper = columnMapper
 	return b
 }
 
@@ -805,14 +792,18 @@ func (b *baseDaoBuilder[T]) Table(table string) *baseDaoBuilder[T] {
 	return b
 }
 
+func (b *baseDaoBuilder[T]) ColumnMapper(columnMapper *gdao.NameMapper) *baseDaoBuilder[T] { // coverage-ignore
+	b.columnMapper = columnMapper
+	return b
+}
+
 func (b *baseDaoBuilder[T]) Build() *baseDao[T] {
 	if strings.TrimSpace(b.table) == "" {
 		panic("table must not be empty")
 	}
-	dao := gdao.DaoBuilder[T]().DB(b.db).AllowInvalidField(b.allowInvalidField).ColumnMapper(b.columnMapper).Build()
-	countDao := gdao.CountDaoBuilder().DB(b.db).Build()
+	dao := gdao.DaoBuilder[T]().DB(b.db).Table(b.table).ColumnMapper(b.columnMapper).Build()
 	fieldNameToColumn := *(*map[string]string)(unsafe.Pointer(reflect.ValueOf(dao).Elem().FieldByName("fieldNameToColumn").UnsafeAddr()))
-	return &baseDao[T]{Dao: dao, CountDao: countDao, table: b.table, fieldNameToColumn: fieldNameToColumn}
+	return &baseDao[T]{Dao: dao, fieldNameToColumn: fieldNameToColumn}
 }
 
 func BaseDaoBuilder[T any]() *baseDaoBuilder[T] {
@@ -827,7 +818,7 @@ type Cond interface {
 	len() int
 	setNot()
 	setParenthesized()
-	write(nameMap map[string]string, b *gdao.BaseSqlBuilder)
+	write(nameMap map[string]string, b *gdao.PlainSqlBuilder)
 }
 
 type baseCond struct {
@@ -847,7 +838,7 @@ func (bc *baseCond) setParenthesized() {
 	bc.parenthesized = true
 }
 
-func (bc *baseCond) doWrite(b *gdao.BaseSqlBuilder, write func()) {
+func (bc *baseCond) doWrite(b *gdao.PlainSqlBuilder, write func()) {
 	if bc.not {
 		b.Write("NOT ")
 	}
@@ -885,7 +876,7 @@ func (cs *conds) len() int {
 	return len(cs.cs)
 }
 
-func (cs *conds) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (cs *conds) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	cs.doWrite(b, func() {
 		for i, cond := range cs.cs {
 			if i != 0 {
@@ -915,8 +906,8 @@ func (cs *conds) addCond(c Cond) *conds {
 }
 
 func (cs *conds) ToStrArgs(nameMap map[string]string) (string, []any) {
-	b := newTempSqlBuilder()
-	cs.write(nameMap, b.BaseSqlBuilder)
+	b := &gdao.PlainSqlBuilder{}
+	cs.write(nameMap, b)
 	return b.Sql(), b.Args()
 }
 
@@ -1098,7 +1089,7 @@ type condPlain struct {
 	args []any
 }
 
-func (c *condPlain) write(_ map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condPlain) write(_ map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(c.sql, c.args...)
 	})
@@ -1111,13 +1102,13 @@ type condBinOp struct {
 	arg    any
 }
 
-func (c *condBinOp) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condBinOp) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(mapColumn(nameMap, c.column))
 		b.Write(" ")
 		b.Write(c.op)
 		b.Write(" ")
-		b.Write(b.Pp(":"), c.arg)
+		b.Write(b.Ph(":"), c.arg)
 	})
 }
 
@@ -1127,7 +1118,7 @@ type condIn struct {
 	args   []any
 }
 
-func (c *condIn) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condIn) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(mapColumn(nameMap, c.column))
 		b.Write(" IN(")
@@ -1135,7 +1126,7 @@ func (c *condIn) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
 			if i != 0 {
 				b.Write(", ")
 			}
-			b.Write(b.Pp(":"))
+			b.Write(b.Ph(":"))
 		}
 		b.Write(")", c.args...)
 	})
@@ -1147,13 +1138,13 @@ type condBetween struct {
 	min, max any
 }
 
-func (c *condBetween) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condBetween) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(mapColumn(nameMap, c.column))
 		b.Write(" BETWEEN ")
-		b.Write(b.Pp(":"))
+		b.Write(b.Ph(":"))
 		b.Write(" AND ")
-		b.Write(b.Pp(":"), c.min, c.max)
+		b.Write(b.Ph(":"), c.min, c.max)
 	})
 }
 
@@ -1163,7 +1154,7 @@ type condIsNull struct {
 	column  string
 }
 
-func (c *condIsNull) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (c *condIsNull) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	c.doWrite(b, func() {
 		b.Write(mapColumn(nameMap, c.column))
 		b.Write(" IS")
@@ -1182,16 +1173,6 @@ func InArgs[T any](source ...T) inArgs {
 		target = append(target, s)
 	}
 	return target
-}
-
-type TempSqlBuilder struct {
-	*gdao.BaseSqlBuilder
-}
-
-func newTempSqlBuilder() *TempSqlBuilder {
-	t := &TempSqlBuilder{}
-	t.BaseSqlBuilder = gdao.NewBaseSqlBuilder()
-	return t
 }
 
 //=============================================================
@@ -1235,7 +1216,7 @@ func (o *OdrBy) Desc(column string) *OdrBy {
 	return o
 }
 
-func (o *OdrBy) write(nameMap map[string]string, b *gdao.BaseSqlBuilder) {
+func (o *OdrBy) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
 	b.Repeat(len(o.items), b.SepFix(" ORDER BY ", ", ", "", false), nil, func(_, i int) {
 		item := o.items[i]
 		b.Write(mapColumn(nameMap, item.column)).Write(" ")
