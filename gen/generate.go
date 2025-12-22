@@ -17,7 +17,6 @@
 package gen
 
 import (
-	"bufio"
 	"bytes"
 	"database/sql"
 	_ "embed"
@@ -34,6 +33,7 @@ import (
 
 	"github.com/jishaocong0910/gdao"
 	"github.com/jishaocong0910/gdao/internal"
+	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/imports"
 )
 
@@ -81,7 +81,7 @@ type Config struct {
 	DbType dbType
 	// 数据库连接URL，空字符串时不会生成实体
 	Dsn string
-	// 相对 [os.Getwd] 的go.mod文件路径
+	// 相对生成器运行目录的go.mod文件路径
 	GoModPath string
 	// 相对go.mod文件的生成文件路径，默认为“dao”
 	OutPath string
@@ -161,38 +161,20 @@ func (g *Generator) checkDir() error {
 	if g.cfg.OutPath == "" {
 		g.cfg.OutPath = "dao"
 	}
-	wd, err := os.Getwd()
+	file, err := os.Open(filepath.Join(g.cfg.GoModPath, "go.mod"))
 	if err != nil {
 		return err
 	}
-	file, err := os.Open(filepath.Join(wd, g.cfg.GoModPath, "go.mod"))
+	defer file.Close()
+	bs, err := io.ReadAll(file)
 	if err != nil {
 		return err
 	}
-	r := bufio.NewReader(file)
-	var moduleName string
-	for {
-		bs, _, err := r.ReadLine()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		line := string(bs)
-		spaceIdx := strings.Index(line, " ")
-		if spaceIdx == -1 {
-			continue
-		}
-		if line[:spaceIdx] == "module" {
-			moduleName = strings.TrimSpace(line[spaceIdx+1:])
-			break
-		}
+	modFile, err := modfile.Parse("", bs, nil)
+	if err != nil {
+		return err
 	}
-	if moduleName == "" {
-		return errors.New("module name is empty")
-	}
-	g.entityPkgPath = moduleName + "/" + g.cfg.OutPath + "/entity"
+	g.entityPkgPath = modFile.Module.Mod.Path + "/" + g.cfg.OutPath + "/entity"
 	goModPath, _ := filepath.Split(file.Name())
 	g.dir = filepath.Join(goModPath, g.cfg.OutPath)
 	g.entityDir = filepath.Join(g.dir, "entity")
