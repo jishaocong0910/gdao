@@ -32,7 +32,7 @@ type _DbType struct {
 	SQLITE dbType
 }
 
-var DbType_ = e.NewEnum[dbType](_DbType{
+var DbType_ = e.NewEnum(_DbType{
 	MYSQL:     dbType{driverName: "mysql"},
 	ORACLE:    dbType{driverName: "oracle"},
 	POSTGRES:  dbType{driverName: "postgres"},
@@ -51,4 +51,14 @@ type _mappingType struct {
 	convert mappingType
 }
 
-var mappingType_ = e.NewEnum[mappingType](_mappingType{})
+var mappingType_ = e.NewEnum(_mappingType{})
+
+type LogicDeleteStrategy struct {
+	*e.EnumElem__
+}
+
+type _LogicDeleteStrategy struct {
+	*e.Enum__[LogicDeleteStrategy]
+}
+
+var LogicDeleteStrategy_ = e.NewEnum(_LogicDeleteStrategy{})

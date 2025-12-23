@@ -9,7 +9,7 @@ toolchain go1.24.5
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/go-sql-driver/mysql v1.7.1
-	github.com/jishaocong0910/enum v1.0.4
+	github.com/jishaocong0910/enum v1.0.5
 	github.com/lib/pq v1.10.9
 	github.com/microsoft/go-mssqldb v1.8.0
 	github.com/pkg/errors v0.9.1
@@ -19,6 +19,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/mssql v0.35.0
 	github.com/testcontainers/testcontainers-go/modules/mysql v0.31.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.31.0
+	golang.org/x/mod v0.29.0
 	golang.org/x/tools v0.38.0
 	modernc.org/sqlite v1.40.1
 )
@@ -77,7 +78,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.21.0 // indirect

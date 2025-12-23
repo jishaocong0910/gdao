@@ -33,7 +33,7 @@ type _LogLevel struct {
 	INFO LogLevel
 }
 
-var LogLevel_ = e.NewEnum[LogLevel](_LogLevel{})
+var LogLevel_ = e.NewEnum(_LogLevel{})
 
 type LastInsertIdAs struct {
 	*e.EnumElem__
@@ -45,7 +45,7 @@ type _LastInsertIdAs struct {
 	LAST_ID LastInsertIdAs
 }
 
-var LastInsertIdAs_ = e.NewEnum[LastInsertIdAs](_LastInsertIdAs{})
+var LastInsertIdAs_ = e.NewEnum(_LastInsertIdAs{})
 
 type RowAs struct {
 	*e.EnumElem__
@@ -57,7 +57,7 @@ type _RowAs struct {
 	LAST_ID RowAs
 }
 
-var RowAs_ = e.NewEnum[RowAs](_RowAs{})
+var RowAs_ = e.NewEnum(_RowAs{})
 
 type lastInsertIdConvertor struct {
 	*e.EnumElem__
@@ -71,7 +71,7 @@ type _lastInsertIdConvertor struct {
 	float32, float64, string lastInsertIdConvertor
 }
 
-var lastInsertIdConvertor_ = e.NewEnum[lastInsertIdConvertor](_lastInsertIdConvertor{
+var lastInsertIdConvertor_ = e.NewEnum(_lastInsertIdConvertor{
 	int:     lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int(id); return reflect.ValueOf(&i) }},
 	int8:    lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int8(id); return reflect.ValueOf(&i) }},
 	int16:   lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int16(id); return reflect.ValueOf(&i) }},
