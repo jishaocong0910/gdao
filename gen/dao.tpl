@@ -3,11 +3,17 @@
 package {{.PkgName}}
 
 import (
-	"github.com/jishaocong0910/gdao"
 	"{{.EntityPkgPath}}"
 )
 
-var {{.DaoName}} = _{{.DaoName}}{BaseDaoBuilder[entity.{{.EntityName}}]().Table("{{.Table}}").Build()}
+var {{.DaoName}} = _{{.DaoName}}{BaseDaoBuilder[entity.{{.EntityName}}]().Table("{{.Table}}")
+{{- if eq .LogicalDelTplParam.Mode 1}}.
+    LogicalDelCfg(LogicalDelCfg{Mode: SET_NULL, FlagColumn: "{{.LogicalDelTplParam.FlagColumn}}", QueryValue: {{.LogicalDelTplParam.QueryValue}}})
+{{- end -}}
+{{- if eq .LogicalDelTplParam.Mode 2}}.
+    LogicalDelCfg(LogicalDelCfg{Mode: SET_ID, FlagColumn: "{{.LogicalDelTplParam.FlagColumn}}", IdColumn: "{{.LogicalDelTplParam.IdColumn}}", QueryValue: {{.LogicalDelTplParam.QueryValue}}})
+{{- end -}}
+.Build()}
 
 type _{{.DaoName}} struct {
 	*baseDao[entity.{{.EntityName}}]

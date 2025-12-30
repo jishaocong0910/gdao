@@ -32,7 +32,7 @@ type _DbType struct {
 	SQLITE dbType
 }
 
-var DbType_ = e.NewEnum[dbType](_DbType{
+var DbType_ = e.NewEnum(_DbType{
 	MYSQL:     dbType{driverName: "mysql"},
 	ORACLE:    dbType{driverName: "oracle"},
 	POSTGRES:  dbType{driverName: "postgres"},
@@ -51,4 +51,20 @@ type _mappingType struct {
 	convert mappingType
 }
 
-var mappingType_ = e.NewEnum[mappingType](_mappingType{})
+var mappingType_ = e.NewEnum(_mappingType{})
+
+type logicalDelMode struct {
+	*e.EnumElem__
+	code int
+}
+
+type _LogicalDelMode struct {
+	*e.Enum__[logicalDelMode]
+	SET_NULL,
+	SET_ID logicalDelMode
+}
+
+var LogicalDelMode_ = e.NewEnum(_LogicalDelMode{
+	SET_NULL: logicalDelMode{code: 1},
+	SET_ID:   logicalDelMode{code: 2},
+})

@@ -39,17 +39,34 @@ type User struct {
 	CreateAt *time.Time `gdao:"column=create_at"`
 }
 
+type Product struct {
+	Id      *int32  `gdao:"column=id;auto"`
+	Name    *string `gdao:"column=name"`
+	Channel *int8   `gdao:"column=channel"`
+	Status  *int8   `gdao:"column=status"`
+	Valid   *string `gdao:"column=valid"`
+}
+
+type Sku struct {
+	Id        *int32  `gdao:"column=id;auto"`
+	ProductId *int32  `gdao:"column=product_id"`
+	ItemNo    *string `gdao:"column=item_no"`
+	Channel   *int8   `gdao:"column=channel"`
+	Status    *int8   `gdao:"column=status"`
+	Deleted   *int32  `gdao:"column=Valid"`
+}
+
 func TestNewBaseDaoPanic(t *testing.T) {
 	r := require.New(t)
 	r.PanicsWithValue(`table must not be empty`, func() {
-		dao.MockBaseDao[User](r, "")
+		dao.MockBaseDao[User](r, "", nil)
 	})
 }
 
 func TestBaseDao_List(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`SELECT id, name FROM user WHERE status = :1 ORDER BY name ASC, address DESC OFFSET 3 FETCH NEXT 10 ROWS ONLY FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy").AddRow(2, "nick"))
@@ -72,7 +89,7 @@ func TestBaseDao_List(t *testing.T) {
 func TestBaseDao_Get(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`SELECT id, name FROM user WHERE status = :1 ORDER BY name ASC, id DESC FOR UPDATE`).
 			ExpectQuery().WithArgs(4).WillReturnRows(mock.NewRows([]string{"id", "name"}).
 			AddRow(1, "lucy"))
@@ -88,7 +105,7 @@ func TestBaseDao_Get(t *testing.T) {
 		r.Equal("lucy", *get.Name)
 	}
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare("").ExpectQuery().WillReturnRows(mock.NewRows([]string{"name"}).
 			AddRow("lucy").AddRow("jack"))
 
@@ -101,7 +118,7 @@ func TestBaseDao_Get(t *testing.T) {
 func TestBaseDao_Insert(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`INSERT INTO user\(name, age, address, phone, status, create_at, level\) VALUES\(:1, NULL, NULL, :2, NULL, NULL, NULL\); SELECT ID = convert\(bigint, SCOPE_IDENTITY\(\)\)`).
 			ExpectQuery().WithArgs("abc", "12345").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(7))
 
@@ -120,7 +137,7 @@ func TestBaseDao_Insert(t *testing.T) {
 
 func TestBaseDao_InsertBatch(t *testing.T) {
 	r := require.New(t)
-	d, mock := dao.MockBaseDao[User](r, "user")
+	d, mock := dao.MockBaseDao[User](r, "user", nil)
 	mock.ExpectPrepare(`INSERT INTO user\(name, phone, email\) VALUES\(:1, :2, :3\), \(:4, :5, :6\); SELECT ID = convert\(bigint, SCOPE_IDENTITY\(\)\)`).
 		ExpectQuery().WithArgs("abc", "12345", "email11", "def", "6789", "email22").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(9))
 
@@ -145,7 +162,7 @@ func TestBaseDao_InsertBatch(t *testing.T) {
 func TestBaseDao_Update(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`UPDATE user SET name = :1, email = NULL, phone = NULL WHERE status = :2 AND level = :3 AND age = :4`).
 			ExpectExec().WithArgs("name", 2, 10, 20).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -165,7 +182,7 @@ func TestBaseDao_Update(t *testing.T) {
 		r.Equal(int64(3), affected)
 	}
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`UPDATE user SET name = :1, age = NULL, address = :2, phone = NULL, email = NULL, level = :3, create_at = NULL WHERE id = :4 AND status IS NULL`).
 			ExpectExec().WithArgs("name", "addr", 10, 1).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -186,7 +203,7 @@ func TestBaseDao_Update(t *testing.T) {
 func TestBaseDao_UpdateBatch(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`UPDATE user SET name = CASE id WHEN :1 THEN :2 WHEN :3 THEN :4 WHEN :5 THEN :6 END, phone = CASE id WHEN :7 THEN :8 WHEN :9 THEN :10 WHEN :11 THEN :12 END, state = NULL, level = NULL WHERE id IN\(:13, :14, :15\) AND status = :16`).
 			ExpectExec().WithArgs(1, "name1", 2, "name2", 3, "name3", 1, "phone1", 2, "phone2", 3, "phone3", 1, 2, 3, 1).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -216,7 +233,7 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 		r.Equal(int64(3), affected)
 	}
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`UPDATE user SET name = CASE id WHEN :1 THEN :2 WHEN :3 THEN :4 WHEN :5 THEN :6 END, age = CASE id WHEN :7 THEN NULL WHEN :8 THEN NULL WHEN :9 THEN NULL END, address = CASE id WHEN :10 THEN NULL WHEN :11 THEN NULL WHEN :12 THEN NULL END, phone = CASE id WHEN :13 THEN :14 WHEN :15 THEN :16 WHEN :17 THEN :18 END, email = CASE id WHEN :19 THEN :20 WHEN :21 THEN :22 WHEN :23 THEN :24 END, status = CASE id WHEN :25 THEN NULL WHEN :26 THEN NULL WHEN :27 THEN NULL END, level = CASE id WHEN :28 THEN NULL WHEN :29 THEN NULL WHEN :30 THEN NULL END, create_at = CASE id WHEN :31 THEN NULL WHEN :32 THEN NULL WHEN :33 THEN NULL END WHERE id IN\(:34, :35, :36\)`).
 			ExpectExec().WithArgs(1, "name1", 2, "name2", 3, "name3", 1, 2, 3, 1, 2, 3, 1, "phone1", 2, "phone2", 3, "phone3", 1, "email1", 2, "email2", 3, "email3", 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -248,7 +265,7 @@ func TestBaseDao_UpdateBatch(t *testing.T) {
 
 func TestBaseDao_Delete(t *testing.T) {
 	r := require.New(t)
-	d, mock := dao.MockBaseDao[User](r, "user")
+	d, mock := dao.MockBaseDao[User](r, "user", nil)
 	mock.ExpectPrepare(`DELETE FROM user WHERE status = :1`).
 		ExpectExec().WithArgs(1).WillReturnResult(sqlmock.NewResult(0, 3))
 
@@ -261,7 +278,7 @@ func TestBaseDao_Delete(t *testing.T) {
 
 func TestBaseDao_Count(t *testing.T) {
 	r := require.New(t)
-	d, mock := dao.MockBaseDao[User](r, "user")
+	d, mock := dao.MockBaseDao[User](r, "user", nil)
 
 	mock.ExpectPrepare(`SELECT COUNT\(\*\) FROM user WHERE status = :1`).
 		ExpectQuery().WithArgs(1).WillReturnRows(mock.NewRows([]string{"count"}).
@@ -274,17 +291,179 @@ func TestBaseDao_Count(t *testing.T) {
 	r.Equal(int64(8), count.Int64())
 }
 
-func TestCond(t *testing.T) {
+func TestLogicalDel_SetNull(t *testing.T) {
+	r := require.New(t)
+	d, mock := dao.MockBaseDao[Product](r, "product", &dao.LogicalDelCfg{Mode: dao.SET_NULL, FlagColumn: "valid", QueryValue: "Y"})
+	{
+		mock.ExpectPrepare(`SELECT id, name FROM product WHERE \(channel = :1 OR status = :2\) AND valid = :3`).
+			ExpectQuery().WithArgs(1, 2, "Y").WillReturnRows(mock.NewRows([]string{"id", "name"}))
+		_, err := d.List().Select("id", "name").Condition(dao.Or().Eq("channel", 1).Eq("status", 2)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`SELECT id, name FROM product WHERE channel = :1 OR status = :2 `).
+			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows([]string{"id", "name"}))
+		_, err = d.List().Select("id", "name").Condition(dao.Or().Eq("channel", 1).Eq("status", 2)).IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`SELECT id, name FROM product WHERE \(channel = :1 OR status = :2\) AND valid = :3`).
+			ExpectQuery().WithArgs(1, 2, "Y").WillReturnRows(mock.NewRows([]string{"id", "name"}))
+		_, err := d.Get().Select("id", "name").Condition(dao.Or().Eq("channel", 1).Eq("status", 2)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`SELECT id, name FROM product WHERE channel = :1 OR status = :2 `).
+			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows([]string{"id", "name"}))
+		_, err = d.Get().Select("id", "name").Condition(dao.Or().Eq("channel", 1).Eq("status", 2)).
+			IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`UPDATE product SET name = :1 WHERE channel = :2 AND status = :3 AND valid = :4`).
+			ExpectExec().WithArgs("shirt", 1, 2, "Y").WillReturnResult(sqlmock.NewResult(0, 2))
+		_, err := d.Update().Entity(&Product{Name: gdao.P("shirt")}).Condition(dao.And().Eq("channel", 1).Eq("status", 2)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`UPDATE product SET name = :1 WHERE channel = :2 AND status = :3`).
+			ExpectExec().WithArgs("shirt", 1, 2).WillReturnResult(sqlmock.NewResult(0, 2))
+		_, err = d.Update().Entity(&Product{Name: gdao.P("shirt")}).Condition(dao.And().Eq("channel", 1).Eq("status", 2)).
+			IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`UPDATE product SET name = CASE id WHEN :1 THEN :2 WHEN :3 THEN :4 END WHERE id IN\(:5, :6\) AND status = :7 AND valid = :8`).
+			ExpectExec().WithArgs(1, "shirt", 2, "dress", 1, 2, 5, "Y").WillReturnResult(sqlmock.NewResult(0, 2))
+		_, err := d.UpdateBatch().Entities(&Product{Id: gdao.P[int32](1), Name: gdao.P("shirt")}, &Product{Id: gdao.P[int32](2), Name: gdao.P("dress")}).
+			Where("id").Condition(dao.Or().Eq("status", 5)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`UPDATE product SET name = CASE id WHEN :1 THEN :2 WHEN :3 THEN :4 END WHERE id IN\(:5, :6\) AND status = :7`).
+			ExpectExec().WithArgs(1, "shirt", 2, "dress", 1, 2, 5).WillReturnResult(sqlmock.NewResult(0, 2))
+		_, err = d.UpdateBatch().Entities(&Product{Id: gdao.P[int32](1), Name: gdao.P("shirt")}, &Product{Id: gdao.P[int32](2), Name: gdao.P("dress")}).
+			Where("id").Condition(dao.Or().Eq("status", 5)).IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`SELECT COUNT\(\*\) FROM product WHERE status = :1 AND valid = :2`).
+			ExpectQuery().WithArgs(3, "Y").WillReturnRows(sqlmock.NewRows([]string{"c"}))
+		_, err := d.Count().Condition(dao.And().Eq("status", 3)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`SELECT COUNT\(\*\) FROM product WHERE status = :1`).
+			ExpectQuery().WithArgs(3).WillReturnRows(sqlmock.NewRows([]string{"c"}))
+		_, err = d.Count().Condition(dao.And().Eq("status", 3)).IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`UPDATE product SET valid = NULL WHERE id = :1`).
+			ExpectExec().WithArgs(1).WillReturnResult(sqlmock.NewResult(0, 1))
+		_, err := d.LogicalDelete().Condition(dao.And().Eq("id", 1)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+}
+
+func TestLogicalDel_SetId(t *testing.T) {
+	r := require.New(t)
+	d, mock := dao.MockBaseDao[Sku](r, "sku", &dao.LogicalDelCfg{Mode: dao.SET_ID, FlagColumn: "deleted", IdColumn: "id", QueryValue: 0})
+	{
+		mock.ExpectPrepare(`SELECT id, item_no FROM sku WHERE \(channel = :1 OR status = :2\) AND deleted = :3`).
+			ExpectQuery().WithArgs(1, 2, 0).WillReturnRows(mock.NewRows([]string{"id", "item_no"}))
+		_, err := d.List().Select("id", "item_no").Condition(dao.Or().Eq("channel", 1).Eq("status", 2)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`SELECT id, item_no FROM sku WHERE channel = :1 OR status = :2`).
+			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows([]string{"id", "item_no"}))
+		_, err = d.List().Select("id", "item_no").Condition(dao.Or().Eq("channel", 1).Eq("status", 2)).IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`SELECT id, item_no FROM sku WHERE \(channel = :1 OR status = :2\) AND deleted = :3`).
+			ExpectQuery().WithArgs(1, 2, 0).WillReturnRows(mock.NewRows([]string{"id", "item_no"}))
+		_, err := d.Get().Select("id", "item_no").Condition(dao.Or().Eq("channel", 1).Eq("status", 2)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`SELECT id, item_no FROM sku WHERE channel = :1 OR status = :2 `).
+			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows([]string{"id", "item_no"}))
+		_, err = d.Get().Select("id", "item_no").Condition(dao.Or().Eq("channel", 1).Eq("status", 2)).
+			IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`UPDATE sku SET item_no = :1 WHERE channel = :2 AND status = :3 AND deleted = :4`).
+			ExpectExec().WithArgs("1001", 1, 2, 0).WillReturnResult(sqlmock.NewResult(0, 2))
+		_, err := d.Update().Entity(&Sku{ItemNo: gdao.P("1001")}).Condition(dao.And().Eq("channel", 1).Eq("status", 2)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`UPDATE sku SET item_no = :1 WHERE channel = :2 AND status = :3`).
+			ExpectExec().WithArgs("1001", 1, 2).WillReturnResult(sqlmock.NewResult(0, 2))
+		_, err = d.Update().Entity(&Sku{ItemNo: gdao.P("1001")}).Condition(dao.And().Eq("channel", 1).Eq("status", 2)).
+			IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`UPDATE sku SET item_no = CASE id WHEN :1 THEN :2 WHEN :3 THEN :4 END WHERE id IN\(:5, :6\) AND status = :7 AND deleted = :8`).
+			ExpectExec().WithArgs(1, "1001", 2, "1002", 1, 2, 5, 0).WillReturnResult(sqlmock.NewResult(0, 2))
+		_, err := d.UpdateBatch().Entities(&Sku{Id: gdao.P[int32](1), ItemNo: gdao.P("1001")}, &Sku{Id: gdao.P[int32](2), ItemNo: gdao.P("1002")}).
+			Where("id").Condition(dao.Or().Eq("status", 5)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`UPDATE sku SET item_no = CASE id WHEN :1 THEN :2 WHEN :3 THEN :4 END WHERE id IN\(:5, :6\) AND status = :7`).
+			ExpectExec().WithArgs(1, "1001", 2, "1002", 1, 2, 5).WillReturnResult(sqlmock.NewResult(0, 2))
+		_, err = d.UpdateBatch().Entities(&Sku{Id: gdao.P[int32](1), ItemNo: gdao.P("1001")}, &Sku{Id: gdao.P[int32](2), ItemNo: gdao.P("1002")}).
+			Where("id").Condition(dao.Or().Eq("status", 5)).IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`SELECT COUNT\(\*\) FROM sku WHERE status = :1 AND deleted = :2`).
+			ExpectQuery().WithArgs(3, 0).WillReturnRows(sqlmock.NewRows([]string{"c"}))
+		_, err := d.Count().Condition(dao.And().Eq("status", 3)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+
+		mock.ExpectPrepare(`SELECT COUNT\(\*\) FROM sku WHERE status = :1`).
+			ExpectQuery().WithArgs(3).WillReturnRows(sqlmock.NewRows([]string{"c"}))
+		_, err = d.Count().Condition(dao.And().Eq("status", 3)).IncludeDeletion(true).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+	{
+		mock.ExpectPrepare(`UPDATE sku SET deleted = id WHERE id = :1`).
+			ExpectExec().WithArgs(1).WillReturnResult(sqlmock.NewResult(0, 1))
+		_, err := d.LogicalDelete().Condition(dao.And().Eq("id", 1)).Do()
+		r.NoError(err)
+		r.NoError(mock.ExpectationsWereMet())
+	}
+}
+
+func TestCondition(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`c1 = :1 AND c2 = :2`).
 			ExpectQuery().WithArgs(1, 2).WillReturnRows(mock.NewRows(nil))
 
 		_, _, err := d.Query().BuildSql(func(b *gdao.SqlBuilder[User]) {
-			c := dao.And().Eq("c1", 1).Group(nil)
-			c2 := dao.Or().Eq("c2", 2).Group(nil)
-			c = dao.And().Group(c).Group(c2)
+			c := dao.And().Eq("c1", 1).Add(nil)
+			c2 := dao.Or().Eq("c2", 2).Add(nil)
+			c = dao.And().Add(c).Add(c2)
 
 			str, args := c.ToStrArgs(nil)
 			r.Equal("c1 = :1 AND c2 = :2", str)
@@ -296,7 +475,7 @@ func TestCond(t *testing.T) {
 		r.NoError(err)
 	}
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`c1 = :1 AND c2 <> :2 AND c3 > :3 AND c4 < :4 AND c5 >= :5 AND c6 <= :6 AND c7 LIKE :7 AND c8 LIKE :8 AND c9 LIKE :9 AND c10 IN\(:10, :11, :12\) AND c11 BETWEEN :13 AND :14 AND c12 IS NULL AND c13 IS NOT NULL`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, "%abc%", "abc%", "%abc", 1, 2, 3, 1, 3).WillReturnRows(mock.NewRows(nil))
 
@@ -319,7 +498,7 @@ func TestCond(t *testing.T) {
 		r.NoError(err)
 	}
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`0 = 0 AND NOT c1 = :1 AND NOT \(c2 = :2 AND c3 = :3 AND 1 = 1 and 2 = 2\) AND c4 = :4 AND NOT \(c5 = :5 OR NOT c6 = :6\) AND NOT c7 = :7 AND NOT \(c8 = :8 OR c9 = :9\)`).
 			ExpectQuery().WithArgs(1, 2, 3, 4, 5, 6, 7, 8, 9).WillReturnRows(mock.NewRows(nil))
 
@@ -331,13 +510,13 @@ func TestCond(t *testing.T) {
 			c4 := dao.Or().Eq("c5", 5).Not().Eq("c6", 6)
 			c5 := dao.Not().Or().Eq("c7", 7)
 			c6 := dao.Not().Or().Eq("c8", 8).Eq("c9", 9)
-			c := dao.And().Group(c0).Group(c1).Group(c2).Group(c3).Not().Group(c4).Group(c5).Group(c6)
+			c := dao.And().Add(c0).Add(c1).Add(c2).Add(c3).Not().Add(c4).Add(c5).Add(c6)
 			dao.WriteCondition(c, b)
 		}).Do()
 		r.NoError(err)
 	}
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`\(c1 = :1 OR c2 = :2\) AND c3 = :3 AND c4 = :4`).
 			ExpectQuery().WithArgs(1, 2, 3, 4).WillReturnRows(mock.NewRows(nil))
 
@@ -345,7 +524,7 @@ func TestCond(t *testing.T) {
 			c1 := dao.Or().Eq("c1", 1).Eq("c2", 2)
 			c2 := dao.Or().Eq("c3", 3)
 			c3 := dao.Or().Eq("c4", 4)
-			c := dao.And().Group(c1).Group(c2).Group(c3)
+			c := dao.And().Add(c1).Add(c2).Add(c3)
 			dao.WriteCondition(c, b)
 		}).Do()
 		r.NoError(err)
@@ -355,7 +534,7 @@ func TestCond(t *testing.T) {
 func TestCondOpt(t *testing.T) {
 	r := require.New(t)
 	{
-		d, mock := dao.MockBaseDao[User](r, "user")
+		d, mock := dao.MockBaseDao[User](r, "user", nil)
 		mock.ExpectPrepare(`1 = 1`).
 			ExpectQuery().WillReturnRows(mock.NewRows(nil))
 

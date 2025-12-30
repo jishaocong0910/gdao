@@ -17,23 +17,19 @@
 package gen
 
 import (
-	"bufio"
 	"bytes"
 	"database/sql"
 	_ "embed"
-	"errors"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"strconv"
-	"strings"
 	"text/template"
 
 	"github.com/jishaocong0910/gdao"
-	"github.com/jishaocong0910/gdao/internal"
+	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/imports"
 )
 
@@ -57,31 +53,13 @@ func GetGenerator(cfg Config) *Generator {
 	return newGenerator(cfg, dbInfo)
 }
 
-func MappingBase[T gdao.BaseType]() Mapping {
-	var t T
-	return Mapping{t: t, mt: mappingType_.base}
-}
-
-func MappingSlice[T gdao.BaseType](dim int) Mapping {
-	var t T
-	if dim < 1 {
-		dim = 1
-	}
-	return Mapping{t: t, sliceDim: dim, mt: mappingType_.slice}
-}
-
-func MappingConvert[T any]() Mapping {
-	var t T
-	return Mapping{t: t, mt: mappingType_.convert}
-}
-
 // Config 生成配置
 type Config struct {
 	// 数据库类型
 	DbType dbType
 	// 数据库连接URL，空字符串时不会生成实体
 	Dsn string
-	// 相对 [os.Getwd] 的go.mod文件路径
+	// 相对生成器运行目录的go.mod文件路径
 	GoModPath string
 	// 相对go.mod文件的生成文件路径，默认为“dao”
 	OutPath string
@@ -89,6 +67,8 @@ type Config struct {
 	TableCfg TableCfg
 	// DAO配置
 	DaoCfg DaoCfg
+	// 逻辑删除配置
+	LogicalDelCfg LogicalDelCfg
 }
 
 func (c *Config) getDB() *sql.DB {
@@ -107,27 +87,22 @@ type DaoCfg struct {
 type TableCfg struct {
 	// 需要生成的表
 	Tables Tables
-	// 指定表字段映射实体字段类型，使用函数 [MappingBase]、[MappingSlice] 或 [MappingConvertor] 指定
-	Mappers Mappers
 	// 指定表忽略的字段，key为表名，value为列名
 	Ignores Ignores
 }
 
-type Mapping struct {
-	t        any
-	sliceDim int
-	mt       mappingType
-}
-
 type Tables []string
-
-type Mappers map[string]Mappings
-
-type Mappings map[string]Mapping
 
 type Ignores map[string]Columns
 
 type Columns []string
+
+type LogicalDelCfg struct {
+	Mode       logicalDelMode
+	FlagColumn string
+	IdColumn   string
+	QueryValue any
+}
 
 type Generator struct {
 	cfg             Config
@@ -158,50 +133,32 @@ func (g *Generator) Gen() {
 }
 
 func (g *Generator) checkDir() error {
-	if g.cfg.OutPath == "" {
+	if g.cfg.OutPath == "" { // coverage-ignore
 		g.cfg.OutPath = "dao"
 	}
-	wd, err := os.Getwd()
-	if err != nil {
+	file, err := os.Open(filepath.Join(g.cfg.GoModPath, "go.mod"))
+	if err != nil { // coverage-ignore
 		return err
 	}
-	file, err := os.Open(filepath.Join(wd, g.cfg.GoModPath, "go.mod"))
-	if err != nil {
+	defer file.Close()
+	bs, err := io.ReadAll(file)
+	if err != nil { // coverage-ignore
 		return err
 	}
-	r := bufio.NewReader(file)
-	var moduleName string
-	for {
-		bs, _, err := r.ReadLine()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		line := string(bs)
-		spaceIdx := strings.Index(line, " ")
-		if spaceIdx == -1 {
-			continue
-		}
-		if line[:spaceIdx] == "module" {
-			moduleName = strings.TrimSpace(line[spaceIdx+1:])
-			break
-		}
+	modFile, err := modfile.Parse("", bs, nil)
+	if err != nil { // coverage-ignore
+		return err
 	}
-	if moduleName == "" {
-		return errors.New("module name is empty")
-	}
-	g.entityPkgPath = moduleName + "/" + g.cfg.OutPath + "/entity"
+	g.entityPkgPath = modFile.Module.Mod.Path + "/" + g.cfg.OutPath + "/entity"
 	goModPath, _ := filepath.Split(file.Name())
 	g.dir = filepath.Join(goModPath, g.cfg.OutPath)
 	g.entityDir = filepath.Join(g.dir, "entity")
 	err = os.MkdirAll(g.dir, os.ModePerm)
-	if err != nil {
+	if err != nil { // coverage-ignore
 		return err
 	}
 	err = os.MkdirAll(g.entityDir, os.ModePerm)
-	if err != nil {
+	if err != nil { // coverage-ignore
 		return err
 	}
 	return nil
@@ -219,29 +176,14 @@ func (g *Generator) queryTplParams() {
 			}
 			// 过滤字段
 			fields = g.ignoreFields(table, fields)
-			// 自定义映射
-			impts, err := g.mappingFields(table, fields)
-			if err != nil {
-				log.Println(err.Error())
-				continue
-			}
+			// 创建逻辑删参数
+			ldtp := g.buildLogicalDelTplParam(fields)
+			// 创建DAO模板参数
+			dtp := g.buildDaoTplParam(table, pkgName, ldtp)
 			// 创建实体模板参数
-			entityName := entityNameMapper.Convert(table)
-			e := entityTplParam{
-				Table:      table,
-				EntityName: entityName,
-				Fields:     fields,
-				Comment:    comment,
-				Imports:    impts,
-				dao: daoTplParam{
-					Table:         table,
-					PkgName:       pkgName,
-					DaoName:       daoNameMapper.Convert(table),
-					EntityName:    entityName,
-					EntityPkgPath: g.entityPkgPath,
-				},
-			}
-			g.entityTplParams = append(g.entityTplParams, e)
+			etp := g.buildEntityTplParam(table, fields, comment, dtp)
+			// 收集
+			g.entityTplParams = append(g.entityTplParams, etp)
 		}
 	}
 	g.baseDaoTplParam = baseDaoTplParam{
@@ -269,114 +211,75 @@ func (g *Generator) ignoreFields(table string, fields []fieldTplParam) []fieldTp
 	return fields
 }
 
-func (g *Generator) mappingFields(table string, fields []fieldTplParam) ([]string, error) {
-	mappings := g.cfg.TableCfg.Mappers[table]
-	if mappings == nil {
-		return nil, nil
+func (g *Generator) buildDaoTplParam(table string, pkgName string, ldtp logicalDelTplParam) daoTplParam {
+	return daoTplParam{
+		Table:              table,
+		PkgName:            pkgName,
+		DaoName:            daoNameMapper.Convert(table),
+		EntityName:         entityNameMapper.Convert(table),
+		EntityPkgPath:      g.entityPkgPath,
+		LogicalDelTplParam: ldtp,
+	}
+}
+
+func (g *Generator) buildEntityTplParam(table string, fields []fieldTplParam, comment string, dtp daoTplParam) entityTplParam {
+	return entityTplParam{
+		Table:      table,
+		EntityName: entityNameMapper.Convert(table),
+		Fields:     fields,
+		Comment:    comment,
+		dao:        dtp,
+	}
+}
+
+func (g *Generator) buildLogicalDelTplParam(fields []fieldTplParam) (param logicalDelTplParam) {
+	if g.cfg.LogicalDelCfg.Mode.IsUndefined() {
+		return
 	}
 
-	for i := 0; i < len(fields); i++ {
-		f := &fields[i]
-		if m, ok := mappings[f.Column]; ok {
-			switch m.mt.String() {
-			case mappingType_.base.String():
-				fieldType := g.determineFieldType(table, reflect.TypeOf(m.t))
-				f.FieldType = "*" + fieldType
-			case mappingType_.slice.String():
-				var fieldType string
-				for i := 0; i < m.sliceDim; i++ {
-					fieldType += "[]"
-				}
-				fieldType += g.determineFieldType(table, reflect.TypeOf(m.t))
-				f.FieldType = fieldType
-			case mappingType_.convert.String():
-				ft := reflect.TypeOf(m.t)
-				validConvertType := false
-				switch ft.Kind() {
-				case reflect.Pointer:
-					if ft.Elem().Kind() == reflect.Struct {
-						validConvertType = true
-					}
-				case reflect.Struct:
-					ft = reflect.New(ft).Type()
-					validConvertType = true
-				case reflect.Slice, reflect.Map:
-					validConvertType = true
-				}
-				if validConvertType && internal.IsImplementConvert(ft) == 1 {
-					f.FieldType = g.determineFieldType(table, ft)
-				} else { // coverage-ignore
-					return nil, errors.New("the mapping of table \"" + table + "\"'s column \"" + f.Column + "\" is invalid implementing gdao.Convert")
-				}
+	hasFlagColumn := false
+	for _, field := range fields {
+		if field.Column == g.cfg.LogicalDelCfg.FlagColumn {
+			hasFlagColumn = true
+			break
+		}
+	}
+	if !hasFlagColumn { // coverage-ignore
+		return
+	}
+
+	if LogicalDelMode_.SET_ID.Is(g.cfg.LogicalDelCfg.Mode) {
+		hasIdColumn := false
+		for _, field := range fields {
+			if field.Column == g.cfg.LogicalDelCfg.FlagColumn {
+				hasIdColumn = true
+				break
 			}
 		}
-	}
-	var impts []string
-	for name, path := range g.getPkgNameToPaths(table) {
-		if name != path[strings.LastIndex(path, "/")+1:] {
-			impts = append(impts, name+" \""+path+"\"")
-		} else {
-			impts = append(impts, "\""+path+"\"")
+		if !hasIdColumn { // coverage-ignore
+			return
 		}
 	}
-	return impts, nil
-}
 
-func (g *Generator) getPkgNameToPaths(table string) map[string]string {
-	m := g.pkgNameToPaths[table]
-	if m == nil {
-		m = make(map[string]string)
-		g.pkgNameToPaths[table] = m
+	if g.cfg.LogicalDelCfg.QueryValue == nil { // coverage-ignore
+		return
 	}
-	return m
-}
 
-func (g *Generator) determineFieldType(table string, ft reflect.Type) string {
-	pkgNameToPaths := g.getPkgNameToPaths(table)
+	queryValue := ""
+	switch g.cfg.LogicalDelCfg.QueryValue.(type) {
+	case int:
+		queryValue = strconv.Itoa(g.cfg.LogicalDelCfg.QueryValue.(int))
+	case string:
+		queryValue = "\"" + g.cfg.LogicalDelCfg.QueryValue.(string) + "\""
+	default: // coverage-ignore
+		return
+	}
 
-	var pkgPath string
-	if ft.Kind() == reflect.Pointer {
-		pkgPath = ft.Elem().PkgPath()
-	} else {
-		pkgPath = ft.PkgPath()
-	}
-	arr := strings.SplitN(ft.String(), ".", 2)
-	// 基础类型所以没有包名
-	if len(arr) == 1 {
-		return ft.String()
-	}
-	pkgName := arr[0]
-	if pkgName[:1] == "*" {
-		pkgName = pkgName[1:]
-	}
-	typeName := arr[1]
-	pkgName = g.determinePkgName(pkgPath, pkgName, pkgNameToPaths, false)
-
-	pkgNameToPaths[pkgName] = pkgPath
-	return pkgName + "." + typeName
-}
-
-func (g *Generator) determinePkgName(pkgPath, pkgName string, pkgNameToPaths map[string]string, conflict bool) string {
-	if conflict {
-		arr := pkgNameRegex.FindSubmatch([]byte(pkgName))
-		pkgName = string(arr[1])
-		num := string(arr[2])
-		if num != "" {
-			i, _ := strconv.ParseInt(num, 10, 32)
-			pkgName += strconv.Itoa(int(i + 1))
-		} else {
-			pkgName += "2"
-		}
-	}
-	if path, ok := pkgNameToPaths[pkgName]; ok {
-		if path == pkgPath {
-			return pkgName
-		} else {
-			return g.determinePkgName(pkgPath, pkgName, pkgNameToPaths, true)
-		}
-	} else {
-		return pkgName
-	}
+	param.Mode = g.cfg.LogicalDelCfg.Mode.code
+	param.FlagColumn = g.cfg.LogicalDelCfg.FlagColumn
+	param.IdColumn = g.cfg.LogicalDelCfg.IdColumn
+	param.QueryValue = queryValue
+	return param
 }
 
 func (g *Generator) genBaseDao() {
@@ -461,11 +364,12 @@ type entityTplParam struct {
 }
 
 type daoTplParam struct {
-	Table         string
-	PkgName       string
-	DaoName       string
-	EntityName    string
-	EntityPkgPath string
+	Table              string
+	PkgName            string
+	DaoName            string
+	EntityName         string
+	EntityPkgPath      string
+	LogicalDelTplParam logicalDelTplParam
 }
 
 type fieldTplParam struct {
@@ -478,6 +382,13 @@ type fieldTplParam struct {
 	AutoIncrementStep int
 	Comment           string
 	Valid             bool
+}
+
+type logicalDelTplParam struct {
+	Mode       int
+	FlagColumn string
+	IdColumn   string
+	QueryValue string
 }
 
 //go:embed entity.tpl

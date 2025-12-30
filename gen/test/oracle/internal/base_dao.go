@@ -30,7 +30,9 @@ type list[T any] struct {
 	// specify the columns which in the select column list, default is all columns.
 	sel []string
 	// conditions of the where clause，create by function And, Or and Not.
-	cond Cond
+	cg *CondGroup
+	// if true, the conditions do not automatically filter out deleted rows in logical delete mode.
+	includeDeletion bool
 	// ORDER BY clause，create by function OrderBy.
 	odrBy *OdrBy
 	// paging query，create by function Page.
@@ -64,8 +66,13 @@ func (l *list[T]) Select(sel ...string) *list[T] {
 	return l
 }
 
-func (l *list[T]) Condition(cond Cond) *list[T] {
-	l.cond = cond
+func (l *list[T]) Condition(cg *CondGroup) *list[T] {
+	l.cg = cg
+	return l
+}
+
+func (l *list[T]) IncludeDeletion(includeDeletion bool) *list[T] {
+	l.includeDeletion = includeDeletion
 	return l
 }
 
@@ -87,9 +94,10 @@ func (l *list[T]) ForUpdate(forUpdate bool) *list[T] {
 func (l *list[T]) Do() ([]*T, error) {
 	_, list, err := l.dao.Query().Ctx(l.ctx).Must(l.must).SqlLogLevel(l.sqlLogLevel).Desc(l.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		b.Write("SELECT ").WriteColumns(l.sel...).Write(" FROM ").WriteTable()
-		if l.cond != nil && l.cond.len() > 0 {
+		cg := l.dao.determineCondGroup(l.cg, l.includeDeletion)
+		if cg.notEmpty() {
 			b.Write(" WHERE ")
-			l.cond.write(l.fieldNameToColumn, b.PlainSqlBuilder)
+			cg.write(l.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 		if l.odrBy != nil {
 			l.odrBy.write(l.fieldNameToColumn, b.PlainSqlBuilder)
@@ -126,7 +134,9 @@ type get[T any] struct {
 	// specify the columns which in the select column list, default is all columns.
 	sel []string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	cond Cond
+	cg *CondGroup
+	// if true, the conditions do not automatically filter out deleted rows in logical delete mode.
+	includeDeletion bool
 	// ORDER BY clause，create by function OrderBy.
 	odrBy *OdrBy
 	// FOR UPDATE clause
@@ -160,8 +170,13 @@ func (g *get[T]) Select(sel ...string) *get[T] {
 	return g
 }
 
-func (g *get[T]) Condition(cond Cond) *get[T] {
-	g.cond = cond
+func (g *get[T]) Condition(cg *CondGroup) *get[T] {
+	g.cg = cg
+	return g
+}
+
+func (g *get[T]) IncludeDeletion(includeDeletion bool) *get[T] {
+	g.includeDeletion = includeDeletion
 	return g
 }
 
@@ -182,7 +197,8 @@ func (g *get[T]) CheckOne(checkOne bool) *get[T] {
 
 func (g *get[T]) Do() (*T, error) {
 	list, err := g.dao.List().Ctx(g.ctx).Must(g.must).SqlLogLevel(g.sqlLogLevel).Desc(g.desc).
-		Select(g.sel...).Condition(g.cond).OrderBy(g.odrBy).ForUpdate(g.forUpdate).Do()
+		Select(g.sel...).Condition(g.cg).IncludeDeletion(g.includeDeletion).OrderBy(g.odrBy).
+		ForUpdate(g.forUpdate).Do()
 	if len(list) == 0 { // coverage-ignore
 		return nil, err
 	}
@@ -397,7 +413,9 @@ type update[T any] struct {
 	// specify the non-nil fields in the entity used as conditions.
 	where []string
 	// conditions of the WHERE clause，create by function And, Or and Not..
-	cond Cond
+	cg *CondGroup
+	// if true, the conditions do not automatically filter out deleted rows in logical delete mode.
+	includeDeletion bool
 }
 
 func (u *update[T]) Ctx(ctx context.Context) *update[T] { // coverage-ignore
@@ -445,8 +463,13 @@ func (u *update[T]) Where(where ...string) *update[T] {
 	return u
 }
 
-func (u *update[T]) Condition(cond Cond) *update[T] {
-	u.cond = cond
+func (u *update[T]) Condition(cg *CondGroup) *update[T] {
+	u.cg = cg
+	return u
+}
+
+func (u *update[T]) IncludeDeletion(includeDeletion bool) *update[T] {
+	u.includeDeletion = includeDeletion
 	return u
 }
 
@@ -479,20 +502,21 @@ func (u *update[T]) Do() (int64, error) {
 			})
 		}
 
-		cond := And()
+		cg := And()
 		if len(u.where) > 0 {
 			b.EachColumn(b.Entity(), nil, func(_ int, column string, value any) {
 				if value == nil {
-					cond.IsNull(column)
+					cg.IsNull(column)
 				} else {
-					cond.Eq(column, value)
+					cg.Eq(column, value)
 				}
 			}, u.where...)
 		}
-		cond.addCond(u.cond)
-		if cond.len() > 0 {
+		cg.add(u.cg)
+		cg = u.dao.determineCondGroup(cg, u.includeDeletion)
+		if cg.notEmpty() {
 			b.Write(" WHERE ")
-			cond.write(u.fieldNameToColumn, b.PlainSqlBuilder)
+			cg.write(u.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 	}).Do()
 }
@@ -521,7 +545,9 @@ type updateBatch[T any] struct {
 	// specify the column which used as a cond.
 	where string
 	// conditions of the WHERE clause，create by function And, Or and Not..
-	cond Cond
+	cg *CondGroup
+	// if true, the conditions do not automatically filter out deleted rows in logical delete mode.
+	includeDeletion bool
 }
 
 func (u *updateBatch[T]) Ctx(ctx context.Context) *updateBatch[T] { // coverage-ignore
@@ -569,8 +595,13 @@ func (u *updateBatch[T]) Where(where string) *updateBatch[T] {
 	return u
 }
 
-func (u *updateBatch[T]) Condition(cond Cond) *updateBatch[T] {
-	u.cond = cond
+func (u *updateBatch[T]) Condition(cg *CondGroup) *updateBatch[T] {
+	u.cg = cg
+	return u
+}
+
+func (u *updateBatch[T]) IncludeDeletion(includeDeletion bool) *updateBatch[T] {
+	u.includeDeletion = includeDeletion
 	return u
 }
 
@@ -608,14 +639,15 @@ func (u *updateBatch[T]) Do() (int64, error) {
 		}
 
 		b.Write(" WHERE ")
-		cond := And()
+		cg := And()
 		whereColumnValues := make([]any, 0, len(u.entities))
 		b.EachEntity(nil, func(_ int, entity *T) {
 			whereColumnValues = append(whereColumnValues, b.ColumnValue(entity, u.where))
 		})
-		cond.In(u.where, InArgs(whereColumnValues...))
-		cond.addCond(u.cond)
-		cond.write(u.fieldNameToColumn, b.PlainSqlBuilder)
+		cg.In(u.where, InArgs(whereColumnValues...))
+		cg.add(u.cg)
+		cg = u.dao.determineCondGroup(cg, u.includeDeletion)
+		cg.write(u.fieldNameToColumn, b.PlainSqlBuilder)
 	}).Do()
 }
 
@@ -633,7 +665,7 @@ type delete[T any] struct {
 	// describe the SQL in the log
 	desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	cond Cond
+	cg *CondGroup
 }
 
 func (d *delete[T]) Ctx(ctx context.Context) *delete[T] { // coverage-ignore
@@ -656,17 +688,78 @@ func (d *delete[T]) Desc(desc string) *delete[T] { // coverage-ignore
 	return d
 }
 
-func (d *delete[T]) Condition(cond Cond) *delete[T] {
-	d.cond = cond
+func (d *delete[T]) Condition(cg *CondGroup) *delete[T] {
+	d.cg = cg
 	return d
 }
 
 func (d *delete[T]) Do() (int64, error) {
 	return d.dao.Exec().Ctx(d.ctx).Must(d.must).SqlLogLevel(d.sqlLogLevel).Desc(d.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		b.Write("DELETE FROM ").WriteTable()
-		if d.cond != nil && d.cond.len() > 0 {
+		if d.cg.notEmpty() {
 			b.Write(" WHERE ")
-			d.cond.write(d.fieldNameToColumn, b.PlainSqlBuilder)
+			d.cg.write(d.fieldNameToColumn, b.PlainSqlBuilder)
+		}
+	}).Do()
+}
+
+type logicalDelete[T any] struct {
+	// the base dao
+	dao *baseDao[T]
+	// the field name to column
+	fieldNameToColumn map[string]string
+	// the context
+	ctx context.Context
+	// if true, panic when error occurs, otherwise, return error.
+	must bool
+	// specify the log level
+	sqlLogLevel gdao.LogLevel
+	// describe the SQL in the log
+	desc string
+	// conditions of the WHERE clause，create by function And, Or and Not.
+	cg *CondGroup
+}
+
+func (l *logicalDelete[T]) Ctx(ctx context.Context) *logicalDelete[T] { // coverage-ignore
+	l.ctx = ctx
+	return l
+}
+
+func (l *logicalDelete[T]) Must(must bool) *logicalDelete[T] { // coverage-ignore
+	l.must = must
+	return l
+}
+
+func (l *logicalDelete[T]) SqlLogLevel(logLevel gdao.LogLevel) *logicalDelete[T] { // coverage-ignore
+	l.sqlLogLevel = logLevel
+	return l
+}
+
+func (l *logicalDelete[T]) Desc(desc string) *logicalDelete[T] { // coverage-ignore
+	l.desc = desc
+	return l
+}
+
+func (l *logicalDelete[T]) Condition(cg *CondGroup) *logicalDelete[T] {
+	l.cg = cg
+	return l
+}
+
+func (l *logicalDelete[T]) Do() (int64, error) {
+	return l.dao.Exec().Ctx(l.ctx).Must(l.must).SqlLogLevel(l.sqlLogLevel).Desc(l.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
+		b.Write("UPDATE ").WriteTable().Write(" SET ").Write(l.dao.logicalDelCfg.FlagColumn).Write(" = ")
+		switch l.dao.logicalDelCfg.Mode {
+		case SET_NULL:
+			b.Write("NULL")
+		case SET_ID:
+			b.Write(l.dao.logicalDelCfg.IdColumn)
+		default: // coverage-ignore
+			b.SetError(errors.New("the logical delete mode is not specified"))
+			return
+		}
+		if l.cg.notEmpty() {
+			b.Write(" WHERE ")
+			l.cg.write(l.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 	}).Do()
 }
@@ -685,7 +778,9 @@ type count[T any] struct {
 	// describe the SQL in the log
 	desc string
 	// conditions of the WHERE clause，create by function And, Or and Not.
-	cond Cond
+	cg *CondGroup
+	// if true, the conditions do not automatically filter out deleted rows in logical delete mode.
+	includeDeletion bool
 }
 
 func (c *count[T]) Ctx(ctx context.Context) *count[T] { // coverage-ignore
@@ -708,17 +803,23 @@ func (c *count[T]) Desc(desc string) *count[T] { // coverage-ignore
 	return c
 }
 
-func (c *count[T]) Condition(cond Cond) *count[T] {
-	c.cond = cond
+func (c *count[T]) Condition(cg *CondGroup) *count[T] {
+	c.cg = cg
+	return c
+}
+
+func (c *count[T]) IncludeDeletion(includeDeletion bool) *count[T] {
+	c.includeDeletion = includeDeletion
 	return c
 }
 
 func (c *count[T]) Do() (*gdao.Count, error) {
 	return c.dao.Dao.Count().Ctx(c.ctx).Must(c.must).SqlLogLevel(c.sqlLogLevel).Desc(c.desc).BuildSql(func(b *gdao.SqlBuilder[T]) {
 		b.Write("SELECT COUNT(*) FROM ").WriteTable()
-		if c.cond != nil && c.cond.len() > 0 {
+		cg := c.dao.determineCondGroup(c.cg, c.includeDeletion)
+		if cg.notEmpty() {
 			b.Write(" WHERE ")
-			c.cond.write(c.fieldNameToColumn, b.PlainSqlBuilder)
+			cg.write(c.fieldNameToColumn, b.PlainSqlBuilder)
 		}
 	}).Do()
 }
@@ -726,6 +827,7 @@ func (c *count[T]) Do() (*gdao.Count, error) {
 type baseDao[T any] struct {
 	*gdao.Dao[T]
 	fieldNameToColumn map[string]string
+	logicalDelCfg     LogicalDelCfg
 }
 
 func (d *baseDao[T]) List() *list[T] {
@@ -756,11 +858,26 @@ func (d *baseDao[T]) Delete() *delete[T] {
 	return &delete[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
+func (d *baseDao[T]) LogicalDelete() *logicalDelete[T] {
+	return &logicalDelete[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
+}
+
 func (d *baseDao[T]) Count() *count[T] {
 	return &count[T]{dao: d, fieldNameToColumn: d.fieldNameToColumn}
 }
 
+func (d *baseDao[T]) determineCondGroup(cg *CondGroup, includeDeletion bool) *CondGroup {
+	if includeDeletion {
+		return cg
+	}
+	if d.logicalDelCfg.Mode == 0 {
+		return cg
+	}
+	return And().Add(cg).Add(And().Eq(d.logicalDelCfg.FlagColumn, d.logicalDelCfg.QueryValue))
+}
+
 type baseDaoBuilder[T any] struct {
+	baseDao      *baseDao[T]
 	db           *sql.DB
 	table        string
 	columnMapper *gdao.NameMapper
@@ -781,27 +898,46 @@ func (b *baseDaoBuilder[T]) ColumnMapper(columnMapper *gdao.NameMapper) *baseDao
 	return b
 }
 
+func (b *baseDaoBuilder[T]) LogicalDelCfg(logicalDelCfg LogicalDelCfg) *baseDaoBuilder[T] {
+	b.baseDao.logicalDelCfg = logicalDelCfg
+	return b
+}
+
 func (b *baseDaoBuilder[T]) Build() *baseDao[T] {
 	if strings.TrimSpace(b.table) == "" {
 		panic("table must not be empty")
 	}
 	dao := gdao.DaoBuilder[T]().DB(b.db).Table(b.table).ColumnMapper(b.columnMapper).Build()
-	fieldNameToColumn := *(*map[string]string)(unsafe.Pointer(reflect.ValueOf(dao).Elem().FieldByName("fieldNameToColumn").UnsafeAddr()))
-	return &baseDao[T]{Dao: dao, fieldNameToColumn: fieldNameToColumn}
+	b.baseDao.Dao = dao
+	b.baseDao.fieldNameToColumn = *(*map[string]string)(unsafe.Pointer(reflect.ValueOf(dao).Elem().FieldByName("fieldNameToColumn").UnsafeAddr()))
+	return b.baseDao
 }
 
 func BaseDaoBuilder[T any]() *baseDaoBuilder[T] {
-	return &baseDaoBuilder[T]{}
+	return &baseDaoBuilder[T]{baseDao: &baseDao[T]{}}
+}
+
+type logicalDelMode int
+
+const (
+	SET_NULL logicalDelMode = iota + 1
+	SET_ID
+)
+
+type LogicalDelCfg struct {
+	Mode       logicalDelMode
+	FlagColumn string
+	IdColumn   string
+	QueryValue any
 }
 
 //=============================================================
 //======================== Condition  =========================
 //=============================================================
 
-type Cond interface {
-	len() int
+type cond interface {
+	notEmpty() bool
 	setNot()
-	setParenthesized()
 	write(nameMap map[string]string, b *gdao.PlainSqlBuilder)
 }
 
@@ -810,16 +946,12 @@ type baseCond struct {
 	parenthesized bool
 }
 
-func (bc *baseCond) len() int {
-	return 1
+func (bc *baseCond) notEmpty() bool {
+	return true
 }
 
 func (bc *baseCond) setNot() {
 	bc.not = true
-}
-
-func (bc *baseCond) setParenthesized() {
-	bc.parenthesized = true
 }
 
 func (bc *baseCond) doWrite(b *gdao.PlainSqlBuilder, write func()) {
@@ -835,231 +967,251 @@ func (bc *baseCond) doWrite(b *gdao.PlainSqlBuilder, write func()) {
 	}
 }
 
-type notConds struct {
+type notcg struct {
 }
 
-func (c notConds) And() *conds {
-	return &conds{baseCond: baseCond{not: true}, or: false}
+func (ncg notcg) And() *CondGroup {
+	return &CondGroup{baseCond: baseCond{not: true}, or: false}
 }
 
-func (c notConds) Or() *conds {
-	return &conds{baseCond: baseCond{not: true}, or: true}
+func (ncg notcg) Or() *CondGroup {
+	return &CondGroup{baseCond: baseCond{not: true}, or: true}
 }
 
-type conds struct {
+type CondGroup struct {
 	baseCond
 	nextNot bool
 	or      bool
-	cs      []Cond
+	cs      []cond
 }
 
-func (cs *conds) len() int {
-	if cs == nil {
-		return 0
+func (cg *CondGroup) notEmpty() bool {
+	if cg == nil {
+		return false
 	}
-	return len(cs.cs)
+	return len(cg.cs) > 0
 }
 
-func (cs *conds) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
-	cs.doWrite(b, func() {
-		for i, cond := range cs.cs {
+func (cg *CondGroup) write(nameMap map[string]string, b *gdao.PlainSqlBuilder) {
+	cg.doWrite(b, func() {
+		for i, c := range cg.cs {
 			if i != 0 {
-				if cs.or {
+				if cg.or {
 					b.Write(" OR ")
 				} else {
 					b.Write(" AND ")
 				}
 			}
-			cond.write(nameMap, b)
+			c.write(nameMap, b)
 		}
 	})
 }
 
-func (cs *conds) addCond(c Cond) *conds {
-	if c != nil && c.len() > 0 {
-		if cs.nextNot {
-			c.setNot()
-			cs.nextNot = false
+func (cg *CondGroup) add(other cond) *CondGroup {
+	if other != nil && other.notEmpty() {
+		if cg.nextNot {
+			other.setNot()
+			cg.nextNot = false
+			if g, ok := other.(*CondGroup); ok {
+				if len(g.cs) > 1 {
+					g.parenthesized = true
+				}
+			}
 		}
-		if c.len() > 1 {
-			c.setParenthesized()
+		if len(cg.cs) == 1 {
+			if cg.not {
+				cg.parenthesized = true
+			}
+			first := cg.cs[0]
+			if g, ok := first.(*CondGroup); ok {
+				if g.or && len(g.cs) > 1 {
+					g.parenthesized = true
+				}
+			}
 		}
-		cs.cs = append(cs.cs, c)
+		if len(cg.cs) > 0 {
+			if g, ok := other.(*CondGroup); ok {
+				if g.or && len(g.cs) > 1 {
+					g.parenthesized = true
+				}
+			}
+		}
+		cg.cs = append(cg.cs, other)
 	}
-	return cs
+	return cg
 }
 
-func (cs *conds) ToStrArgs(nameMap map[string]string) (string, []any) {
+func (cg *CondGroup) ToStrArgs(nameMap map[string]string) (string, []any) {
 	b := &gdao.PlainSqlBuilder{}
-	cs.write(nameMap, b)
+	cg.write(nameMap, b)
 	return b.Sql(), b.Args()
 }
 
-func (cs *conds) Not() *conds {
-	cs.nextNot = true
-	return cs
+func (cg *CondGroup) Not() *CondGroup {
+	cg.nextNot = true
+	return cg
 }
 
-func (cs *conds) Group(other *conds) *conds {
-	return cs.addCond(other)
+func (cg *CondGroup) Add(other *CondGroup) *CondGroup {
+	return cg.add(other)
 }
 
-func (cs *conds) Plain(sql string, args ...any) *conds {
-	return cs.addCond(&condPlain{sql: sql, args: args})
+func (cg *CondGroup) Plain(sql string, args ...any) *CondGroup {
+	return cg.add(&condPlain{sql: sql, args: args})
 }
 
-func (cs *conds) Eq(column string, arg any, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) Eq(column string, arg any, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && arg == nil {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBinOp{column: column, op: "=", arg: arg})
+	return cg.add(&condBinOp{column: column, op: "=", arg: arg})
 }
 
-func (cs *conds) Ne(column string, arg any, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) Ne(column string, arg any, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && arg == nil {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBinOp{column: column, op: "<>", arg: arg})
+	return cg.add(&condBinOp{column: column, op: "<>", arg: arg})
 }
 
-func (cs *conds) Gt(column string, arg any, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) Gt(column string, arg any, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && arg == nil {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBinOp{column: column, op: ">", arg: arg})
+	return cg.add(&condBinOp{column: column, op: ">", arg: arg})
 }
 
-func (cs *conds) Lt(column string, arg any, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) Lt(column string, arg any, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && arg == nil {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBinOp{column: column, op: "<", arg: arg})
+	return cg.add(&condBinOp{column: column, op: "<", arg: arg})
 }
 
-func (cs *conds) Ge(column string, arg any, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) Ge(column string, arg any, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && arg == nil {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBinOp{column: column, op: ">=", arg: arg})
+	return cg.add(&condBinOp{column: column, op: ">=", arg: arg})
 }
 
-func (cs *conds) Le(column string, arg any, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) Le(column string, arg any, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && arg == nil {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBinOp{column: column, op: "<=", arg: arg})
+	return cg.add(&condBinOp{column: column, op: "<=", arg: arg})
 }
 
-func (cs *conds) Like(column string, arg string, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) Like(column string, arg string, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && arg == "" {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBinOp{column: column, op: "LIKE", arg: "%" + arg + "%"})
+	return cg.add(&condBinOp{column: column, op: "LIKE", arg: "%" + arg + "%"})
 }
 
-func (cs *conds) LikeLeft(column string, arg string, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) LikeLeft(column string, arg string, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && arg == "" {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBinOp{column: column, op: "LIKE", arg: arg + "%"})
+	return cg.add(&condBinOp{column: column, op: "LIKE", arg: arg + "%"})
 }
 
-func (cs *conds) LikeRight(column string, arg string, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) LikeRight(column string, arg string, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && arg == "" {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBinOp{column: column, op: "LIKE", arg: "%" + arg})
+	return cg.add(&condBinOp{column: column, op: "LIKE", arg: "%" + arg})
 }
 
-func (cs *conds) In(column string, args inArgs, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) In(column string, args inArgs, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && len(args) == 0 {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condIn{column: column, args: args})
+	return cg.add(&condIn{column: column, args: args})
 }
 
-func (cs *conds) Between(column string, min, max any, opts ...CondOpt) *conds {
-	opt := cs.getOpt(opts...)
+func (cg *CondGroup) Between(column string, min, max any, opts ...CondOpt) *CondGroup {
+	opt := cg.getOpt(opts...)
 	if opt.ifPresent && (min == nil || max == nil) {
-		return cs
+		return cg
 	}
 	if opt.ifPredicate != nil {
 		if !opt.ifPredicate() {
-			return cs
+			return cg
 		}
 	}
-	return cs.addCond(&condBetween{column: column, min: min, max: max})
+	return cg.add(&condBetween{column: column, min: min, max: max})
 }
 
-func (cs *conds) IsNull(column string) *conds {
-	return cs.addCond(&condIsNull{column: column})
+func (cg *CondGroup) IsNull(column string) *CondGroup {
+	return cg.add(&condIsNull{column: column})
 }
 
-func (cs *conds) IsNotNull(column string) *conds {
-	return cs.addCond(&condIsNull{column: column, notNull: true})
+func (cg *CondGroup) IsNotNull(column string) *CondGroup {
+	return cg.add(&condIsNull{column: column, notNull: true})
 }
 
-func (cs *conds) getOpt(opts ...CondOpt) condOpt {
+func (cg *CondGroup) getOpt(opts ...CondOpt) condOpt {
 	co := condOpt{}
 	for _, opt := range opts {
 		opt(&co)
@@ -1232,16 +1384,16 @@ func Page(offset, pageSize int) *Paging {
 	return &Paging{offset: offset, pageSize: pageSize}
 }
 
-func And() *conds {
-	return &conds{or: false}
+func And() *CondGroup {
+	return &CondGroup{or: false}
 }
 
-func Or() *conds {
-	return &conds{or: true}
+func Or() *CondGroup {
+	return &CondGroup{or: true}
 }
 
-func Not() notConds {
-	return notConds{}
+func Not() notcg {
+	return notcg{}
 }
 
 //=============================================================
