@@ -52,7 +52,7 @@ func formatSql(sql string) string {
 	return sql
 }
 
-func printSql(ctx context.Context, logLevel LogLevel, desc string, sql string, args []any, affected, rowCounts int64, err error) {
+func printSql(ctx context.Context, logLevel LogLevel, desc string, sql string, args []any, affected, rowCount int64, count int64, err error) {
 	if logLevel.IsUndefined() {
 		logLevel = global.SqlLogLevel
 	}
@@ -62,7 +62,7 @@ func printSql(ctx context.Context, logLevel LogLevel, desc string, sql string, a
 	var msg strings.Builder
 	msgArgs := make([]any, 0, 5+len(args))
 	if desc != "" {
-		msg.WriteString("Desc: %s, ")
+		msg.WriteString("desc: %s, ")
 		msgArgs = append(msgArgs, desc)
 	}
 	msg.WriteString("SQL: %s;")
@@ -105,11 +105,16 @@ func printSql(ctx context.Context, logLevel LogLevel, desc string, sql string, a
 		msgArgs = append(msgArgs, affected)
 	}
 
-	if rowCounts != -1 {
+	if count != -1 {
 		msg.WriteString(sep)
 		sep = ", "
-		msg.WriteString("row counts: %d")
-		msgArgs = append(msgArgs, rowCounts)
+		msg.WriteString("count: %d")
+		msgArgs = append(msgArgs, count)
+	} else if rowCount != -1 {
+		msg.WriteString(sep)
+		sep = ", "
+		msg.WriteString("rowcount: %d")
+		msgArgs = append(msgArgs, rowCount)
 	}
 
 	if err != nil {

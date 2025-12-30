@@ -44,14 +44,18 @@ func (d Logger) Errorf(ctx context.Context, msg string, args ...interface{}) { /
 	log.Printf(msg, args...)
 }
 
-func MockBaseDao[T any](r *require.Assertions, table string) (*baseDao[T], sqlmock.Sqlmock) {
+func MockBaseDao[T any](r *require.Assertions, table string, logicalDel *LogicalDelCfg) (*baseDao[T], sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	r.NoError(err)
-	dao := BaseDaoBuilder[T]().Table(table).Build()
+	builder := BaseDaoBuilder[T]().Table(table)
+	if logicalDel != nil {
+		builder.LogicalDelCfg(*logicalDel)
+	}
+	dao := builder.Build()
 	gdao.Config(gdao.Cfg{DefaultDB: db, Logger: Logger{}, SqlLogLevel: gdao.LogLevel_.INFO})
 	return dao, mock
 }
 
-func WriteCondition[T any](c Cond, b *gdao.SqlBuilder[T]) {
+func WriteCondition[T any](c *CondGroup, b *gdao.SqlBuilder[T]) {
 	c.write(nil, b.PlainSqlBuilder)
 }

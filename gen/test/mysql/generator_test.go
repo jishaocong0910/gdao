@@ -24,11 +24,6 @@ import (
 	"time"
 
 	"github.com/jishaocong0910/gdao/gen"
-	"github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg"
-	pkg2 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1"
-	pkg3 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1/pkg"
-	pkg4 "github.com/jishaocong0910/gdao/gen/test/mysql/internal/pkg1/pkg1"
-	_type "github.com/jishaocong0910/gdao/gen/test/mysql/internal/type"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mysql"
@@ -64,21 +59,6 @@ func TestMySql(t *testing.T) {
 		OutPath:   "gen/test/mysql/testdata",
 		TableCfg: gen.TableCfg{
 			Tables: gen.Tables{"test_table"},
-			Mappers: gen.Mappers{
-				"test_table": gen.Mappings{
-					"other2":  gen.MappingBase[int64](),
-					"other3":  gen.MappingSlice[int32](1),
-					"other4":  gen.MappingBase[_type.MyInt](),
-					"other5":  gen.MappingSlice[_type.MyInt](2),
-					"other6":  gen.MappingConvert[pkg.MyMap](),
-					"other7":  gen.MappingConvert[pkg.MySlice](),
-					"other8":  gen.MappingConvert[pkg.MyStruct](),
-					"other9":  gen.MappingConvert[*pkg.MyStruct2](),
-					"other10": gen.MappingConvert[pkg2.MyStruct3](),
-					"other11": gen.MappingConvert[pkg3.MyStruct4](),
-					"other12": gen.MappingConvert[pkg4.MyStruct5](),
-				},
-			},
 			Ignores: gen.Ignores{
 				"test_table": gen.Columns{
 					"other",
@@ -87,12 +67,47 @@ func TestMySql(t *testing.T) {
 		},
 	}).Gen()
 
+	gen.GetGenerator(gen.Config{
+		DbType:    gen.DbType_.MYSQL,
+		Dsn:       dsn,
+		GoModPath: "../../..",
+		OutPath:   "gen/test/mysql/testdata",
+		TableCfg: gen.TableCfg{
+			Tables: gen.Tables{"test_table_logical_del_mode1"},
+		},
+		LogicalDelCfg: gen.LogicalDelCfg{
+			Mode:       gen.LogicalDelMode_.SET_NULL,
+			FlagColumn: "valid",
+			QueryValue: "1",
+		},
+	}).Gen()
+
+	gen.GetGenerator(gen.Config{
+		DbType:    gen.DbType_.MYSQL,
+		Dsn:       dsn,
+		GoModPath: "../../..",
+		OutPath:   "gen/test/mysql/testdata",
+		TableCfg: gen.TableCfg{
+			Tables: gen.Tables{"test_table_logical_del_mode2"},
+		},
+		LogicalDelCfg: gen.LogicalDelCfg{
+			Mode:       gen.LogicalDelMode_.SET_ID,
+			FlagColumn: "deleted",
+			IdColumn:   "id",
+			QueryValue: 0,
+		},
+	}).Gen()
+
 	defer os.RemoveAll("testdata/entity")
 	defer os.Remove("testdata/test_table.go")
+	defer os.Remove("testdata/test_table_logical_del_mode1.go")
+	defer os.Remove("testdata/test_table_logical_del_mode2.go")
 	defer os.Remove("testdata/base_dao.go")
 
 	compareFile(r, "testdata/entity.golden", "testdata/entity/test_table.go")
 	compareFile(r, "testdata/dao.golden", "testdata/test_table.go")
+	compareFile(r, "testdata/dao_logical_del_mode1.golden", "testdata/test_table_logical_del_mode1.go")
+	compareFile(r, "testdata/dao_logical_del_mode2.golden", "testdata/test_table_logical_del_mode2.go")
 	compareFile(r, "internal/base_dao.go", "testdata/base_dao.go")
 }
 

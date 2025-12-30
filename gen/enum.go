@@ -53,12 +53,18 @@ type _mappingType struct {
 
 var mappingType_ = e.NewEnum(_mappingType{})
 
-type LogicDeleteStrategy struct {
+type logicalDelMode struct {
 	*e.EnumElem__
+	code int
 }
 
-type _LogicDeleteStrategy struct {
-	*e.Enum__[LogicDeleteStrategy]
+type _LogicalDelMode struct {
+	*e.Enum__[logicalDelMode]
+	SET_NULL,
+	SET_ID logicalDelMode
 }
 
-var LogicDeleteStrategy_ = e.NewEnum(_LogicDeleteStrategy{})
+var LogicalDelMode_ = e.NewEnum(_LogicalDelMode{
+	SET_NULL: logicalDelMode{code: 1},
+	SET_ID:   logicalDelMode{code: 2},
+})

@@ -85,7 +85,7 @@ func (q *query[T]) Do() (first *T, list []*T, err error) {
 	}
 	rows, columns, closeFunc, err := q.dao.query(q.ctx, b.Sql(), b.Args())
 	if err != nil { // coverage-ignore
-		printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), -1, -1, err)
+		printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), -1, -1, -1, err)
 		checkMust(q.must, err)
 		return nil, nil, err
 	}
@@ -97,7 +97,7 @@ func (q *query[T]) Do() (first *T, list []*T, err error) {
 	case RowAs_.LAST_ID.String():
 		q.rowAsLastId(b, rows, columns)
 	default:
-		var rowCounts int64
+		var rowCount int64
 		for rows.Next() {
 			entity := new(T)
 			dests, afterScans := q.dao.mappingScanFields(entity, columns)
@@ -110,12 +110,12 @@ func (q *query[T]) Do() (first *T, list []*T, err error) {
 				after()
 			}
 			list = append(list, entity)
-			rowCounts++
+			rowCount++
 		}
 		if len(list) > 0 {
 			first = list[0]
 		}
-		printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), -1, rowCounts, nil)
+		printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), -1, rowCount, -1, nil)
 	}
 	return
 }
@@ -137,7 +137,7 @@ func (q *query[T]) rowAsReturning(b *SqlBuilder[T], rows *sql.Rows, columns []st
 		}
 		affected++
 	}
-	printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
+	printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), affected, -1, -1, nil)
 }
 
 func (q *query[T]) rowAsLastId(b *SqlBuilder[T], rows *sql.Rows, columns []string) {
@@ -163,7 +163,7 @@ func (q *query[T]) rowAsLastId(b *SqlBuilder[T], rows *sql.Rows, columns []strin
 	} else {
 		affected = int64(len(q.entities))
 	}
-	printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), affected, -1, nil)
+	printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), affected, -1, -1, nil)
 }
 
 type exec[T any] struct {
@@ -224,7 +224,7 @@ func (e *exec[T]) Do() (affected int64, err error) {
 		return 0, nil
 	}
 	result, affected, err := e.dao.exec(e.ctx, b.Sql(), b.Args())
-	printSql(e.ctx, e.sqlLogLevel, e.desc, b.Sql(), b.Args(), affected, -1, err)
+	printSql(e.ctx, e.sqlLogLevel, e.desc, b.Sql(), b.Args(), affected, -1, -1, err)
 	if err != nil { // coverage-ignore
 		checkMust(e.must, err)
 		return
@@ -315,15 +315,15 @@ func (c *count[T]) Do() (count *Count, err error) {
 	}
 	rows, columns, closeFunc, err := c.dao.query(c.ctx, b.Sql(), b.Args())
 	if err != nil { // coverage-ignore
-		printSql(c.ctx, c.sqlLogLevel, c.desc, b.Sql(), b.Args(), -1, -1, err)
+		printSql(c.ctx, c.sqlLogLevel, c.desc, b.Sql(), b.Args(), -1, -1, -1, err)
 		checkMust(c.must, err)
-		return nil, err
+		return
 	}
 	defer closeFunc()
 
-	var rowCounts int64
+	var rowCount int64
 	for rows.Next() {
-		rowCounts++
+		rowCount++
 		if count != nil { // coverage-ignore
 			continue
 		}
@@ -342,14 +342,14 @@ func (c *count[T]) Do() (count *Count, err error) {
 		}
 	}
 
-	if rowCounts > 1 {
+	if rowCount > 1 {
 		count = nil
 		err = errors.New("returns more than one row")
-		printSql(c.ctx, c.sqlLogLevel, c.desc, b.Sql(), b.Args(), -1, rowCounts, err)
+		printSql(c.ctx, c.sqlLogLevel, c.desc, b.Sql(), b.Args(), -1, rowCount, -1, err)
 		checkMust(c.must, err)
-		return count, err
+		return
 	}
-	printSql(c.ctx, c.sqlLogLevel, c.desc, b.Sql(), b.Args(), -1, rowCounts, nil)
+	printSql(c.ctx, c.sqlLogLevel, c.desc, b.Sql(), b.Args(), -1, rowCount, count.Int64(), nil)
 	return
 }
 

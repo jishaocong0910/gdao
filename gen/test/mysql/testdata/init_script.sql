@@ -43,15 +43,19 @@ CREATE TABLE test_table
     `point`              point COMMENT 'point',
     `time`               time,
     `other`              int,
-    `other2`             int,
-    `other3`             int,
-    `other4`             int,
-    `other5`             int,
-    `other6`             int,
-    `other7`             int,
-    `other8`             int,
-    `other9`             int,
-    `other10`            int,
-    `other11`            int,
-    `other12`            int
+    `other2`             int
 ) COMMENT 'mysql';
+
+CREATE TABLE test_table_logical_del_mode1
+(
+    `id`    bigint PRIMARY KEY AUTO_INCREMENT,
+    `name`  varchar(255),
+    `valid` char(1) NOT NULL DEFAULT '1'
+);
+
+CREATE TABLE test_table_logical_del_mode2
+(
+    `id`      bigint PRIMARY KEY AUTO_INCREMENT,
+    `name`    varchar(255),
+    `deleted` tinyint(1) NOT NULL DEFAULT 0
+);
