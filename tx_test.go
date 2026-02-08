@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package gdao_test
+package orm_test
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/jishaocong0910/gdao"
+	orm "github.com/jishaocong0910/cozy-orm"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,7 +35,7 @@ func TestTx(t *testing.T) {
 		mock.ExpectCommit()
 		tx, err := userDao.DB().Begin()
 		r.NoError(err)
-		affected, err := userDao.Exec().Ctx(gdao.SetTx(nil, tx)).BuildSql(func(b *gdao.SqlBuilder[User]) {
+		affected, err := userDao.Exec().Ctx(orm.SetTx(nil, tx)).BuildSql(func(b *orm.SqlBuilder[User]) {
 			b.Write("UPDATE user set status=1 WHERE id=?", 1)
 		}).Do()
 		tx.Commit()
@@ -48,8 +48,8 @@ func TestTx(t *testing.T) {
 		mock.ExpectBegin()
 		mock.ExpectPrepare(`UPDATE user set status=1 WHERE id=\?`).ExpectExec().WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectCommit()
-		err := gdao.Tx(nil, func(ctx context.Context) error {
-			_, err := userDao.Exec().Ctx(ctx).BuildSql(func(b *gdao.SqlBuilder[User]) {
+		err := orm.Tx(nil, func(ctx context.Context) error {
+			_, err := userDao.Exec().Ctx(ctx).BuildSql(func(b *orm.SqlBuilder[User]) {
 				b.Write("UPDATE user set status=1 WHERE id=?", 1)
 			}).Do()
 			return err
@@ -61,7 +61,7 @@ func TestTx(t *testing.T) {
 		_, mock := mockUserDao(r)
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		err := gdao.Tx(nil, func(ctx context.Context) error {
+		err := orm.Tx(nil, func(ctx context.Context) error {
 			return errors.New("error")
 		})
 		r.EqualError(err, "error")
@@ -71,30 +71,30 @@ func TestTx(t *testing.T) {
 		_, mock := mockUserDao(r)
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		err := gdao.Tx(nil, func(ctx context.Context) error {
+		err := orm.Tx(nil, func(ctx context.Context) error {
 			panic(errors.New("panic error"))
 		})
-		r.EqualError(err, "panic error")
+		r.ErrorContains(err, "panic error")
 		r.NoError(mock.ExpectationsWereMet())
 	}
 	{
 		_, mock := mockUserDao(r)
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		err := gdao.Tx(nil, func(ctx context.Context) error {
+		err := orm.Tx(nil, func(ctx context.Context) error {
 			panic(1)
 		})
-		r.EqualError(err, "1")
+		r.ErrorContains(err, "1")
 		r.NoError(mock.ExpectationsWereMet())
 	}
 	{
 		_, mock := mockUserDao(r)
 		mock.ExpectBegin()
 		mock.ExpectRollback()
-		r.PanicsWithError(`test panic`, func() {
-			gdao.Tx(nil, func(ctx context.Context) error {
+		r.Panics(func() {
+			orm.Tx(nil, func(ctx context.Context) error {
 				panic(errors.New("test panic"))
-			}, gdao.WithMust())
+			}, orm.WithMust())
 		})
 	}
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package gdao
+package orm
 
 import (
 	"strings"

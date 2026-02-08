@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package gdao
+package orm
 
 import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"reflect"
-
-	"github.com/jishaocong0910/gdao/internal"
+	"strconv"
+	"strings"
 )
 
-type query[T any] struct {
+type query[T Entity] struct {
 	dao         *Dao[T]
 	ctx         context.Context
 	must        bool
@@ -166,7 +167,7 @@ func (q *query[T]) rowAsLastId(b *SqlBuilder[T], rows *sql.Rows, columns []strin
 	printSql(q.ctx, q.sqlLogLevel, q.desc, b.Sql(), b.Args(), affected, -1, -1, nil)
 }
 
-type exec[T any] struct {
+type exec[T Entity] struct {
 	dao            *Dao[T]
 	ctx            context.Context
 	must           bool
@@ -267,7 +268,7 @@ func (e *exec[T]) lastInsertIdAsLastId(result sql.Result) {
 	}
 }
 
-type count[T any] struct {
+type count[T Entity] struct {
 	dao         *Dao[T]
 	ctx         context.Context
 	must        bool
@@ -446,7 +447,7 @@ func (c *Count) BoolPtr() *bool {
 	return &b
 }
 
-type Dao[T any] struct {
+type Dao[T Entity] struct {
 	db                     *sql.DB
 	table                  string
 	columnMapper           *NameMapper
@@ -462,7 +463,7 @@ type Dao[T any] struct {
 
 func (d *Dao[T]) DB() *sql.DB {
 	if d.db == nil { // coverage-ignore
-		return global.DefaultDB
+		return cfg.DefaultDB
 	}
 	return d.db
 }
@@ -508,10 +509,17 @@ func (d *Dao[T]) mappingScanFields(entity *T, columns []string) ([]any, []func()
 
 func (d *Dao[T]) init() error {
 	err := checkEntityType[T]()
-	if err != nil {
+	if err != nil { // coverage-ignore
+		return err
+	}
+	d.table, err = getTable[T]()
+	if err != nil { // coverage-ignore
 		return err
 	}
 	t := reflect.TypeOf((*T)(nil)).Elem()
+	if d.table == "" { // coverage-ignore
+		return errors.New(t.String() + "'s table is empty")
+	}
 	for i := 0; i < t.NumField(); i++ {
 		tf := t.Field(i)
 		if tf.Anonymous {
@@ -524,24 +532,24 @@ func (d *Dao[T]) init() error {
 		if !tf.IsExported() {
 			return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" must be exported")
 		}
-		column := d.determineColumn(tf, tag, d.columnMapper)
+		column := d.determineColumn(tf, tag)
 		if column == "" {
 			return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" has not specified the column name")
 		}
 		ft := tf.Type
-		switch internal.IsImplementConvert(ft) {
+		switch isImplementConvert(ft) {
 		case 1:
 			fc := getFieldConvertor(ft)
 			d.registerField(tf, tag, column, &fc)
 			continue
 		case 2:
-			return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" is invalid implementing gdao.Convert")
+			return errors.New("field \"" + tf.Name + "\" of \"" + t.String() + "\" is invalid implementing orm.Convert")
 		}
-		if internal.IsBaseTypePointer(ft) {
+		if isBaseTypePointer(ft) {
 			d.registerField(tf, tag, column, nil)
 			continue
 		}
-		if internal.IsValidSliceType(ft, 0) {
+		if isValidSliceType(ft, 0) {
 			d.registerField(tf, tag, column, nil)
 			continue
 		}
@@ -550,10 +558,14 @@ func (d *Dao[T]) init() error {
 	return nil
 }
 
-func (d *Dao[T]) determineColumn(tf reflect.StructField, t tag, columnMapper *NameMapper) string {
+func (d *Dao[T]) determineColumn(tf reflect.StructField, t tag) string {
 	column := t.column
-	if t.column == "" && columnMapper != nil {
-		column = columnMapper.Convert(tf.Name)
+	if t.column == "" {
+		if d.columnMapper != nil { // coverage-ignore
+			column = d.columnMapper.Convert(tf.Name)
+		} else if cfg.ColumnMapper != nil { // coverage-ignore
+			column = cfg.ColumnMapper.Convert(tf.Name)
+		}
 	}
 	return column
 }
@@ -637,7 +649,7 @@ func (d *Dao[T]) createPrepare(ctx context.Context, _sql string) (*sql.Stmt, err
 	}
 }
 
-type daoBuilder[T any] struct {
+type daoBuilder[T Entity] struct {
 	db           *sql.DB
 	table        string
 	columnMapper *NameMapper
@@ -645,11 +657,6 @@ type daoBuilder[T any] struct {
 
 func (b *daoBuilder[T]) DB(db *sql.DB) *daoBuilder[T] {
 	b.db = db
-	return b
-}
-
-func (b *daoBuilder[T]) Table(table string) *daoBuilder[T] {
-	b.table = table
 	return b
 }
 
@@ -671,6 +678,75 @@ func (b *daoBuilder[T]) Build() *Dao[T] {
 	return dao
 }
 
-func DaoBuilder[T any]() *daoBuilder[T] {
+func DaoBuilder[T Entity]() *daoBuilder[T] {
 	return &daoBuilder[T]{}
+}
+
+type tag struct {
+	column            string
+	autoIncrement     bool
+	autoIncrementStep int64
+	skip              bool
+}
+
+func parseTag(tf reflect.StructField) tag {
+	t := tag{autoIncrementStep: 1}
+	if ormTag, ok := tf.Tag.Lookup("orm"); ok {
+		params := strings.Split(ormTag, ";")
+		for _, p := range params {
+			kv := strings.Split(p, "=")
+			if len(kv) == 1 {
+				p = strings.TrimSpace(p)
+				switch p {
+				case "auto":
+					t.autoIncrement = true
+				case "skip":
+					t.skip = true
+				}
+			}
+			if len(kv) == 2 {
+				k := strings.TrimSpace(kv[0])
+				v := strings.TrimSpace(kv[1])
+				switch k {
+				case "column":
+					t.column = v
+				case "auto":
+					t.autoIncrement = true
+					i, err := strconv.ParseInt(v, 10, 64)
+					if err == nil { // coverage-ignore
+						t.autoIncrementStep = i
+					}
+				}
+			}
+		}
+	}
+	return t
+}
+
+func getTable[T Entity]() (table string, err error) {
+	var t T
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v\n%s", r, deferStack())
+			return
+		}
+	}()
+	table = t.Table()
+	return
+}
+
+func convertArgs(args []any) []any {
+	for i, a := range args {
+		if a == nil {
+			continue
+		}
+		t := reflect.TypeOf(a)
+		if t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		if convert, ok := fieldConvertors[t]; ok {
+			args[i] = convert.toValue(a)
+		}
+	}
+	return args
 }

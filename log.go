@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package gdao
+package orm
 
 import (
 	"context"
@@ -31,34 +31,23 @@ type Logger interface {
 	Errorf(ctx context.Context, msg string, args ...any)
 }
 
-func formatSql(sql string) string {
-	if global.CompressSqlLog {
-		sql = strings.TrimSpace(sql)
-		var line strings.Builder
-		chars := []rune(sql)
-		var prevC rune
-		for i, c := range chars {
-			if c == '\n' {
-				if prevC != ' ' && i != len(chars)-1 && chars[i+1] != ' ' {
-					line.WriteRune(' ')
-				}
-				continue
-			}
-			line.WriteRune(c)
-			prevC = c
-		}
-		sql = line.String()
+func printWarn(ctx context.Context, err error) {
+	if err == nil { // coverage-ignore
+		return
 	}
-	return sql
+	printLog(ctx, LogLevel_.WARN, fmt.Sprintf("%v", err))
 }
 
 func printSql(ctx context.Context, logLevel LogLevel, desc string, sql string, args []any, affected, rowCount int64, count int64, err error) {
-	if logLevel.IsUndefined() {
-		logLevel = global.SqlLogLevel
+	if err != nil {
+		logLevel = LogLevel_.ERROR
+	} else if logLevel.IsUndefined() {
+		if cfg.SqlLogLevel.IsUndefined() { // coverage-ignore
+			return
+		}
+		logLevel = cfg.SqlLogLevel
 	}
-	if logLevel.Not(LogLevel_.DEBUG, LogLevel_.INFO) { // coverage-ignore
-		return
-	}
+
 	var msg strings.Builder
 	msgArgs := make([]any, 0, 5+len(args))
 	if desc != "" {
@@ -123,28 +112,42 @@ func printSql(ctx context.Context, logLevel LogLevel, desc string, sql string, a
 		msgArgs = append(msgArgs, err)
 	}
 
-	printSqlLog(ctx, logLevel, err != nil, msg.String(), msgArgs...)
+	printLog(ctx, logLevel, msg.String(), msgArgs...)
 }
 
-func printSqlLog(ctx context.Context, logLevel LogLevel, hasError bool, msg string, args ...any) {
-	if global.Logger == nil { // coverage-ignore
+func printLog(ctx context.Context, logLevel LogLevel, msg string, args ...any) {
+	if cfg.Logger == nil { // coverage-ignore
 		return
 	}
-	if hasError {
-		global.Logger.Errorf(ctx, msg, args...)
-	} else {
-		switch logLevel.String() {
-		case LogLevel_.DEBUG.String():
-			global.Logger.Debugf(ctx, msg, args...)
-		case LogLevel_.INFO.String():
-			global.Logger.Infof(ctx, msg, args...)
+	switch logLevel.String() {
+	case LogLevel_.DEBUG.String():
+		cfg.Logger.Debugf(ctx, msg, args...)
+	case LogLevel_.INFO.String():
+		cfg.Logger.Infof(ctx, msg, args...)
+	case LogLevel_.WARN.String():
+		cfg.Logger.Warnf(ctx, msg, args...)
+	case LogLevel_.ERROR.String():
+		cfg.Logger.Errorf(ctx, msg, args...)
+	}
+}
+
+func formatSql(sql string) string {
+	if cfg.CompressSqlLog {
+		sql = strings.TrimSpace(sql)
+		var line strings.Builder
+		chars := []rune(sql)
+		var prevC rune
+		for i, c := range chars {
+			if c == '\n' {
+				if prevC != ' ' && i != len(chars)-1 && chars[i+1] != ' ' {
+					line.WriteRune(' ')
+				}
+				continue
+			}
+			line.WriteRune(c)
+			prevC = c
 		}
+		sql = line.String()
 	}
-}
-
-func printWarn(ctx context.Context, err error) {
-	if global.Logger == nil || err == nil { // coverage-ignore
-		return
-	}
-	global.Logger.Warnf(ctx, fmt.Sprintf("%v", err))
+	return sql
 }

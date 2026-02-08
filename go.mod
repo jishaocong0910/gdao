@@ -1,4 +1,4 @@
-module github.com/jishaocong0910/gdao
+module github.com/jishaocong0910/cozy-orm
 
 godebug x509negativeserial=1
 
@@ -9,10 +9,9 @@ toolchain go1.24.5
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/go-sql-driver/mysql v1.7.1
-	github.com/jishaocong0910/enum v1.0.5
+	github.com/jishaocong0910/enum v1.1.1
 	github.com/lib/pq v1.10.9
 	github.com/microsoft/go-mssqldb v1.8.0
-	github.com/pkg/errors v0.9.1
 	github.com/sijms/go-ora/v2 v2.8.19
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.35.0
@@ -62,6 +61,7 @@ require (
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
