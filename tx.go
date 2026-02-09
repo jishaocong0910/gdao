@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-package gdao
+package orm
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-
-	pkgErrors "github.com/pkg/errors"
 )
 
 var ctx_key_tx = P("")
@@ -49,7 +47,7 @@ func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOptio
 	if tx == nil {
 		var db *sql.DB
 		if o.db == nil { // coverage-ignore
-			db = global.DefaultDB
+			db = cfg.DefaultDB
 		}
 		if db == nil { // coverage-ignore
 			err := errors.New(`cannot begin a transaction, no available *sql.DB`)
@@ -66,16 +64,12 @@ func Tx(ctx context.Context, do func(ctx context.Context) error, opts ...TxOptio
 
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			printWarn(ctx, tx.Rollback())
 		} else if r := recover(); r != nil {
-			tx.Rollback()
-			if e, ok := r.(error); ok {
-				err = pkgErrors.WithStack(e)
-			} else {
-				err = pkgErrors.WithStack(fmt.Errorf("%v", r))
-			}
+			printWarn(ctx, tx.Rollback())
+			err = fmt.Errorf("%v\n%s", r, deferStack())
 		} else {
-			tx.Commit()
+			printWarn(ctx, tx.Commit())
 		}
 		checkMust(o.must, err)
 	}()

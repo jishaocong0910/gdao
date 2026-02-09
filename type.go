@@ -14,104 +14,94 @@
  * limitations under the License.
  */
 
-package gdao
+package orm
 
 import (
-	"errors"
 	"reflect"
 	"time"
 )
+
+type Entity interface {
+	Table() string
+}
+
+type Convert[T BaseType, F any] interface {
+	OrmValue() T
+	OrmField(value T) F
+}
 
 type BaseType interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64 | ~bool | ~string | time.Time
 }
 
-type Convert[T BaseType, F any] interface {
-	GdaoValue() T
-	GdaoField(value T) F
+// 基本类型
+var baseTypes = map[string]struct{}{
+	"int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {}, "uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {}, "float32": {}, "float64": {}, "bool": {}, "string": {}, "time.Time": {},
 }
 
-var fieldConvertors = map[reflect.Type]fieldConvertor{}
-
-func getFieldConvertor(ft reflect.Type) fieldConvertor {
-	if fc, ok := fieldConvertors[ft]; ok {
-		return fc
-	}
-	method, _ := ft.MethodByName("GdaoValue")
-	fc := newFieldConvertor(method.Type.Out(0), ft)
-	key := ft
-	if key.Kind() == reflect.Pointer {
-		key = key.Elem()
-	}
-	fieldConvertors[key] = fc
-	return fc
-}
-
-func newFieldConvertor(vt reflect.Type, ft reflect.Type) fieldConvertor {
+// 判断是否为基本类型指针
+func isBaseTypePointer(ft reflect.Type) bool {
 	if ft.Kind() == reflect.Pointer {
-		ft = ft.Elem()
+		return isBaseType(ft.Elem())
 	}
-	vt = reflect.New(vt).Type()
-	return fieldConvertor{
-		newScanDest: func() scanDest {
-			value := reflect.New(vt)
-			return scanDest{
-				dest: value.Interface(),
-				getValue: func() any {
-					if !value.Elem().IsNil() {
-						return value.Elem().Elem().Interface()
-					}
-					return nil
-				}}
-		},
-		toValue: func(entity any) any {
-			if entity == nil {
-				return nil
-			}
-			ev := reflect.ValueOf(entity)
-			return ev.MethodByName("GdaoValue").Call(nil)[0].Interface()
-		},
-		toField: func(value any) any {
-			if value == nil {
-				return nil
-			}
-			m := reflect.New(ft).MethodByName("GdaoField")
-			return m.Call([]reflect.Value{reflect.ValueOf(value)})[0].Interface()
-		},
-	}
+	return false
 }
 
-func checkEntityType[T any]() error {
-	t := reflect.TypeOf((*T)(nil)).Elem()
-	if t.Kind() != reflect.Struct {
-		return errors.New("generics must be struct type")
-	}
-	return nil
-}
-
-func convertArgs(args []any) []any {
-	for i, a := range args {
-		if a == nil {
-			continue
+// 判断切片元素是否基本类型，多维数组将递归查找
+func isValidSliceType(ft reflect.Type, dive int) bool {
+	if ft.Kind() != reflect.Slice {
+		if dive == 0 {
+			return false
 		}
-		t := reflect.TypeOf(a)
-		if t.Kind() == reflect.Pointer {
-			t = t.Elem()
-		}
-		if convert, ok := fieldConvertors[t]; ok {
-			args[i] = convert.toValue(a)
-		}
+		return isBaseType(ft)
 	}
-	return args
+	return isValidSliceType(ft.Elem(), dive+1)
 }
 
-type scanDest struct {
-	dest     any
-	getValue func() any
+// 判断是否为基本类型
+func isBaseType(fte reflect.Type) bool {
+	// 兼容基础类型定义
+	if _, ok := baseTypes[fte.Kind().String()]; ok {
+		return true
+	}
+	// 兼容非基础类型，如：time.Time
+	if _, ok := baseTypes[fte.String()]; ok {
+		return true
+	}
+	return false
 }
 
-type fieldConvertor struct {
-	newScanDest func() scanDest
-	toValue     func(any) any
-	toField     func(value any) any
+// 判断实体字段是否实现了Convert接口，返回0为未实现，1为实现，2为实现错误
+func isImplementConvert(ft reflect.Type) int {
+	kind := ft.Kind()
+	if kind == reflect.Pointer {
+		fte := ft.Elem()
+		if !isBaseType(fte) && fte.Kind() != reflect.Struct {
+			return 0
+		}
+	} else if kind != reflect.Slice && kind != reflect.Map {
+		return 0
+	}
+	var vt reflect.Type
+	if method, ok := ft.MethodByName("OrmValue"); ok {
+		mt := method.Type
+		if mt.NumIn() != 1 || mt.NumOut() != 1 { // coverage-ignore
+			return 2
+		}
+		vt = mt.Out(0)
+		if !isBaseType(vt) && !isValidSliceType(vt, 0) { // coverage-ignore
+			return 2
+		}
+	} else {
+		return 0
+	}
+	if method, ok := ft.MethodByName("OrmField"); ok {
+		mt := method.Type
+		if mt.NumIn() != 2 || mt.In(1) != vt || mt.NumOut() != 1 || mt.Out(0) != ft {
+			return 2
+		}
+	} else { // coverage-ignore
+		return 2
+	}
+	return 1
 }

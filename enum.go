@@ -14,33 +14,36 @@
  * limitations under the License.
  */
 
-package gdao
+package orm
 
 import (
-	e "github.com/jishaocong0910/enum"
 	"reflect"
 	"strconv"
+
+	e "github.com/jishaocong0910/enum"
 )
 
 type LogLevel struct {
-	*e.EnumElem__
+	e.EnumElem
 }
 
 type _LogLevel struct {
-	*e.Enum__[LogLevel]
+	e.Enum[LogLevel]
 	OFF,
 	DEBUG,
-	INFO LogLevel
+	INFO,
+	WARN,
+	ERROR LogLevel
 }
 
 var LogLevel_ = e.NewEnum(_LogLevel{})
 
 type LastInsertIdAs struct {
-	*e.EnumElem__
+	e.EnumElem
 }
 
 type _LastInsertIdAs struct {
-	*e.Enum__[LastInsertIdAs]
+	e.Enum[LastInsertIdAs]
 	FIRST_ID,
 	LAST_ID LastInsertIdAs
 }
@@ -48,11 +51,11 @@ type _LastInsertIdAs struct {
 var LastInsertIdAs_ = e.NewEnum(_LastInsertIdAs{})
 
 type RowAs struct {
-	*e.EnumElem__
+	e.EnumElem
 }
 
 type _RowAs struct {
-	*e.Enum__[RowAs]
+	e.Enum[RowAs]
 	RETURNING,
 	LAST_ID RowAs
 }
@@ -60,12 +63,12 @@ type _RowAs struct {
 var RowAs_ = e.NewEnum(_RowAs{})
 
 type lastInsertIdConvertor struct {
-	*e.EnumElem__
+	e.EnumElem
 	convert func(id int64) reflect.Value
 }
 
 type _lastInsertIdConvertor struct {
-	*e.Enum__[lastInsertIdConvertor]
+	e.Enum[lastInsertIdConvertor]
 	int, int8, int16, int32, int64,
 	uint, uint8, uint16, uint32, uint64,
 	float32, float64, string lastInsertIdConvertor

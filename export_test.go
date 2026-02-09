@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package gdao
+package orm
 
 import (
 	"reflect"
@@ -32,7 +32,7 @@ type DaoExport struct {
 	AutoIncrementConvertor func(id int64) reflect.Value
 }
 
-func ExportDao[T any](dao *Dao[T]) DaoExport {
+func ExportDao[T Entity](dao *Dao[T]) DaoExport {
 	return DaoExport{
 		Table:                  dao.table,
 		ColumnsWithComma:       dao.commaColumns,
