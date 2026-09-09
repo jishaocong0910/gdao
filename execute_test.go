@@ -100,9 +100,9 @@ func TestQuery(t *testing.T) {
 	}
 	{
 		db, mock := orm.MockDB(r)
-		mock.ExpectPrepare("").ExpectQuery().WillReturnError(errors.New("prepare error"))
+		mock.ExpectPrepare("").ExpectQuery().WillReturnError(errors.New("_prepare error"))
 		_, err := db.Query[orm.User](nil).BuildSql(func(b *orm.SqlBuilder) {}).Do()
-		r.EqualError(err, "prepare error")
+		r.EqualError(err, "_prepare error")
 		r.NoError(mock.ExpectationsWereMet())
 	}
 	{

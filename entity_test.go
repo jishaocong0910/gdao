@@ -153,12 +153,12 @@ func TestEntity_getOnDemandColumnSet(t *testing.T) {
 	ei, err := newEntityInfo(reflect.TypeFor[User](), defaultNameMapper, defaultNameMapper, nil)
 	r.NoError(err)
 	{
-		r.Nil(ei.getOnDemandColumnSet(nil))
-		r.Nil(ei.getOnDemandColumnSet(&OnDemand{}))
-		r.Nil(ei.getOnDemandColumnSet(DemandFor[string]()))
-		r.Equal(newSet("name", "phone", "email", "level"), ei.getOnDemandColumnSet(DemandFor[UserSimple]()))
-		r.NotNil(ei.getOnDemandColumnSet(DemandFor[DemoDemand]()))
-		r.Equal(newSet("name", "phone", "email"), ei.getOnDemandColumnSet(DemandFor[DemoDemand]()))
+		r.Nil(ei._getOnDemandColumnSet(nil))
+		r.Nil(ei._getOnDemandColumnSet(&OnDemand{}))
+		r.Nil(ei._getOnDemandColumnSet(DemandFor[string]()))
+		r.Equal(newSet("name", "phone", "email", "level"), ei._getOnDemandColumnSet(DemandFor[UserSimple]()))
+		r.NotNil(ei._getOnDemandColumnSet(DemandFor[DemoDemand]()))
+		r.Equal(newSet("name", "phone", "email"), ei._getOnDemandColumnSet(DemandFor[DemoDemand]()))
 	}
 }
 

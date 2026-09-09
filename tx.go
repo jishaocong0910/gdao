@@ -40,28 +40,28 @@ func (t *tx) TxOptions(txOptions *sql.TxOptions) *tx {
 }
 
 func (t *tx) Do(do func(ctx context.Context) error) (err error) {
-	err = t.open()
+	err = t._open()
 	if err != nil {
 		return checkMust(t.must, err)
 	}
-	err = t.safeDo(do)
+	err = t._safeDo(do)
 	return checkMust(t.must, err)
 }
 
-func (t *tx) safeDo(do func(ctx context.Context) error) (err error) {
+func (t *tx) _safeDo(do func(ctx context.Context) error) (err error) {
 	defer func() {
 		if err != nil {
-			printWarn(t.ctx, t.db.logger, t.rollback())
+			printWarn(t.ctx, t.db.logger, t._rollback())
 			return
 		}
 
 		if r := recover(); r != nil {
-			printWarn(t.ctx, t.db.logger, t.rollback())
+			printWarn(t.ctx, t.db.logger, t._rollback())
 			err = fmt.Errorf("%v\n%s", r, deferStack())
 			return
 		}
 
-		err = t.commit()
+		err = t._commit()
 	}()
 
 	err = do(t.ctx)
@@ -77,7 +77,7 @@ func (t *tx) safeDo(do func(ctx context.Context) error) (err error) {
 	return
 }
 
-func (t *tx) open() error {
+func (t *tx) _open() error {
 	if t.ti = cvTx.get(t.ctx); !t.ti.matchingDb(t.db) {
 		if t.db.sqlDB == nil {
 			return checkMust(t.must, errors.New("no available *sql.DB"))
@@ -94,11 +94,11 @@ func (t *tx) open() error {
 	return nil
 }
 
-func (t *tx) commit() error {
+func (t *tx) _commit() error {
 	if t.ti.creator == t {
 		err := t.ti.sqlTx.Commit()
 		if err == nil {
-			t.runAfterHook(true)
+			t._runAfterHook(true)
 		}
 		cvTx.clean(t.ctx)
 		return err
@@ -106,11 +106,11 @@ func (t *tx) commit() error {
 	return nil
 }
 
-func (t *tx) rollback() error {
+func (t *tx) _rollback() error {
 	if t.ti.creator == t {
 		err := t.ti.sqlTx.Rollback()
 		if err == nil {
-			t.runAfterHook(false)
+			t._runAfterHook(false)
 		}
 		cvTx.clean(t.ctx)
 		return err
@@ -118,7 +118,7 @@ func (t *tx) rollback() error {
 	return nil
 }
 
-func (t *tx) runAfterHook(commit bool) {
+func (t *tx) _runAfterHook(commit bool) {
 	for _, hook := range t.ti.txHook_ {
 		if hook.afterHandler != nil {
 			ctx := context.Background()

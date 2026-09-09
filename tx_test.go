@@ -89,7 +89,7 @@ func TestTx(t *testing.T) {
 		db, mock := orm.MockDB(r)
 		mock.ExpectBegin()
 		mock.ExpectPrepare("UPDATE user set status=1 WHERE id=?").ExpectExec().WillReturnResult(sqlmock.NewResult(0, 1))
-		mock.ExpectPrepare("UPDATE user set status=2 WHERE id=?").ExpectExec().WillReturnError(errors.New("test nested rollback"))
+		mock.ExpectPrepare("UPDATE user set status=2 WHERE id=?").ExpectExec().WillReturnError(errors.New("test nested _rollback"))
 		mock.ExpectRollback()
 		err := db.Begin(nil).Do(func(ctx context.Context) error {
 			_, err := db.Mutation(ctx).BuildSql(func(b *orm.SqlBuilder) {
@@ -111,7 +111,7 @@ func TestTx(t *testing.T) {
 
 			return nil
 		})
-		r.EqualError(err, "test nested rollback")
+		r.EqualError(err, "test nested _rollback")
 		r.NoError(mock.ExpectationsWereMet())
 	}
 	{

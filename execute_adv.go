@@ -289,22 +289,22 @@ func (i *insert[E]) buildSql(b *SqlBuilder) {
 	if len(ei.autoColumn_) > 0 && i.executor.db.genKeyType.IsPresent() {
 		if GenKeyType_.Output.Is(i.executor.db.genKeyType) {
 			i.executor.db.genKeyType.writeSql(b, ei.autoColumn_)
-			i.writeValuesClause(b, ei, insertedColumns)
+			i._writeValuesClause(b, ei, insertedColumns)
 		} else {
-			i.writeValuesClause(b, ei, insertedColumns)
+			i._writeValuesClause(b, ei, insertedColumns)
 			if i.executor.db.genKeyType.writeSql != nil {
 				i.executor.db.genKeyType.writeSql(b, ei.autoColumn_)
 			}
 		}
 	} else {
-		i.writeValuesClause(b, ei, insertedColumns)
+		i._writeValuesClause(b, ei, insertedColumns)
 	}
 	if i.lastStr != "" {
 		b.Write(" ").Write(i.lastStr)
 	}
 }
 
-func (i *insert[E]) writeValuesClause(b *SqlBuilder, ei *entityInfo, insertedColumn_ []string) {
+func (i *insert[E]) _writeValuesClause(b *SqlBuilder, ei *entityInfo, insertedColumn_ []string) {
 	entityValueMap_ := make([]map[string]any, 0, len(i.entity_))
 	for _, entity := range i.entity_ {
 		entityValueMap_ = append(entityValueMap_, ei.getValueMap(entity, insertedColumn_))

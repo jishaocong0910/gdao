@@ -56,13 +56,13 @@ func newEntityInfo(t reflect.Type, tableNameMapper, columnNameMapper *NameMapper
 		if !isValidFieldType(tf.Type) {
 			continue
 		}
-		ei.registerField(tf, tag, columnNameMapper)
+		ei._registerField(tf, tag, columnNameMapper)
 	}
 	if ei.table == "" {
 		ei.table = tableNameMapper.Convert(t.Name())
 	}
 
-	ei.registerPolicy(columnPolicyConfig_)
+	ei._registerPolicy(columnPolicyConfig_)
 	return ei, nil
 }
 
@@ -88,7 +88,7 @@ type entityInfo struct {
 func (e *entityInfo) getColumns(entity any, onDemand *OnDemand, requiredSet set[string], ignoredSet set[string]) []string {
 	var column_ []string
 	var ev reflect.Value
-	onDemandColumnSet := e.getOnDemandColumnSet(onDemand)
+	onDemandColumnSet := e._getOnDemandColumnSet(onDemand)
 
 	if onDemandColumnSet == nil {
 		column_ = make([]string, 0, len(e.column_))
@@ -123,7 +123,7 @@ func (e *entityInfo) getColumns(entity any, onDemand *OnDemand, requiredSet set[
 	return column_
 }
 
-func (e *entityInfo) getOnDemandColumnSet(onDemand *OnDemand) set[string] {
+func (e *entityInfo) _getOnDemandColumnSet(onDemand *OnDemand) set[string] {
 	if onDemand == nil || onDemand.t == nil {
 		return nil
 	}
@@ -198,7 +198,7 @@ func (e *entityInfo) getValueMap(entity any, column__ ...[]string) map[string]an
 	return valueMap
 }
 
-func (e *entityInfo) registerField(tf reflect.StructField, tag fieldTag, columnNameMapper *NameMapper) {
+func (e *entityInfo) _registerField(tf reflect.StructField, tag fieldTag, columnNameMapper *NameMapper) {
 	column := tag.column
 	if column == "" {
 		column = columnNameMapper.Convert(tf.Name)
@@ -222,7 +222,7 @@ func (e *entityInfo) registerField(tf reflect.StructField, tag fieldTag, columnN
 	}
 }
 
-func (e *entityInfo) registerPolicy(columnPolicyConfig_ []*columnPolicyConfig) {
+func (e *entityInfo) _registerPolicy(columnPolicyConfig_ []*columnPolicyConfig) {
 	for _, pk := range e.pkColumn_ {
 		columnPolicyConfig_ = append(columnPolicyConfig_, NewColumnPolicyConfig(pk, e.table).OnUpdate().Never())
 	}

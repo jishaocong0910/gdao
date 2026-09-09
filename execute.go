@@ -79,15 +79,15 @@ func (q *query[E]) Do() (entity_ []*E, err error) {
 
 	var rowCount int
 	if len(q.mapTargets) > 0 {
-		rowCount, err = q.mapTargetEntities(rows, columns, mp)
+		rowCount, err = q._mapTargetEntities(rows, columns, mp)
 	} else {
-		rowCount, entity_, err = q.mapNewEntities(rows, columns, mp)
+		rowCount, entity_, err = q._mapNewEntities(rows, columns, mp)
 	}
 	q.printSqlRowCount(int64(rowCount), cost)
 	return
 }
 
-func (q *query[E]) mapTargetEntities(rows *sql.Rows, column_ []string, mp mapper) (rowCount int, err error) {
+func (q *query[E]) _mapTargetEntities(rows *sql.Rows, column_ []string, mp mapper) (rowCount int, err error) {
 	for rows.Next() {
 		if len(q.mapTargets) > rowCount {
 			e := q.mapTargets[rowCount]
@@ -109,7 +109,7 @@ func (q *query[E]) mapTargetEntities(rows *sql.Rows, column_ []string, mp mapper
 	return
 }
 
-func (q *query[E]) mapNewEntities(rows *sql.Rows, column_ []string, mp mapper) (rowCount int, entity_ []*E, err error) {
+func (q *query[E]) _mapNewEntities(rows *sql.Rows, column_ []string, mp mapper) (rowCount int, entity_ []*E, err error) {
 	for rows.Next() {
 		e := new(E)
 		dests, after := mp.mapping(column_, e)
@@ -188,11 +188,11 @@ func (m *mutation) Do() (affected int64, err error) {
 	affected, warn := result.RowsAffected()
 	printWarn(m.ctx, m.db.logger, warn)
 	m.printSqlAffected(affected, cost)
-	m.getGeneratedKey(result)
+	m._getGeneratedKey(result)
 	return
 }
 
-func (m *mutation) getGeneratedKey(result sql.Result) {
+func (m *mutation) _getGeneratedKey(result sql.Result) {
 	if m.executor.db.genKeyType.Is(GenKeyType_.FirstInsertId, GenKeyType_.LastInsertId) && len(m.mapTarget_) > 0 {
 		id, warn := result.LastInsertId()
 		if warn != nil {
@@ -281,7 +281,7 @@ func (e *executor) doQuery() (*sql.Rows, []string, time.Duration, bool, error) {
 		return nil, nil, -1, true, nil
 	}
 
-	stmt, err := e.prepare(builder.b.String())
+	stmt, err := e._prepare(builder.b.String())
 	if err != nil {
 		return nil, nil, -1, false, err
 	}
@@ -318,7 +318,7 @@ func (e *executor) doExec() (sql.Result, time.Duration, bool, error) {
 		return nil, -1, true, nil
 	}
 
-	stmt, err := e.prepare(builder.b.String())
+	stmt, err := e._prepare(builder.b.String())
 	if err != nil {
 		return nil, -1, false, err
 	}
@@ -340,7 +340,7 @@ func (e *executor) inTx() bool {
 	return cvTx.get(e.ctx).matchingDb(e.db)
 }
 
-func (e *executor) prepare(sqlStr string) (*sql.Stmt, error) {
+func (e *executor) _prepare(sqlStr string) (*sql.Stmt, error) {
 	if ti := cvTx.get(e.ctx); ti.matchingDb(e.db) {
 		return ti.sqlTx.PrepareContext(e.ctx, sqlStr)
 	}
