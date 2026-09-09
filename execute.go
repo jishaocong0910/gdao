@@ -344,10 +344,10 @@ func (e *executor) prepare(sqlStr string) (*sql.Stmt, error) {
 	if ti := cvTx.get(e.ctx); ti.matchingDb(e.db) {
 		return ti.sqlTx.PrepareContext(e.ctx, sqlStr)
 	}
-	if e.db.rawDB == nil {
+	if e.db.sqlDB == nil {
 		return nil, errors.New("no available *sql.DB")
 	}
-	return e.db.rawDB.PrepareContext(e.ctx, sqlStr)
+	return e.db.sqlDB.PrepareContext(e.ctx, sqlStr)
 }
 
 func newExecutor(ctx context.Context, db *DB) *executor {

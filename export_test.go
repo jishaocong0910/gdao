@@ -33,10 +33,10 @@ import (
 func MockDB(r *require.Assertions) (db *DB, mock sqlmock.Sqlmock) {
 	d, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	r.NoError(err)
-	return DbConfig{RawDB: d}.Build(), mock
+	return DbConfig{SqlDB: d}.Build(), mock
 }
 
-func MockRawDB(r *require.Assertions) (d *sql.DB, mock sqlmock.Sqlmock) {
+func MockSqlDB(r *require.Assertions) (d *sql.DB, mock sqlmock.Sqlmock) {
 	d, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	r.NoError(err)
 	return

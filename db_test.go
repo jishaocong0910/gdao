@@ -24,22 +24,22 @@ func TestDB(t *testing.T) {
 	r := require.New(t)
 	{
 		log := &mockLogger{}
-		d, mock := MockRawDB(r)
-		db := DbConfig{RawDB: d, Logger: log}.Build()
+		sqlDB, mock := MockSqlDB(r)
+		db := DbConfig{SqlDB: sqlDB, Logger: log}.Build()
 		mock.ExpectPrepare("test").ExpectQuery().WillReturnRows(mock.NewRows([]string{"id"}))
 		_, err := db.Query[User](nil).SqlLogLevel(Level_.Info).BuildSql(func(b *SqlBuilder) {
 			b.Write("test")
 		}).Do()
 		r.NoError(err)
-		r.Equal(d, db.Raw())
+		r.Equal(sqlDB, db.Raw())
 		r.Len(log.Msgs, 1)
 		lm := log.Msgs[0]
 		r.Equal(Level_.Info, lm.Level)
 		r.Contains(lm.Msg, "test")
 	}
 	{
-		d, mock := MockRawDB(r)
-		db := DbConfig{RawDB: d, ParamPrefix: ":"}.Build()
+		sqlDB, mock := MockSqlDB(r)
+		db := DbConfig{SqlDB: sqlDB, ParamPrefix: ":"}.Build()
 		mock.ExpectPrepare(":1:2:3").ExpectQuery().WillReturnRows(mock.NewRows([]string{"id"}))
 		_, err := db.Query[User](nil).BuildSql(func(b *SqlBuilder) {
 			b.WritePh().WritePh().WritePh()

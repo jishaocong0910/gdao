@@ -23,7 +23,7 @@ import (
 )
 
 type DB struct {
-	rawDB               *sql.DB
+	sqlDB               *sql.DB
 	logger              Logger
 	sqlLogLevel         Level
 	tabNameMapper       *NameMapper
@@ -42,7 +42,7 @@ type DB struct {
 
 // Raw returns the underlying *sql.DB
 func (d *DB) Raw() *sql.DB {
-	return d.rawDB
+	return d.sqlDB
 }
 
 func (d *DB) Query[E any](ctx context.Context) *query[E] {
@@ -129,7 +129,7 @@ func (d *DB) getMapper(t reflect.Type) (mapper, error) {
 }
 
 type DbConfig struct {
-	RawDB       *sql.DB
+	SqlDB       *sql.DB
 	Logger      Logger
 	SqlLogLevel Level
 	// TabNameMapper setting name mapping from entity to table
@@ -182,7 +182,7 @@ func (c DbConfig) Build() *DB {
 		c.ColNameMapper = defaultNameMapper
 	}
 	return &DB{
-		rawDB:               c.RawDB,
+		sqlDB:               c.SqlDB,
 		logger:              c.Logger,
 		sqlLogLevel:         c.SqlLogLevel,
 		tabNameMapper:       c.TabNameMapper,
