@@ -34,7 +34,7 @@ type fieldTag struct {
 func parseEntityTag(tf reflect.StructField) entityTag {
 	t := entityTag{}
 	if ormTag, ok := tf.Tag.Lookup("orm"); ok {
-		params := strings.SplitSeq(ormTag, ";")
+		params := strings.SplitSeq(ormTag, ",")
 		for p := range params {
 			kv := strings.Split(p, "=")
 			if len(kv) == 2 {
