@@ -198,14 +198,6 @@ func TestEntity_getValueMap(t *testing.T) {
 	r.Nil((*User)(nil), ei.getValueMap(nil, []string{"name", "status", "level"}))
 }
 
-func TestEntity_getValue(t *testing.T) {
-	r := require.New(t)
-	ei, err := newEntityInfo(reflect.TypeFor[User](), defaultNameMapper, defaultNameMapper, nil)
-	r.NoError(err)
-	r.Equal(new("name"), ei.getValue(&User{Name: new("name")}, "name"))
-	r.Nil(ei.getValue(&User{Name: new("name")}, "age"))
-}
-
 func TestLastInsertIdConversion(t *testing.T) {
 	r := require.New(t)
 	id := int64(123)

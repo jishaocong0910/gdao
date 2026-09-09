@@ -160,17 +160,6 @@ func (e *entityInfo) _getOnDemandColumnSet(onDemand *OnDemand) set[string] {
 	return columnSet
 }
 
-func (e *entityInfo) getValue(entity any, column string) any {
-	v := reflect.ValueOf(entity).Elem()
-	if i, ok := e.columnToFieldIndexMap[column]; ok {
-		vf := v.Field(i)
-		if !vf.IsNil() {
-			return vf.Interface()
-		}
-	}
-	return nil
-}
-
 func (e *entityInfo) getValueMap(entity any, column__ ...[]string) map[string]any {
 	var v reflect.Value
 	if entity != nil {
