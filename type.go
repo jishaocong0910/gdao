@@ -1,107 +1,181 @@
-/*
- * Copyright 2024-present jishaocong0910
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2024-present jishaocong0910
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package orm
 
 import (
+	"database/sql"
+	"database/sql/driver"
 	"reflect"
+	"strings"
 	"time"
+	_ "unsafe"
 )
 
-type Entity interface {
-	Table() string
+var isBaseKind = func() func(t reflect.Kind) bool {
+	s := newSet(
+		reflect.Pointer,
+		reflect.Slice,
+		reflect.Map,
+	)
+	return func(k reflect.Kind) bool {
+		return s.contain(k)
+	}
+}()
+
+var isBaseScalarType, isBaseScalarKind = func() (func(t reflect.Type) bool, func(t reflect.Type) bool) {
+	var baseScalarTypes = newSet(
+		reflect.TypeFor[int](),
+		reflect.TypeFor[int8](),
+		reflect.TypeFor[int16](),
+		reflect.TypeFor[int32](),
+		reflect.TypeFor[int64](),
+		reflect.TypeFor[uint](),
+		reflect.TypeFor[uint8](),
+		reflect.TypeFor[uint16](),
+		reflect.TypeFor[uint32](),
+		reflect.TypeFor[uint64](),
+		reflect.TypeFor[float32](),
+		reflect.TypeFor[float64](),
+		reflect.TypeFor[bool](),
+		reflect.TypeFor[string](),
+	)
+
+	var baseScalarKinds = newSetWithCap[reflect.Kind](len(baseScalarTypes))
+	for t := range baseScalarTypes {
+		baseScalarKinds.add(t.Kind())
+	}
+
+	return func(t reflect.Type) bool {
+			return baseScalarTypes.contain(t)
+		}, func(t reflect.Type) (b bool) {
+			return baseScalarKinds.contain(t.Kind())
+		}
+}()
+
+var isBaseStructType = func() func(t reflect.Type) bool {
+	s := newSet(reflect.TypeFor[time.Time]())
+	return func(t reflect.Type) bool {
+		return s.contain(t)
+	}
+}()
+
+func isBaseArrayType(t reflect.Type) bool {
+	return t.Kind() == reflect.Array && t.Elem().Kind() == reflect.Uint8
 }
 
-type Convert[T BaseType, F any] interface {
-	OrmValue() T
-	OrmField(value T) F
+//go:linkname isValidFieldType github.com/jishaocong0910/cozy-orm/orm.isValidFieldType
+func isValidFieldType(t reflect.Type) bool {
+	k := t.Kind()
+	if !isBaseKind(k) {
+		return false
+	}
+
+	if k == reflect.Pointer {
+		if isBaseValueType(t.Elem()) {
+			return true
+		}
+	} else if k == reflect.Slice {
+		if t.Elem().Kind() == reflect.Uint8 {
+			return true
+		}
+	}
+
+	return isImplementConverter(t) || isImplementScannerValuer(t)
 }
 
-type BaseType interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64 | ~bool | ~string | time.Time
-}
-
-// 基本类型
-var baseTypes = map[string]struct{}{
-	"int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {}, "uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {}, "float32": {}, "float64": {}, "bool": {}, "string": {}, "time.Time": {},
-}
-
-// 判断是否为基本类型指针
-func isBaseTypePointer(ft reflect.Type) bool {
-	if ft.Kind() == reflect.Pointer {
-		return isBaseType(ft.Elem())
+func isBaseValueType(t reflect.Type) bool {
+	if isBaseScalarKind(t) || isBaseStructType(t) || isBaseArrayType(t) {
+		return true
 	}
 	return false
 }
 
-// 判断切片元素是否基本类型，多维数组将递归查找
-func isValidSliceType(ft reflect.Type, dive int) bool {
-	if ft.Kind() != reflect.Slice {
-		if dive == 0 {
-			return false
+func isImplementConverter(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Slice, reflect.Map:
+	case reflect.Pointer:
+		t = t.Elem()
+		fallthrough
+	default:
+		switch t.Kind() {
+		case reflect.Struct, reflect.Array, reflect.Slice, reflect.Map:
+		default:
+			if !isBaseScalarKind(t) {
+				return false
+			}
 		}
-		return isBaseType(ft)
 	}
-	return isValidSliceType(ft.Elem(), dive+1)
-}
 
-// 判断是否为基本类型
-func isBaseType(fte reflect.Type) bool {
-	// 兼容基础类型定义
-	if _, ok := baseTypes[fte.Kind().String()]; ok {
-		return true
-	}
-	// 兼容非基础类型，如：time.Time
-	if _, ok := baseTypes[fte.String()]; ok {
-		return true
-	}
-	return false
-}
-
-// 判断实体字段是否实现了Convert接口，返回0为未实现，1为实现，2为实现错误
-func isImplementConvert(ft reflect.Type) int {
-	kind := ft.Kind()
-	if kind == reflect.Pointer {
-		fte := ft.Elem()
-		if !isBaseType(fte) && fte.Kind() != reflect.Struct {
-			return 0
-		}
-	} else if kind != reflect.Slice && kind != reflect.Map {
-		return 0
+	if t.Kind() != reflect.Pointer {
+		t = reflect.PointerTo(t)
 	}
 	var vt reflect.Type
-	if method, ok := ft.MethodByName("OrmValue"); ok {
+	if method, ok := t.MethodByName(ToValueMethodName); ok {
 		mt := method.Type
-		if mt.NumIn() != 1 || mt.NumOut() != 1 { // coverage-ignore
-			return 2
+		// 方法参数个数必须为1（接收者）
+		if mt.NumIn() != 1 {
+			return false
 		}
+		// 返回值个数必须为1
+		if mt.NumOut() != 1 {
+			return false
+		}
+		// 返回值基本标量类型
 		vt = mt.Out(0)
-		if !isBaseType(vt) && !isValidSliceType(vt, 0) { // coverage-ignore
-			return 2
+		if !isBaseScalarType(vt) {
+			return false
 		}
 	} else {
-		return 0
+		return false
 	}
-	if method, ok := ft.MethodByName("OrmField"); ok {
+	if method, ok := t.MethodByName(ToFieldMethodName); ok {
 		mt := method.Type
-		if mt.NumIn() != 2 || mt.In(1) != vt || mt.NumOut() != 1 || mt.Out(0) != ft {
-			return 2
+		// 方法参数个数必须为2（接收者，值）
+		if mt.NumIn() != 2 {
+			return false
 		}
-	} else { // coverage-ignore
-		return 2
+		// 方法第二个参数（值）类型必须与vt相同
+		if mt.In(1) != vt {
+			return false
+		}
+		// 必须无返回值
+		if mt.NumOut() != 0 {
+			return false
+		}
+		// 接受者必须为指针
+		if _, ok = t.Elem().MethodByName(ToFieldMethodName); ok {
+			return false
+		}
+	} else {
+		return false
 	}
-	return 1
+	return true
+}
+
+var isImplementScannerValuer = func() func(t reflect.Type) bool {
+	scannerType := reflect.TypeFor[sql.Scanner]()
+	valuerType := reflect.TypeFor[driver.Valuer]()
+	return func(t reflect.Type) bool {
+		return t.Implements(scannerType) && t.Implements(valuerType)
+	}
+}()
+
+func isEntityType(t reflect.Type) bool {
+	return t.Kind() == reflect.Struct && !isTupleType(t)
+}
+
+func isTupleType(t reflect.Type) bool {
+	return t.PkgPath() == "github.com/jishaocong0910/cozy-orm" && strings.HasPrefix(t.String(), "orm.Tuple")
 }

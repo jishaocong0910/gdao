@@ -1,91 +1,144 @@
-/*
- * Copyright 2024-present jishaocong0910
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2024-present jishaocong0910
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package orm
 
 import (
-	"reflect"
 	"strconv"
 
 	e "github.com/jishaocong0910/enum"
 )
 
-type LogLevel struct {
+type DbType struct {
 	e.EnumElem
 }
 
-type _LogLevel struct {
-	e.Enum[LogLevel]
-	OFF,
-	DEBUG,
-	INFO,
-	WARN,
-	ERROR LogLevel
+type _DbType struct {
+	e.Enum[DbType]
+	MySQL,
+	Oracle,
+	Postgres,
+	SQLServer,
+	SQLite DbType
 }
 
-var LogLevel_ = e.NewEnum(_LogLevel{})
+var DbType_ = e.NewEnum(_DbType{})
 
-type LastInsertIdAs struct {
+type Level struct {
 	e.EnumElem
 }
 
-type _LastInsertIdAs struct {
-	e.Enum[LastInsertIdAs]
-	FIRST_ID,
-	LAST_ID LastInsertIdAs
+type _Level struct {
+	e.Enum[Level]
+	Off,
+	Debug,
+	Info,
+	Warn,
+	Error Level
 }
 
-var LastInsertIdAs_ = e.NewEnum(_LastInsertIdAs{})
+var Level_ = e.NewEnum(_Level{})
 
-type RowAs struct {
+type QuotedIdentifier struct {
 	e.EnumElem
+	addQuotes func(string) string
 }
 
-type _RowAs struct {
-	e.Enum[RowAs]
-	RETURNING,
-	LAST_ID RowAs
+type _QuotedIdentifier struct {
+	e.Enum[QuotedIdentifier]
+	Backtick,
+	DoubleQuotes,
+	Brackets QuotedIdentifier
 }
 
-var RowAs_ = e.NewEnum(_RowAs{})
-
-type lastInsertIdConvertor struct {
-	e.EnumElem
-	convert func(id int64) reflect.Value
-}
-
-type _lastInsertIdConvertor struct {
-	e.Enum[lastInsertIdConvertor]
-	int, int8, int16, int32, int64,
-	uint, uint8, uint16, uint32, uint64,
-	float32, float64, string lastInsertIdConvertor
-}
-
-var lastInsertIdConvertor_ = e.NewEnum(_lastInsertIdConvertor{
-	int:     lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int(id); return reflect.ValueOf(&i) }},
-	int8:    lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int8(id); return reflect.ValueOf(&i) }},
-	int16:   lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int16(id); return reflect.ValueOf(&i) }},
-	int32:   lastInsertIdConvertor{convert: func(id int64) reflect.Value { i := int32(id); return reflect.ValueOf(&i) }},
-	int64:   lastInsertIdConvertor{convert: func(id int64) reflect.Value { return reflect.ValueOf(&id) }},
-	uint:    lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint(id); return reflect.ValueOf(&u) }},
-	uint8:   lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint8(id); return reflect.ValueOf(&u) }},
-	uint16:  lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint16(id); return reflect.ValueOf(&u) }},
-	uint32:  lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint32(id); return reflect.ValueOf(&u) }},
-	uint64:  lastInsertIdConvertor{convert: func(id int64) reflect.Value { u := uint64(id); return reflect.ValueOf(&u) }},
-	float32: lastInsertIdConvertor{convert: func(id int64) reflect.Value { f := float32(id); return reflect.ValueOf(&f) }},
-	float64: lastInsertIdConvertor{convert: func(id int64) reflect.Value { f := float64(id); return reflect.ValueOf(&f) }},
-	string:  lastInsertIdConvertor{convert: func(id int64) reflect.Value { s := strconv.FormatInt(id, 10); return reflect.ValueOf(&s) }},
+var QuotedIdentifier_ = e.NewEnum(_QuotedIdentifier{
+	Backtick: QuotedIdentifier{addQuotes: func(s string) string {
+		return "`" + s + "`"
+	}},
+	DoubleQuotes: QuotedIdentifier{addQuotes: func(s string) string {
+		return "\"" + s + "\""
+	}},
+	Brackets: QuotedIdentifier{addQuotes: func(s string) string {
+		return "[" + s + "]"
+	}},
 })
+
+type GenKeyType struct {
+	e.EnumElem
+	writeSql func(b *SqlBuilder, autoColumn_ []string)
+}
+
+type _GenKeyType struct {
+	e.Enum[GenKeyType]
+	FirstInsertId,
+	LastInsertId,
+	Returning,
+	Output GenKeyType
+}
+
+var GenKeyType_ = e.NewEnum(_GenKeyType{
+	Returning: GenKeyType{
+		writeSql: func(b *SqlBuilder, autoColumn_ []string) {
+			b.ForEach(b.SepFixOpt(" RETURNING ", ", ", ""), autoColumn_, func(_ int, column string) {
+				b.WriteColumn(column)
+			})
+		},
+	},
+	Output: GenKeyType{
+		writeSql: func(b *SqlBuilder, autoColumn_ []string) {
+			b.ForEach(b.SepFixOpt(" OUTPUT ", ", ", ""), autoColumn_, func(_ int, column string) {
+				b.Write("INSERTED.").WriteColumn(column)
+			})
+		},
+	},
+})
+
+type PageType struct {
+	e.EnumElem
+	writeSql func(b *SqlBuilder, offset, count int)
+}
+
+type _PageType struct {
+	e.Enum[PageType]
+	LimitOffset,
+	FetchNext PageType
+}
+
+var PageType_ = e.NewEnum(_PageType{
+	LimitOffset: PageType{
+		writeSql: func(b *SqlBuilder, offset, count int) {
+			b.Write(" LIMIT ").Write(strconv.FormatInt(int64(count), 10))
+			if offset > 0 {
+				b.Write(" OFFSET ").Write(strconv.FormatInt(int64(offset), 10))
+			}
+		},
+	},
+	FetchNext: PageType{
+		writeSql: func(b *SqlBuilder, offset, count int) {
+			b.Write(" OFFSET ").Write(strconv.FormatInt(int64(offset), 10)).Write(" ROWS")
+			b.Write(" FETCH NEXT ").Write(strconv.FormatInt(int64(count), 10)).Write(" ROWS ONLY")
+		},
+	},
+})
+
+type deleteSoftlyMode struct {
+	e.EnumElem
+}
+
+type _deleteSoftlyMode struct {
+	e.Enum[deleteSoftlyMode]
+	pk, null deleteSoftlyMode
+}
+
+var deleteSoftlyMode_ = e.NewEnum(_deleteSoftlyMode{})
